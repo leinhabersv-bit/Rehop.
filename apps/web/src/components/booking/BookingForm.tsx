@@ -9,6 +9,7 @@ import { api } from '@/lib/api/client';
 import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 import type { Location, RecoveryPolicy } from '@/types';
 import { LocationInput } from './LocationInput';
+import { TripRoute } from './TripRoute';
 import { AiRequestInput, type ParsedIntentResult } from './AiRequestInput';
 import { IntentReviewCard } from './IntentReviewCard';
 
@@ -52,6 +53,8 @@ export function BookingForm({
   // Form states
   const [pickup, setPickup] = useState(initialPickup);
   const [dropoff, setDropoff] = useState(initialDropoff);
+  const [selectedPickup, setSelectedPickup] = useState<Location | null>(null);
+  const [selectedDropoff, setSelectedDropoff] = useState<Location | null>(null);
   const [budget, setBudget] = useState(650);
   const [needInMinutes, setNeedInMinutes] = useState(initialNeedIn);
 
@@ -80,6 +83,8 @@ export function BookingForm({
   }) => {
     setPickup(confirmed.pickup);
     setDropoff(confirmed.dropoff);
+    setSelectedPickup(null);
+    setSelectedDropoff(null);
     if (confirmed.need_in_minutes !== null) setNeedInMinutes(confirmed.need_in_minutes);
     if (confirmed.budget !== null) setBudget(confirmed.budget);
     setParsedIntent(null);
@@ -88,6 +93,12 @@ export function BookingForm({
 
   const resolveLocation = (label: string) => availableLocations.find(
     (location) => location.label.toLowerCase() === label.trim().toLowerCase(),
+  );
+  const fromLoc = selectedPickup ?? resolveLocation(pickup);
+  const toLoc = selectedDropoff ?? resolveLocation(dropoff);
+  const sameLocation = fromLoc && toLoc && (
+    fromLoc.label.trim().toLowerCase() === toLoc.label.trim().toLowerCase() ||
+    (fromLoc.lat === toLoc.lat && fromLoc.lng === toLoc.lng)
   );
 
   const executeSubmission = async () => {
@@ -107,7 +118,7 @@ export function BookingForm({
       setValidationError('Please specify a destination.');
       return;
     }
-    if (actualPickup.trim().toLowerCase() === actualDropoff.trim().toLowerCase()) {
+    if (sameLocation) {
       setValidationError('Pickup and destination must be different locations.');
       return;
     }
@@ -116,10 +127,8 @@ export function BookingForm({
       return;
     }
 
-    const fromLoc = resolveLocation(actualPickup);
-    const toLoc = resolveLocation(actualDropoff);
     if (!fromLoc || !toLoc) {
-      setValidationError('Choose both places from the simulator location list.');
+      setValidationError('Search for your pickup and destination, then choose a result for each.');
       return;
     }
     if (!Number.isInteger(actualNeedIn) || actualNeedIn < 5 || actualNeedIn > 120) {
@@ -187,10 +196,19 @@ export function BookingForm({
           <LocationInput
             pickup={pickup}
             dropoff={dropoff}
-            onPickupChange={setPickup}
-            onDropoffChange={setDropoff}
+            onPickupChange={(value) => { setPickup(value); setSelectedPickup(null); }}
+            onDropoffChange={(value) => { setDropoff(value); setSelectedDropoff(null); }}
+            onPickupSelect={(place) => { setPickup(place.label); setSelectedPickup(place); }}
+            onDropoffSelect={(place) => { setDropoff(place.label); setSelectedDropoff(place); }}
+            onSwap={() => {
+              setPickup(dropoff);
+              setDropoff(pickup);
+              setSelectedPickup(selectedDropoff);
+              setSelectedDropoff(selectedPickup);
+            }}
             availableLocations={availableLocations}
           />
+          {fromLoc && toLoc && !sameLocation && <TripRoute pickup={fromLoc} dropoff={toLoc} collapsed />}
         </section>
 
         <div className="grid gap-3 sm:grid-cols-2">

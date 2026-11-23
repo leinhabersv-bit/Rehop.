@@ -113,7 +113,7 @@ test('keeps invalid setup input out of the journey API', async ({ page }) => {
   });
   await page.getByRole('textbox', { name: 'Pickup location' }).fill('Unlisted pickup');
   await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
-  await expect(page.locator('form').getByRole('alert')).toHaveText(/Choose both places from the simulator location list/);
+  await expect(page.locator('form').getByRole('alert')).toHaveText('Search for your pickup and destination, then choose a result for each.');
   await expect(page).toHaveURL(`${web}/book?needIn=Infinity`);
   expect(createRequests).toBe(0);
 });

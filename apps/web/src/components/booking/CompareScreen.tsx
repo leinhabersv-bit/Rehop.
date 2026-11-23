@@ -1,5 +1,7 @@
 'use client';
 
+import { TripRoute } from './TripRoute';
+
 import React, { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -277,6 +279,8 @@ export function CompareScreen() {
           </Button>
         </section>
       )}
+
+      {journey && <TripRoute pickup={journey.pickup} dropoff={journey.dropoff} />}
 
       {canBook && !!quotes.length && (
         <section aria-labelledby="compare-rides" className="space-y-3">

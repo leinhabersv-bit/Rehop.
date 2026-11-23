@@ -70,6 +70,9 @@ export default function HomePage() {
               Review trip details <ArrowRight size={18} aria-hidden="true" />
             </button>
           </form>
+          <Link href={`/book?search=1&needIn=${wait}`} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg text-sm font-bold text-[#173ed7] hover:underline">
+            <MapPin size={16} aria-hidden="true" /> Search any address or landmark
+          </Link>
           {ready && <div className="mt-4 flex flex-wrap gap-2" aria-label="Suggested routes">
             {sampleRoutes.filter(([from, to]) => labels.includes(from) && labels.includes(to)).slice(0, 2).map(([from, to]) => (
               <button key={from} type="button" onClick={() => { setPickup(from); setDropoff(to); }} className="min-h-9 rounded-full border border-[#d9dbe7] px-3 text-xs font-bold text-[#334363] hover:border-[#173ed7]">

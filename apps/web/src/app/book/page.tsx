@@ -9,8 +9,9 @@ import { BookingForm } from '@/components/booking/BookingForm';
 
 function BookingContent() {
   const searchParams = useSearchParams();
-  const initialPickup = searchParams.get('pickup') || 'VIT Chennai';
-  const initialDropoff = searchParams.get('dropoff') || 'Chennai Airport';
+  const customSearch = searchParams.get('search') === '1';
+  const initialPickup = searchParams.get('pickup') ?? (customSearch ? '' : 'VIT Chennai');
+  const initialDropoff = searchParams.get('dropoff') ?? (customSearch ? '' : 'Chennai Airport');
   const requestedMinutes = Number(searchParams.get('needIn'));
   const initialNeedIn = Number.isInteger(requestedMinutes) && requestedMinutes >= 5 && requestedMinutes <= 120
     ? requestedMinutes

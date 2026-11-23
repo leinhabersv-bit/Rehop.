@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
 import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import RouteCanvas from './RouteCanvas';
+import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
 import styles from './journey.module.css';
 
@@ -224,7 +225,7 @@ export default function JourneyPanel({ id }: { id: string }) {
               <div className="stat"><dt>Distance</dt><dd>{ride ? `${(ride.distance_to_pickup_m / 1000).toFixed(1)} km` : '—'}</dd></div>
               <div className="stat"><dt>Recovery attempts</dt><dd>{data.recovery_attempts}/{data.policy.max_recovery_attempts}</dd></div>
             </dl>
-            <p className="helper">Pickup time and positions are estimated.</p>
+            <p className="helper">Driver position and pickup time are simulated.</p>
             {late && !done && !reconciling && <p className={styles.warning}>
               {risk?.band === 'UNKNOWN' ? 'The last reported pickup estimate' : 'The current pickup estimate'} is past your deadline.
             </p>}
@@ -233,6 +234,8 @@ export default function JourneyPanel({ id }: { id: string }) {
               <button className="btn" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
           </section>
+
+          <TripRoute pickup={data.pickup} dropoff={data.dropoff} />
 
           <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
             <div className={styles.cardHeading}>
