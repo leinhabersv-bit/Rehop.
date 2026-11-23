@@ -15,6 +15,7 @@ from app.schemas.requests import (
     JourneyCreate,
     ParseIntentRequest,
     QuoteRequest,
+    RecoveryPolicy,
     TickRequest,
 )
 from app.simulation.engine import LOCATIONS, SCENARIOS, store
@@ -133,7 +134,10 @@ def run_scenario(scenario_id: str, seed: int = 2026):
     if scenario_id not in SCENARIOS:
         raise SimulationError("SCENARIO_NOT_FOUND", "Unknown simulator scenario.", status=404)
     with store.lock:
-        policy = {"max_total_fare_inr": 330} if scenario_id == "S07" else {}
+        policy = RecoveryPolicy(
+            auto_rebook_on_confirmed_driver_cancel=scenario_id in {"S04", "S05", "S06", "S07"},
+            max_total_fare_inr=330 if scenario_id == "S07" else 650,
+        )
         request = JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1], policy=policy)
         if scenario_id == "S16":
             from datetime import timedelta

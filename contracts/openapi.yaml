@@ -578,7 +578,7 @@ components:
         auto_rebook_on_confirmed_driver_cancel:
           type: boolean
           title: Auto Rebook On Confirmed Driver Cancel
-          default: true
+          default: false
         max_total_fare_inr:
           type: integer
           maximum: 100000.0

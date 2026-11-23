@@ -23,3 +23,10 @@ def test_journey_creation_query_parameters_match_contract():
     assert (
         app.openapi()["paths"][route]["post"]["parameters"] == contract["paths"][route]["post"]["parameters"]
     )
+
+
+def test_automatic_recovery_is_opt_in_in_live_and_checked_in_openapi():
+    contract = yaml.safe_load(OPENAPI_CONTRACT.read_text(encoding="utf-8"))
+    for document in (contract, app.openapi()):
+        fields = document["components"]["schemas"]["RecoveryPolicy"]["properties"]
+        assert fields["auto_rebook_on_confirmed_driver_cancel"]["default"] is False

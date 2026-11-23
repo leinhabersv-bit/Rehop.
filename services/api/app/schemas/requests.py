@@ -13,7 +13,7 @@ class Location(BaseModel):
 
 
 class RecoveryPolicy(BaseModel):
-    auto_rebook_on_confirmed_driver_cancel: bool = True
+    auto_rebook_on_confirmed_driver_cancel: bool = False
     max_total_fare_inr: int = Field(default=650, ge=1, le=100000)
     max_recovery_attempts: int = Field(default=2, ge=0, le=5)
     preemptive_switch_requires_approval: Literal[True] = True

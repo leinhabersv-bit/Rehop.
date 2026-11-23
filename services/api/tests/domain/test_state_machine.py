@@ -202,8 +202,8 @@ def test_exhaustion_clears_backup_and_blocks_late_cancel():
     assert session.snapshot() == exhausted
 
 
-def test_rejecting_backup_after_driver_cancellation_closes_the_journey_without_a_ride():
-    session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=False)
+def test_default_recovery_requires_approval_and_declining_closes_unbooked_journey():
+    session = make_session("S04")
     session.book(session.quotes[0].quote_id, "book")
     assert session.tick(8).state is JourneyState.AWAITING_APPROVAL
     rejected = session.approve_switch(False, "reject")
@@ -247,7 +247,7 @@ def test_client_key_cannot_preempt_scenario_driver_message(monkeypatch):
     [(OpStatus.FAILED, JourneyState.EXHAUSTED), (OpStatus.UNKNOWN, JourneyState.RECONCILING)],
 )
 def test_automatic_replacement_failure_does_not_stick_in_recovering(monkeypatch, status, state):
-    session = make_session("S04")
+    session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True)
     session.book(session.quotes[0].quote_id, "book")
     monkeypatch.setattr(
         ADAPTERS[Provider.PROVIDER_B], "confirm", lambda quote, now: OperationResult(status=status)

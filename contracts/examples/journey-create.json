@@ -10,7 +10,7 @@
     "lng": 80.1709
   },
   "policy": {
-    "auto_rebook_on_confirmed_driver_cancel": true,
+    "auto_rebook_on_confirmed_driver_cancel": false,
     "max_total_fare_inr": 650,
     "max_recovery_attempts": 2,
     "preemptive_switch_requires_approval": true,

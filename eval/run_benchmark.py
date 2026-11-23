@@ -15,7 +15,10 @@ from app.schemas.models import JourneyCreate, RecoveryPolicy
 def run(seed:int):
     results=[]
     for scenario_id in SCENARIOS:
-        policy=RecoveryPolicy(max_total_fare_inr=330) if scenario_id=='S07' else RecoveryPolicy()
+        policy = RecoveryPolicy(
+            auto_rebook_on_confirmed_driver_cancel=scenario_id in {'S04', 'S05', 'S06', 'S07'},
+            max_total_fare_inr=330 if scenario_id == 'S07' else 650,
+        )
         request=JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy)
         if scenario_id=='S16': request.need_by=BASE_TIME + timedelta(minutes=5)
         session=Session(request, scenario_id, seed)
