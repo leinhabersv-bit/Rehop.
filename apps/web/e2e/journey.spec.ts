@@ -10,6 +10,19 @@ async function getJourney(request: APIRequestContext, id: string): Promise<Journ
   return response.json();
 }
 
+async function tick(request: APIRequestContext, id: string, steps: number) {
+  const response = await request.post(`${api}/api/v1/journeys/${id}/tick`, { data: { steps } });
+  expect(response.ok()).toBe(true);
+}
+
+async function openScenario(page: Page, request: APIRequestContext, scenario: string, quotes = false) {
+  const response = await request.post(`${api}/api/v1/scenarios/${scenario}/run`, { data: {} });
+  expect(response.ok()).toBe(true);
+  const journey: Journey = await response.json();
+  await page.goto(quotes ? `${web}/compare?journey=${journey.id}` : `${web}/journey/${journey.id}`);
+  return journey;
+}
+
 async function reachQuotes(page: Page) {
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
   await expect(page.getByText('ReHop recommends', { exact: true })).toBeVisible();
@@ -27,8 +40,8 @@ async function bookWithProviderA(page: Page) {
 }
 
 test('interprets, books, switches and confirms pickup on one simulated journey', async ({ page, request }) => {
-  await page.goto(web);
-  await page.getByRole('link', { name: 'Find a ride' }).first().click();
+  await page.goto(`${web}/book`);
+  await page.route('**/api/v1/journeys', (route) => route.continue({ url: route.request().url() + '?scenario=S03' }));
   await page.getByText('Describe your trip with AI', { exact: true }).click();
   await page.locator('textarea').fill('From VIT Chennai to Chennai Airport, pickup within 15 minutes, under ₹650.');
   const interpretation = page.waitForResponse((response) => response.url().endsWith('/intent/parse') && response.request().method() === 'POST');
@@ -37,7 +50,6 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
     pickup: 'VIT Chennai', dropoff: 'Chennai Airport', need_in_minutes: 15, requires_confirmation: true,
   });
   await page.getByRole('button', { name: 'Use these trip details' }).click();
-  await page.getByRole('checkbox', { name: /simulate a stalled pickup/i }).check();
   await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
   const id = await reachQuotes(page);
   const quoted = await getJourney(request, id);
@@ -52,7 +64,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   expect(original).toMatchObject({ state: 'MONITORING', booking_uncertain: false, active_ride: { provider: 'PROVIDER_A', state: 'DRIVER_EN_ROUTE' } });
   await confirmation.getByRole('button', { name: 'Track your ride' }).click();
   await expect(page).toHaveURL(`${web}/journey/${id}`);
-  await page.getByRole('button', { name: 'Advance 2 min' }).click();
+  await tick(request, id, 24);
   await page.getByRole('button', { name: 'Review switch & fee' }).click();
   const approval = page.getByRole('dialog');
   await expect(approval.getByRole('button', { name: 'Go back' })).toBeFocused();
@@ -63,7 +75,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   });
   await approval.getByRole('button', { name: 'Approve switch' }).click();
   await expect.poll(async () => (await getJourney(request, id)).active_ride?.provider).toBe('PROVIDER_B');
-  await page.getByRole('button', { name: 'Advance 2 min' }).click();
+  await tick(request, id, 24);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();
   await expect(page.getByText(/pickup confirmed/i).first()).toBeVisible();
   const complete = await getJourney(request, id);
@@ -145,9 +157,7 @@ test('retries an interrupted booking with the original idempotency key', async (
 });
 
 test('S12 leaves an unresolved provider outcome visible with booking blocked', async ({ page, request }) => {
-  await page.goto(`${web}/demo`);
-  await page.getByText('More scenarios', { exact: true }).click();
-  await page.getByRole('button', { name: /run s12\b/i }).click();
+  await openScenario(page, request, 'S12', true);
   const id = await reachQuotes(page);
   await bookWithProviderA(page);
   await expect(page.getByRole('alert').filter({ hasText: /unknown|has yet to confirm/i })).toBeVisible();
@@ -160,21 +170,17 @@ test('S12 leaves an unresolved provider outcome visible with booking blocked', a
   await expect(page.getByRole('status').filter({ hasText: /booking status is unknown/i })).toBeVisible();
 });
 
-test('featured recovery books a replacement automatically after confirmed driver cancellation', async ({ page, request }) => {
+test('tracking shows an automatically booked replacement after confirmed driver cancellation', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(web);
-  await page.getByRole('link', { name: 'Try recovery demo' }).click();
-  await page.getByRole('button', { name: 'Run automatic recovery demo' }).click();
-  await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  const original = await getJourney(request, id);
+  const original = await openScenario(page, request, 'S04');
+  const id = original.id;
   expect(original).toMatchObject({
     scenario: 'S04', active_ride: { provider: 'PROVIDER_A' },
     policy: { auto_rebook_on_confirmed_driver_cancel: true },
   });
 
-  await page.getByRole('button', { name: 'Simulate driver cancellation' }).click();
-  await expect(page.getByRole('heading', { name: 'Replacement booked automatically' })).toBeVisible();
+  await tick(request, id, 8);
+  await expect(page.getByRole('status').filter({ hasText: 'Replacement confirmed with Provider B' })).toBeVisible();
   await expect(page.getByRole('button', { name: /review switch|review replacement|approve/i })).toHaveCount(0);
   const recovered = await getJourney(request, id);
   expect(recovered).toMatchObject({ state: 'MONITORING', pending_backup: null, recovery_attempts: 1,
@@ -192,18 +198,15 @@ test('featured recovery books a replacement automatically after confirmed driver
   expect(refresh).toBeGreaterThan(cancellation);
   expect(types.lastIndexOf('RIDE_CONFIRMED')).toBeGreaterThan(refresh);
 
-  await page.getByRole('button', { name: 'Advance replacement pickup' }).click();
+  await tick(request, id, 24);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();
-  await expect(page.getByRole('heading', { name: 'Replacement pickup confirmed' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You’re on your way' })).toBeVisible();
   expect(await getJourney(request, id)).toMatchObject({ state: 'PICKUP_CONFIRMED', active_ride: { provider: 'PROVIDER_B' } });
 });
 
 test('blocks approval when the journey changes while the rider is reviewing the offer', async ({ page, request }) => {
-  await page.goto(`${web}/demo`);
-  await page.getByRole('button', { name: /run s03\b/i }).click();
-  await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
-  await page.getByRole('button', { name: 'Advance 2 min' }).click();
+  const { id } = await openScenario(page, request, 'S03');
+  await tick(request, id, 24);
   const review = page.getByRole('button', { name: /review switch.*fee/i });
   await review.click();
   const dialog = page.getByRole('dialog');
@@ -212,9 +215,9 @@ test('blocks approval when the journey changes while the rider is reviewing the 
   await expect(dialog.getByRole('button', { name: 'Go back' })).toBeFocused();
   const observed = await getJourney(request, id);
 
-  const tick = await request.post(`${api}/api/v1/journeys/${id}/tick`, { data: { steps: 1 } });
-  expect(tick.ok()).toBe(true);
-  expect((await tick.json()).version).toBeGreaterThan(observed.version);
+  const advance = await request.post(`${api}/api/v1/journeys/${id}/tick`, { data: { steps: 1 } });
+  expect(advance.ok()).toBe(true);
+  expect((await advance.json()).version).toBeGreaterThan(observed.version);
   await expect(dialog.getByText(/journey changed/i)).toBeVisible();
   await expect(approval).toBeDisabled();
   await page.keyboard.press('Escape');

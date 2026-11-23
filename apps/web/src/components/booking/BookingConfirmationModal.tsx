@@ -57,16 +57,16 @@ export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide
       onCancel={onClose}
       aria-labelledby="confirmation-modal-title"
       aria-describedby="confirmation-modal-desc"
-      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-3xl border border-[#233550] bg-[#0F1726] p-0 text-[#F6F8FC] shadow-2xl backdrop:bg-[#070A0F]/85 backdrop:backdrop-blur-md"
+      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-3xl border border-[#d9dbe7] bg-[#edf1ff] p-0 text-[#171b37] shadow-2xl backdrop:bg-[#171b37]/45 backdrop:backdrop-blur-md"
     >
       <div className="flex max-h-[calc(100dvh-2rem-2px)] flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-3 sm:px-7">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#98A5BC]">Simulated ride</span>
+        <div className="flex shrink-0 items-center justify-between border-b border-[#d9dbe7] px-5 py-3 sm:px-7">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#475673]">Simulated ride</span>
           <button
             type="button"
             onClick={onClose ?? (() => dialog.current?.close())}
             aria-label="Close dialog"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-800/60 text-slate-300 hover:text-white focus-visible:outline focus-visible:outline-[#B9FF45]"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#e4eaff]/60 text-[#475673] hover:text-[#171b37] focus-visible:outline focus-visible:outline-[#B9FF45]"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -74,61 +74,61 @@ export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide
 
         <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
           <div className="text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#B9FF45] text-[#090F1D] shadow-[0_0_32px_rgba(185,255,69,0.25)]">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#173ed7] text-white shadow-[0_0_32px_rgba(39,59,119,0.12)]">
               <Check className="h-7 w-7" aria-hidden="true" strokeWidth={3} />
             </span>
             <h2 id="confirmation-modal-title" className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
-              Booking confirmed<span className="text-[#B9FF45]">.</span>
+              Booking confirmed<span className="text-[#173ed7]">.</span>
             </h2>
-            <p id="confirmation-modal-desc" className="mt-2 text-sm text-[#98A5BC]">
+            <p id="confirmation-modal-desc" className="mt-2 text-sm text-[#475673]">
               Confirm boarding after your driver reaches the pickup point.
             </p>
           </div>
 
-          <div className="mt-5 space-y-4 rounded-2xl border border-slate-800 bg-[#151F32] p-4">
+          <div className="mt-5 space-y-4 rounded-2xl border border-[#d9dbe7] bg-[#fffdf8] p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#132D21] text-[#B9FF45]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf1ff] text-[#173ed7]">
                   <Car className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
                   <p className="font-bold">{providerName[ride.provider]}</p>
-                  <p className="break-words text-xs text-[#98A5BC]">Driver {ride.driver_id}</p>
+                  <p className="break-words text-xs text-[#475673]">Driver {ride.driver_id}</p>
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-xl font-black">
                   {quote ? '₹' + quote.estimated_fare_inr.toLocaleString('en-IN') : '—'}
                 </p>
-                <p className="text-xs text-[#98A5BC]">Estimated fare</p>
+                <p className="text-xs text-[#475673]">Estimated fare</p>
               </div>
             </div>
 
-            <p className="flex items-start gap-2 border-t border-slate-800 pt-3 text-sm">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#B9FF45]" aria-hidden="true" />
+            <p className="flex items-start gap-2 border-t border-[#d9dbe7] pt-3 text-sm">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#173ed7]" aria-hidden="true" />
               <span>{journey.pickup.label} → {journey.dropoff.label}</span>
             </p>
             <dl className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
               <div>
-                <dt className="text-xs text-[#98A5BC]">Pickup ETA</dt>
+                <dt className="text-xs text-[#475673]">Pickup ETA</dt>
                 <dd className="font-bold">{Math.ceil(ride.eta_sec / 60)} min</dd>
               </div>
               <div>
-                <dt className="text-xs text-[#98A5BC]">Pickup deadline</dt>
+                <dt className="text-xs text-[#475673]">Pickup deadline</dt>
                 <dd className="font-bold">{Number.isFinite(deadline) ? simulatorTime.format(deadline) + ' UTC' : '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-[#98A5BC]">Driver status</dt>
-                <dd className="font-bold text-[#2ED389]">{rideState}</dd>
+                <dt className="text-xs text-[#475673]">Driver status</dt>
+                <dd className="font-bold text-[#0d755d]">{rideState}</dd>
               </div>
             </dl>
-            <p className="break-all border-t border-slate-800 pt-3 text-xs text-[#98A5BC]">
-              Ride ID <span className="font-mono text-[#F6F8FC]">{ride.ride_id}</span>
+            <p className="break-all border-t border-[#d9dbe7] pt-3 text-xs text-[#475673]">
+              Ride ID <span className="font-mono text-[#171b37]">{ride.ride_id}</span>
             </p>
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-slate-800 px-5 py-4 sm:px-7">
+        <div className="shrink-0 border-t border-[#d9dbe7] px-5 py-4 sm:px-7">
           <Button
             variant="primary"
             size="lg"

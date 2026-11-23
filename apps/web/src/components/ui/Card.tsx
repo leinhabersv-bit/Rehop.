@@ -22,12 +22,12 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
-    const bgStyle = elevated ? 'bg-[#1A273F]' : 'bg-[#151F32]';
+    const bgStyle = elevated ? 'bg-[#edf1ff]' : 'bg-[#fffdf8]';
 
     const glowStyle = hoverGlow
       ? glowVariant === 'ai'
-        ? 'hover:border-[#B79CFF]/60 hover:shadow-[0_0_24px_rgba(183,156,255,0.2)]'
-        : 'hover:border-[#B9FF45]/60 hover:shadow-[0_0_24px_rgba(185,255,69,0.2)]'
+        ? 'hover:border-[#5135ab]/60 hover:shadow-[0_0_24px_rgba(183,156,255,0.2)]'
+        : 'hover:border-[#173ed7]/60 hover:shadow-[0_0_24px_rgba(39,59,119,0.12)]'
       : '';
 
     const interactiveStyle = interactive
@@ -38,8 +38,8 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <Component
         ref={ref}
         className={`
-          rounded-[20px] border border-[#243249] p-6 text-[#F6F8FC]
-          shadow-[0_8px_32px_rgba(0,0,0,0.36)] transition-all duration-200
+          rounded-[20px] border border-[#d9dbe7] p-6 text-[#171b37]
+          shadow-[0_8px_32px_rgba(39,59,119,0.12)] transition-all duration-200
           ${bgStyle}
           ${glowStyle}
           ${interactiveStyle}

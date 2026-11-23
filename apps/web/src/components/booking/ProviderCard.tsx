@@ -54,7 +54,7 @@ export function ProviderCard({
   const renderTag = () => {
     if (isExpired) {
       return (
-        <span className="inline-flex items-center rounded-md bg-[#3B1219] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#FF6D76] border border-[#5C1D28]">
+        <span className="inline-flex items-center rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#a42644] border border-[#d9dbe7]">
           Quote Expired
         </span>
       );
@@ -64,28 +64,28 @@ export function ProviderCard({
 
     if (lower.includes('best fit') || lower.includes('best value')) {
       return (
-        <span className="inline-flex items-center rounded-md bg-[#1C3827] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#B9FF45] border border-[#2A573B]">
+        <span className="inline-flex items-center rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#173ed7] border border-[#d9dbe7]">
           {tag}
         </span>
       );
     }
     if (lower.includes('lowest') || lower.includes('budget') || lower.includes('fare')) {
       return (
-        <span className="inline-flex items-center rounded-md bg-[#0D2A2A] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#2DD4BF] border border-[#164E4D]">
+        <span className="inline-flex items-center rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#475673] border border-[#d9dbe7]">
           {tag}
         </span>
       );
     }
     if (lower.includes('fast') || lower.includes('reliable') || lower.includes('urgent')) {
       return (
-        <span className="inline-flex items-center rounded-md bg-[#162238] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#93C5FD] border border-[#23385D]">
+        <span className="inline-flex items-center rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#475673] border border-[#d9dbe7]">
           {tag}
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center rounded-md bg-[#1E293B] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#98A5BC] border border-[#334155]">
+      <span className="inline-flex items-center rounded-md bg-[#edf1ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#475673] border border-[#d9dbe7]">
         {tag}
       </span>
     );
@@ -94,13 +94,13 @@ export function ProviderCard({
   return (
     <label
       className={`
-        group relative block rounded-2xl focus-within:ring-2 focus-within:ring-[#B9FF45]/50 p-4 sm:p-5 transition-all duration-200 select-none outline-none
+        group relative block rounded-2xl focus-within:ring-2 focus-within:ring-[#173ed7]/50 p-4 sm:p-5 transition-all duration-200 select-none outline-none
         ${
           isSelected
-            ? 'bg-[#101726] border-2 border-[#B9FF45] shadow-[0_0_24px_rgba(185,255,69,0.14)]'
+            ? 'bg-[#edf1ff] border-2 border-[#173ed7] shadow-[0_0_24px_rgba(39,59,119,0.12)]'
             : isExceedingBudget
-            ? 'bg-[#0E1522]/60 border border-[#1E293B] opacity-60 cursor-not-allowed'
-            : 'bg-[#0F1726] border border-[#1E293B] hover:border-[#384C6C] hover:bg-[#121B2D] cursor-pointer'
+            ? 'bg-[#edf1ff]/60 border border-[#d9dbe7] opacity-60 cursor-not-allowed'
+            : 'bg-[#edf1ff] border border-[#d9dbe7] hover:border-[#d9dbe7] hover:bg-[#edf1ff] cursor-pointer'
         }
         ${className}
       `}
@@ -123,8 +123,8 @@ export function ProviderCard({
               flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors
               ${
                 isSelected
-                  ? 'bg-[#192A2B] text-[#B9FF45] border border-[#B9FF45]/40'
-                  : 'bg-[#1E293B] text-[#CBD5E1] border border-white/5 group-hover:text-white'
+                  ? 'bg-[#edf1ff] text-[#173ed7] border border-[#173ed7]/40'
+                  : 'bg-[#edf1ff] text-[#475673] border border-white/5 group-hover:text-[#171b37]'
               }
             `}
           >
@@ -134,46 +134,46 @@ export function ProviderCard({
           {/* Provider Title & Subtext */}
           <div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="text-base font-bold text-[#F6F8FC] tracking-tight">
+              <h3 className="text-base font-bold text-[#171b37] tracking-tight">
                 {providerName[quote.provider] || quote.provider}
               </h3>
             </div>
 
-            <p className="mt-0.5 text-xs text-[#98A5BC]">
+            <p className="mt-0.5 text-xs text-[#475673]">
               <span>{meetsDeadline ? 'Within pickup deadline' : 'After pickup deadline'}</span>
-              <span className="mx-1.5 text-slate-600">·</span>
+              <span className="mx-1.5 text-[#475673]">·</span>
               <span>Pickup in </span>
-              <strong className="font-bold text-[#B9FF45]">{etaMinutes} min</strong>
+              <strong className="font-bold text-[#173ed7]">{etaMinutes} min</strong>
             </p>
           </div>
         </div>
 
         {/* Fare & Sublabel */}
         <div className="text-right shrink-0">
-          <div className="text-2xl font-black tracking-tight text-[#F6F8FC]">
+          <div className="text-2xl font-black tracking-tight text-[#171b37]">
             ₹{quote.estimated_fare_inr.toLocaleString('en-IN')}
           </div>
-          <div className="text-[11px] font-medium text-[#98A5BC]">estimated fare</div>
+          <div className="text-[11px] font-medium text-[#475673]">estimated fare</div>
         </div>
       </div>
 
       {/* Middle Warning if Budget Exceeded */}
       {isExceedingBudget && (
-        <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#FF6D76]/10 px-3 py-1.5 text-xs font-semibold text-[#FF6D76] border border-[#FF6D76]/20">
+        <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#a42644]/10 px-3 py-1.5 text-xs font-semibold text-[#a42644] border border-[#a42644]/20">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span>Exceeds policy budget limit of ₹{maxFare}</span>
         </div>
       )}
 
       {/* Bottom Row: Tags, Expiry & Radio / Action */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#d9dbe7]/80 pt-3">
         <div className="flex flex-wrap items-center gap-2">
           {renderTag()}
 
           {/* Expiry Countdown Indicator */}
           <span
             className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-              isExpired ? 'text-[#FF6D76]' : 'text-slate-400'
+              isExpired ? 'text-[#a42644]' : 'text-[#475673]'
             }`}
           >
             <Clock className="h-3 w-3" />
@@ -189,10 +189,10 @@ export function ProviderCard({
               rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-150
               ${
                 isSelected
-                  ? 'bg-[#B9FF45] text-[#090F1D] shadow-[0_0_12px_rgba(185,255,69,0.35)] hover:brightness-105'
+                  ? 'bg-[#173ed7] text-white shadow-[0_0_12px_rgba(39,59,119,0.12)] hover:brightness-105'
                   : !isSelectable
-                  ? 'bg-slate-800/50 text-slate-500 cursor-not-allowed'
-                  : 'bg-[#1E293B] text-[#F6F8FC] hover:bg-[#2A3B54] hover:text-[#B9FF45]'
+                  ? 'bg-[#e4eaff]/50 text-[#475673] cursor-not-allowed'
+                  : 'bg-[#edf1ff] text-[#171b37] hover:bg-[#edf1ff] hover:text-[#173ed7]'
               }
             `}
           >
@@ -206,8 +206,8 @@ export function ProviderCard({
               flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all
               ${
                 isSelected
-                  ? 'bg-[#B9FF45] text-[#090F1D]'
-                  : 'border-2 border-slate-600 bg-transparent group-hover:border-slate-400'
+                  ? 'bg-[#173ed7] text-white'
+                  : 'border-2 border-[#d9dbe7] bg-transparent group-hover:border-slate-400'
               }
             `}
           >

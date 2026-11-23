@@ -27,13 +27,13 @@ export function Badge({
   ...props
 }: BadgeProps) {
   const variantStyles: Record<BadgeVariant, string> = {
-    simulation: 'bg-[#243249]/90 text-[#98A5BC] border border-[#344663]',
-    success: 'bg-[#2ED389]/15 text-[#2ED389] border border-[#2ED389]/35',
-    warning: 'bg-[#FFBD63]/15 text-[#FFBD63] border border-[#FFBD63]/35',
-    danger: 'bg-[#FF6D76]/15 text-[#FF6D76] border border-[#FF6D76]/35',
-    ai: 'bg-[#B79CFF]/15 text-[#B79CFF] border border-[#B79CFF]/35',
-    neutral: 'bg-[#1A273F] text-[#98A5BC] border border-[#243249]',
-    primary: 'bg-[#B9FF45]/15 text-[#B9FF45] border border-[#B9FF45]/35',
+    simulation: 'bg-[#d9dbe7]/90 text-[#475673] border border-[#d9dbe7]',
+    success: 'bg-[#0d755d]/15 text-[#0d755d] border border-[#0d755d]/35',
+    warning: 'bg-[#8d471d]/15 text-[#8d471d] border border-[#8d471d]/35',
+    danger: 'bg-[#a42644]/15 text-[#a42644] border border-[#a42644]/35',
+    ai: 'bg-[#5135ab]/15 text-[#5135ab] border border-[#5135ab]/35',
+    neutral: 'bg-[#edf1ff] text-[#475673] border border-[#d9dbe7]',
+    primary: 'bg-[#173ed7]/15 text-[#173ed7] border border-[#173ed7]/35',
   };
 
   const sizeStyles = {

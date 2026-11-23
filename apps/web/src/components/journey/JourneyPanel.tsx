@@ -7,7 +7,6 @@ import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
 import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import RouteCanvas from './RouteCanvas';
-import AutomaticRecoveryDemo from './AutomaticRecoveryDemo';
 import SwitchReview from './SwitchReview';
 import styles from './journey.module.css';
 
@@ -30,9 +29,9 @@ const rideLabels: Record<string, string> = {
 };
 const connectionLabels: Record<Connection, string> = {
   connecting: 'Connecting to live updates',
-  live: 'Live event stream',
-  replaying: 'Reconnecting · REST updates active',
-  offline: 'Event stream disconnected · Retrying',
+  live: 'Live updates',
+  replaying: 'Reconnecting · checking for updates',
+  offline: 'Updates interrupted · reconnecting',
 };
 const eventLabels: Record<string, string> = {
   RIDE_CONFIRMED: 'Provider confirmed booking',
@@ -110,8 +109,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const [reviewed, setReviewed] = useState<Journey | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [driverMessage, setDriverMessage] = useState('Traffic, 10 min');
-  const [showAllEvents, setShowAllEvents] = useState(false);
+  const [reviewCancel, setReviewCancel] = useState(false);
   const inFlight = useRef(false);
   const recoveryHeading = useRef<HTMLHeadingElement>(null);
 
@@ -149,29 +147,26 @@ export default function JourneyPanel({ id }: { id: string }) {
   if (!data) {
     return (
       <section className="panel stack">
-        <h1>Live pickup monitor</h1>
+        <h1>Your pickup</h1>
         {query.error ? (
           <>
             <p role="alert">{query.error.message}</p>
             <div className="button-row">
               <button className="btn secondary" onClick={() => void query.refetch()} disabled={query.isFetching}>Retry connection</button>
-              <Link className="btn ghost" href="/demo">Go to demo console</Link>
+              <Link className="btn ghost" href="/trips">Your rides</Link>
             </div>
           </>
-        ) : <p role="status">Loading your simulated journey…</p>}
+        ) : <p role="status">Loading your ride…</p>}
       </section>
     );
   }
 
   const ride = data.active_ride;
-  const automaticDemo = data.scenario === 'S04' && data.policy.auto_rebook_on_confirmed_driver_cancel && data.state !== 'USER_CANCELLED';
   const risk = data.risk;
-  const deadline = data.deadline_decision;
   const done = finished.has(data.state);
   const reconciling = data.state === 'RECONCILING' || data.booking_uncertain;
   const canBook = data.state === 'WAITING_FOR_RIDE' && !reconciling;
   const canAct = !action && !query.isError && !done && !reconciling;
-  const canAdvance = canAct && ride?.state === 'DRIVER_EN_ROUTE';
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
   const canBoard = canAct && ride?.state === 'DRIVER_ARRIVED';
   const remainingSeconds = (Date.parse(data.need_by) - Date.parse(data.simulated_time)) / 1000;
@@ -180,7 +175,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const bookedQuote = ride ? data.quotes.find((quote) => quote.quote_id === ride.quote_id) : undefined;
   const latestRecovery = stream.events.findLast((event) => recoveryEvents.has(event.type));
   const status = recoveryStatus(data, latestRecovery);
-  const timeline = showAllEvents ? stream.events : stream.events.filter((event) => !backgroundEvents.has(event.type));
+  const timeline = stream.events.filter((event) => !backgroundEvents.has(event.type));
 
   return (
     <>
@@ -200,8 +195,8 @@ export default function JourneyPanel({ id }: { id: string }) {
       )}
       <header className={styles.heading}>
         <div>
-          <span className="eyebrow">Simulated journey · {data.scenario}</span>
-          <h1>Live pickup monitor<span className="highlight">.</span></h1>
+          <Link href="/trips" className="text-sm font-bold text-[#173ed7]">← Your rides</Link>
+          <h1 className="mt-3">{data.state === 'PICKUP_CONFIRMED' ? 'You’re on your way' : 'Your pickup'}</h1>
           <p className="lead">{data.pickup.label} → {data.dropoff.label}</p>
         </div>
         <span className="badge">{journeyLabels[data.state] ?? readable(data.state)}</span>
@@ -212,22 +207,11 @@ export default function JourneyPanel({ id }: { id: string }) {
           <button className="btn secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh status</button>
         </div>
       )}
-      {automaticDemo && (
-        <AutomaticRecoveryDemo
-          journey={data}
-          busy={action}
-          error={error}
-          canAdvance={canAdvance}
-          canBoard={canBoard}
-          onAdvance={(steps) => void act('Advancing the simulation…', () => api.tick(id, steps))}
-          onBoard={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}
-        />
-      )}
       <div className={styles.columns}>
         <div className="stack">
           <section className={`panel stack ${styles.card}`} aria-labelledby="progress-title">
             <div className={styles.cardHeading}>
-              <h2 id="progress-title">Driver progress</h2>
+              <h2 id="progress-title">Pickup status</h2>
               {ride && <span className="badge">{rideLabels[ride.state] ?? readable(ride.state)}</span>}
             </div>
             <RouteCanvas ride={ride} uncertain={risk?.band === 'UNKNOWN' || reconciling || query.isError} />
@@ -240,12 +224,12 @@ export default function JourneyPanel({ id }: { id: string }) {
               <div className="stat"><dt>Distance</dt><dd>{ride ? `${(ride.distance_to_pickup_m / 1000).toFixed(1)} km` : '—'}</dd></div>
               <div className="stat"><dt>Recovery attempts</dt><dd>{data.recovery_attempts}/{data.policy.max_recovery_attempts}</dd></div>
             </dl>
-            <p className="helper">Pickup deadline {clockTime(data.need_by)} · Simulator clock {clockTime(data.simulated_time)} (UTC)</p>
+            <p className="helper">Pickup time and positions are estimated.</p>
             {late && !done && !reconciling && <p className={styles.warning}>
               {risk?.band === 'UNKNOWN' ? 'The last reported pickup estimate' : 'The current pickup estimate'} is past your deadline.
             </p>}
             {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Compare rides</Link></div>}
-            {ride?.state === 'DRIVER_ARRIVED' && !done && !automaticDemo && <div className="button-row">
+            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
               <button className="btn" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
           </section>
@@ -256,23 +240,13 @@ export default function JourneyPanel({ id }: { id: string }) {
               {risk && !done && !reconciling && <span className={`badge ${risk.band === 'HIGH' ? 'high' : risk.band === 'LOW' ? 'low' : ''}`}>{readable(risk.band)} risk</span>}
             </div>
             {status && <div className={done || reconciling ? 'inline-note' : styles.recoveryNotice} role="status">{status}</div>}
-            {risk && !done && !reconciling && (
+            {risk && risk.band !== 'LOW' && !done && !reconciling && (
               <div className="inline-note">
                 <strong>{risk.band === 'UNKNOWN' ? 'Pickup risk is uncertain' : `Pickup risk ${risk.score_0_100}/100`}</strong>
                 <p>{risk.explanation}</p>
-                <p className="helper">{risk.explanation_source === 'llm_verified' ? 'AI wording · Numbers checked against telemetry' : 'Rule-based explanation'}</p>
               </div>
             )}
-            {!risk && !status && <p className="muted">{ride ? 'Watching for pickup delays and driver cancellations.' : 'Pickup monitoring begins when a provider confirms a ride.'}</p>}
-            {deadline && !done && !reconciling && (
-              <div className="inline-note">
-                <strong>{deadline.recommendation === 'PROPOSE_SWITCH' ? 'Recommendation · Consider switching' : 'Recommendation · Keep monitoring'}</strong>
-                <p>Wait score {deadline.wait_cost_points} · Switch score {deadline.switch_cost_points} (simulator points)</p>
-              </div>
-            )}
-            {data.driver_chat_signal && !done && <p className="helper">
-              Advisory driver message signal · {readable(data.driver_chat_signal.label)} ({readable(data.driver_chat_signal.source)})
-            </p>}
+            {(!risk || risk.band === 'LOW') && !status && <p className="muted">{ride ? 'Watching for pickup delays and driver cancellations.' : 'Pickup monitoring begins when a provider confirms a ride.'}</p>}
             {backup && (
               <div className={`stack ${styles.backup}`}>
                 <dl className={styles.options}>
@@ -293,43 +267,29 @@ export default function JourneyPanel({ id }: { id: string }) {
                 </div>
               </div>
             )}
-            {action && !automaticDemo && <p role="status" className="helper">{action}</p>}
-            {error && !automaticDemo && <p role="alert" className="error">{error}</p>}
+            {action && <p role="status" className="helper">{action}</p>}
+            {error && <p role="alert" className="error">{error}</p>}
           </section>
 
-          {!done && !reconciling && (
-            <section className={`panel stack ${styles.card}`} aria-labelledby="simulator-title">
-              <h2 id="simulator-title">Simulation controls</h2>
-              {ride?.state === 'DRIVER_EN_ROUTE' && (
-                <>
-                  <p className="helper">Advance the simulator clock to generate driver progress.</p>
-                  <div className="button-row">
-                    <button className="btn secondary" disabled={!canAdvance} onClick={() => void act('Advancing the simulator…', () => api.tick(id, 6))}>Advance 30 sec</button>
-                    <button className="btn secondary" disabled={!canAdvance} onClick={() => void act('Advancing the simulator…', () => api.tick(id, 24))}>Advance 2 min</button>
-                  </div>
-                  <details>
-                    <summary>Test driver message classification</summary>
-                    <form className={`stack ${styles.messageForm}`} onSubmit={(event) => {
-                      event.preventDefault();
-                      if (driverMessage.trim()) void act('Classifying driver message…', () => api.driverMessage(id, driverMessage.trim()));
-                    }}>
-                      <label>Simulated driver message<input value={driverMessage} maxLength={500} onChange={(event) => setDriverMessage(event.target.value)} /></label>
-                      <div><button className="btn secondary" disabled={!canAct || !driverMessage.trim()}>Classify message</button></div>
-                    </form>
-                  </details>
-                </>
-              )}
-              <div className="stack">
-                {ride && <p id="stop-journey-description" className="helper">Stopping this journey also requests cancellation of your active simulated ride.</p>}
-                <div><button className="btn danger" aria-describedby={ride ? 'stop-journey-description' : undefined} disabled={!canAct} onClick={() => void act('Stopping journey…', () => api.cancel(id, data.version))}>Stop journey</button></div>
-              </div>
+          {canAct && (
+            <section aria-label="Manage ride" className="rounded-2xl border border-[#d9dce9] bg-[#fffdf8] p-4">
+              {reviewCancel ? <>
+                <p className="mb-3 text-sm font-bold">Cancel this ride?</p>
+                <div className="button-row">
+                  <button type="button" className="btn danger" onClick={() => {
+                    setReviewCancel(false);
+                    void act('Cancelling your ride…', () => api.cancel(id, data.version));
+                  }}>Confirm cancellation</button>
+                  <button type="button" className="btn ghost" onClick={() => setReviewCancel(false)}>Keep ride</button>
+                </div>
+              </> : <button type="button" className="btn ghost" onClick={() => setReviewCancel(true)}>Cancel ride</button>}
             </section>
           )}
         </div>
 
         <aside className={`panel stack ${styles.card} ${styles.timelinePanel}`}>
           <div className={styles.cardHeading}>
-            <h2>Journey timeline</h2>
+            <h2>Ride activity</h2>
           </div>
           <p role="status" className={`helper ${styles.connection}`} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
           {timeline.length ? (
@@ -342,8 +302,6 @@ export default function JourneyPanel({ id }: { id: string }) {
               ))}
             </ol>
           ) : <p className="muted">Journey updates will appear here.</p>}
-          <label className="checkline"><input type="checkbox" checked={showAllEvents} onChange={(event) => setShowAllEvents(event.target.checked)} /> Include telemetry and risk updates</label>
-          <Link href="/demo" className="btn ghost">Open demo console</Link>
         </aside>
       </div>
     </>

@@ -1,54 +1,23 @@
 import { expect, test } from '@playwright/test';
+import type { Journey } from '../src/types';
 
 const web = process.env.REHOP_TEST_WEB ?? 'http://localhost:3000';
+const api = process.env.REHOP_TEST_API ?? 'http://localhost:8000';
 
-test('the cinematic hero can pause, resume and switch to a different clip', async ({ page }) => {
-  await page.setViewportSize({ width: 1366, height: 768 });
-  // Select the first available clip at each transition.
-  await page.addInitScript(() => { Math.random = () => 0; });
-  await page.goto(web);
-  const hero = page.getByRole('region', { name: 'Your ride. No interruptions.' });
-  const film = hero.locator('video');
-  const pause = page.getByRole('button', { name: 'Pause background video' });
-
-  await expect(pause).toBeVisible();
-  await expect(film).toHaveAttribute('src', '/hero/roundabout.mp4');
-  await expect.poll(() => film.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeGreaterThan(0);
-  await pause.click();
-  await expect.poll(() => film.evaluate((video: HTMLVideoElement) => video.paused)).toBe(true);
-  await page.getByRole('button', { name: 'Play background video' }).click();
-  await expect(pause).toBeVisible();
-
-  await film.evaluate((video: HTMLVideoElement) => { video.currentTime = video.duration - 0.1; });
-  await expect(film).toHaveAttribute('src', '/hero/night-street.mp4');
-  await expect(pause).toBeVisible();
-  await expect(hero.getByRole('link', { name: 'Find a ride' })).toBeInViewport();
-  await expect(hero.getByRole('link', { name: 'Try recovery demo' })).toBeInViewport();
-});
-
-test('mobile reduced motion shows the poster without fetching a clip', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.addInitScript(() => { Math.random = () => 0.9; });
-  const clips: string[] = [];
-  page.on('request', (request) => {
-    if (request.url().endsWith('.mp4')) clips.push(request.url());
+for (const width of [390, 1366]) {
+  test(`rider homepage fits at ${width}px and opens ride history`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(web);
+    await expect(page.getByRole('heading', { name: 'Where to?' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Review trip details' })).toBeInViewport();
+    await expect(page.getByRole('link', { name: /demo/i })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
+    await expect(page.getByRole('heading', { name: 'No rides yet' })).toBeVisible();
   });
-  await page.goto(web);
-  const hero = page.getByRole('region', { name: 'Your ride. No interruptions.' });
-  const film = hero.locator('video');
-  await expect(hero.getByRole('link', { name: 'Find a ride' })).toBeInViewport();
-  await expect(hero.getByRole('link', { name: 'Try recovery demo' })).toBeInViewport();
-  await expect(film).toHaveCount(0);
-  expect(clips).toHaveLength(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+}
 
-  await page.getByRole('button', { name: 'Play background video' }).click();
-  await expect(film).toHaveAttribute('src', '/hero/city-crossing.mp4');
-  await expect(page.getByRole('button', { name: 'Pause background video' })).toBeVisible();
-});
-
-test('a rider can set a five-minute maximum and confirm the recommended ride', async ({ page }) => {
+test('a rider can set a five-minute maximum and confirm the recommended ride', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 850 });
   await page.goto(web);
   const wait = page.getByRole('combobox', { name: 'Maximum pickup wait' });
@@ -66,5 +35,17 @@ test('a rider can set a five-minute maximum and confirm the recommended ride', a
   await expect(page.getByRole('radiogroup')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await recommendation.getByRole('button', { name: 'Book with Provider B' }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
+  const confirmation = page.getByRole('dialog');
+  await expect(confirmation.getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Track your ride' }).click();
+  await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  const first: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
+  await expect.poll(async () => {
+    const updated: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
+    return updated.active_ride?.distance_to_pickup_m;
+  }, { timeout: 12_000 }).toBeLessThan(first.active_ride!.distance_to_pickup_m);
+  await expect(page.getByRole('button', { name: /advance|simulate/i })).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
+  await expect(page.getByRole('link', { name: /VIT Chennai.*Chennai Airport/ })).toHaveAttribute('href', `/journey/${id}`);
 });

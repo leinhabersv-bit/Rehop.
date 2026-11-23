@@ -71,7 +71,7 @@ export function LocationInput({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative rounded-2xl bg-[#0E1726] border border-[#1E293B] p-3 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.36)]">
+      <div className="relative rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-3 sm:p-4 shadow-[0_8px_32px_rgba(39,59,119,0.12)]">
         {/* Swap button placed absolutely between inputs */}
         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-10">
           <button
@@ -79,7 +79,7 @@ export function LocationInput({
             onClick={handleSwap}
             aria-label="Swap pickup and destination"
             title="Swap pickup and destination"
-            className="group flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#1A273F] border border-[#2B3B55] text-[#B9FF45] hover:bg-[#243552] hover:border-[#B9FF45]/60 hover:scale-105 active:scale-95 transition-all duration-150 shadow-md"
+            className="group flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-[#edf1ff] border border-[#d9dbe7] text-[#173ed7] hover:bg-[#edf1ff] hover:border-[#173ed7]/60 hover:scale-105 active:scale-95 transition-all duration-150 shadow-md"
           >
             <ArrowUpDown className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-200 group-hover:rotate-180" />
           </button>
@@ -89,12 +89,12 @@ export function LocationInput({
         <div className="flex flex-col gap-3 pr-12 sm:pr-14">
           {/* Pickup Block */}
           <div ref={pickupRef} className="relative">
-            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3 py-2 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#B9FF45]/15 text-[#B9FF45]">
+            <div className="flex items-center gap-3 rounded-xl bg-[#edf1ff] border border-[#d9dbe7] px-3 py-2 transition-colors focus-within:border-[#173ed7] focus-within:ring-1 focus-within:ring-[#173ed7]/30">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#173ed7]/15 text-[#173ed7]">
                 <Navigation className="h-4 w-4" />
               </div>
               <div className="flex flex-1 flex-col min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#98A5BC]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#475673]">
                   Pickup Location
                 </span>
                 <input
@@ -108,13 +108,13 @@ export function LocationInput({
                   }}
                   onFocus={() => setPickupOpen(true)}
                   placeholder="Enter pickup point (e.g. VIT Chennai)"
-                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
+                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#171b37] placeholder:text-[#475673]/50 focus:outline-none"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setPickupOpen(!pickupOpen)}
-                className="text-[#98A5BC] hover:text-[#F6F8FC] p-1"
+                className="text-[#475673] hover:text-[#171b37] p-1"
                 aria-label="Toggle pickup suggestions"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -123,8 +123,8 @@ export function LocationInput({
 
             {/* Pickup Suggestions Dropdown */}
             {pickupOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-56 overflow-y-auto rounded-xl bg-[#151F32] border border-[#2A3B54] py-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#98A5BC]/80">
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-56 overflow-y-auto rounded-xl bg-[#fffdf8] border border-[#d9dbe7] py-1.5 shadow-[0_12px_32px_rgba(39,59,119,0.12)]">
+                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#475673]/80">
                   Popular Locations
                 </div>
                 {(filteredPickupSuggestions.length > 0
@@ -142,15 +142,15 @@ export function LocationInput({
                       }}
                       className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs sm:text-sm font-medium transition-colors ${
                         isSelected
-                          ? 'bg-[#B9FF45]/15 text-[#B9FF45]'
-                          : 'text-[#F6F8FC] hover:bg-[#1E2C44]'
+                          ? 'bg-[#173ed7]/15 text-[#173ed7]'
+                          : 'text-[#171b37] hover:bg-[#edf1ff]'
                       }`}
                     >
                       <span className="flex items-center gap-2 truncate">
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-[#98A5BC]" />
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-[#475673]" />
                         {loc.label}
                       </span>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-[#B9FF45]" />}
+                      {isSelected && <Check className="h-3.5 w-3.5 text-[#173ed7]" />}
                     </button>
                   );
                 })}
@@ -160,17 +160,17 @@ export function LocationInput({
 
           {/* Vertical Visual Connector between inputs */}
           <div className="flex items-center pl-7 -my-1">
-            <div className="h-3.5 w-0.5 border-l-2 border-dashed border-[#B9FF45]/40" />
+            <div className="h-3.5 w-0.5 border-l-2 border-dashed border-[#173ed7]/40" />
           </div>
 
           {/* Destination Block */}
           <div ref={dropoffRef} className="relative">
-            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3 py-2 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2ED389]/15 text-[#2ED389]">
+            <div className="flex items-center gap-3 rounded-xl bg-[#edf1ff] border border-[#d9dbe7] px-3 py-2 transition-colors focus-within:border-[#173ed7] focus-within:ring-1 focus-within:ring-[#173ed7]/30">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0d755d]/15 text-[#0d755d]">
                 <MapPin className="h-4 w-4" />
               </div>
               <div className="flex flex-1 flex-col min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#98A5BC]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#475673]">
                   Destination
                 </span>
                 <input
@@ -184,13 +184,13 @@ export function LocationInput({
                   }}
                   onFocus={() => setDropoffOpen(true)}
                   placeholder="Enter destination (e.g. Chennai Airport)"
-                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
+                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#171b37] placeholder:text-[#475673]/50 focus:outline-none"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setDropoffOpen(!dropoffOpen)}
-                className="text-[#98A5BC] hover:text-[#F6F8FC] p-1"
+                className="text-[#475673] hover:text-[#171b37] p-1"
                 aria-label="Toggle destination suggestions"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -199,8 +199,8 @@ export function LocationInput({
 
             {/* Destination Suggestions Dropdown */}
             {dropoffOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-56 overflow-y-auto rounded-xl bg-[#151F32] border border-[#2A3B54] py-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#98A5BC]/80">
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-56 overflow-y-auto rounded-xl bg-[#fffdf8] border border-[#d9dbe7] py-1.5 shadow-[0_12px_32px_rgba(39,59,119,0.12)]">
+                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#475673]/80">
                   Popular Destinations
                 </div>
                 {(filteredDropoffSuggestions.length > 0
@@ -218,15 +218,15 @@ export function LocationInput({
                       }}
                       className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs sm:text-sm font-medium transition-colors ${
                         isSelected
-                          ? 'bg-[#2ED389]/15 text-[#2ED389]'
-                          : 'text-[#F6F8FC] hover:bg-[#1E2C44]'
+                          ? 'bg-[#0d755d]/15 text-[#0d755d]'
+                          : 'text-[#171b37] hover:bg-[#edf1ff]'
                       }`}
                     >
                       <span className="flex items-center gap-2 truncate">
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-[#98A5BC]" />
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-[#475673]" />
                         {loc.label}
                       </span>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-[#2ED389]" />}
+                      {isSelected && <Check className="h-3.5 w-3.5 text-[#0d755d]" />}
                     </button>
                   );
                 })}
@@ -236,7 +236,7 @@ export function LocationInput({
         </div>
       </div>
 
-      {error && <p className="text-xs font-semibold text-[#FF6D76] mt-0.5">{error}</p>}
+      {error && <p className="text-xs font-semibold text-[#a42644] mt-0.5">{error}</p>}
     </div>
   );
 }

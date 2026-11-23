@@ -4,32 +4,32 @@
 
 :root {
   /* ReHop Design Tokens */
-  --rehop-primary: #B9FF45;
-  --rehop-bg: #090F1D;
-  --rehop-surface: #151F32;
-  --rehop-surface-alt: #243249;
-  --rehop-surface-elevated: #1A273F;
-  --rehop-text: #F6F8FC;
-  --rehop-muted: #98A5BC;
-  --rehop-success: #2ED389;
-  --rehop-warning: #FFBD63;
-  --rehop-danger: #FF6D76;
-  --rehop-ai: #B79CFF;
+  --rehop-primary: #173ed7;
+  --rehop-bg: #fff9f0;
+  --rehop-surface: #fffdf8;
+  --rehop-surface-alt: #d9dbe7;
+  --rehop-surface-elevated: #edf1ff;
+  --rehop-text: #171b37;
+  --rehop-muted: #475673;
+  --rehop-success: #0d755d;
+  --rehop-warning: #8d471d;
+  --rehop-danger: #a42644;
+  --rehop-ai: #5135ab;
 
   /* Theme variables matching dark palette */
-  --bg: #090F1D;
-  --surface: #151F32;
-  --surface-alt: #243249;
-  --surface-elevated: #1A273F;
-  --text: #F6F8FC;
-  --muted: #98A5BC;
-  --line: #243249;
+  --bg: #fff9f0;
+  --surface: #fffdf8;
+  --surface-alt: #d9dbe7;
+  --surface-elevated: #edf1ff;
+  --text: #171b37;
+  --muted: #475673;
+  --line: #d9dbe7;
 
   /* Legacy aliases for backward compatibility */
-  --deep: #090F1D;
-  --ink: #151F32;
-  --teal: #B9FF45;
-  --mint: #B9FF45;
+  --deep: #fff9f0;
+  --ink: #fffdf8;
+  --teal: #173ed7;
+  --mint: #173ed7;
 }
 
 * {
@@ -98,7 +98,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   background: var(--rehop-primary);
-  color: #090F1D;
+  color: #fff9f0;
   border-radius: 9px;
   margin-right: 9px;
   width: 36px;
@@ -187,8 +187,8 @@ p {
   display: inline-flex;
   gap: 7px;
   align-items: center;
-  background: rgba(185, 255, 69, 0.1);
-  border: 1px solid rgba(185, 255, 69, 0.25);
+  background: rgba(23,62,215, 0.1);
+  border: 1px solid rgba(23,62,215, 0.25);
   border-radius: 999px;
   padding: 6px 14px;
   color: var(--rehop-primary);
@@ -205,7 +205,7 @@ p {
   color: var(--text);
   border-radius: 20px;
   padding: 26px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 36px rgba(39,59,119,0.08);
 }
 
 .stack {
@@ -255,7 +255,7 @@ input[type=checkbox] {
 .btn {
   background: var(--rehop-primary);
   border: 1px solid var(--rehop-primary);
-  color: #090F1D;
+  color: white;
   padding: 13px 18px;
   border-radius: 16px;
   font-weight: 800;
@@ -279,12 +279,12 @@ input[type=checkbox] {
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #2e3e58;
+  background: #e6ebfa;
 }
 
 .btn.danger {
   background: rgba(255, 109, 118, 0.15);
-  color: #FF6D76;
+  color: #a42644;
   border-color: rgba(255, 109, 118, 0.35);
 }
 
@@ -320,7 +320,7 @@ input[type=checkbox] {
   border-radius: 14px;
   background: rgba(255, 109, 118, 0.12);
   padding: 13px;
-  color: #FF6D76;
+  color: #a42644;
   font-size: 13px;
 }
 
@@ -348,13 +348,13 @@ input[type=checkbox] {
 }
 
 .badge.high {
-  color: #FF6D76;
+  color: #a42644;
   background: rgba(255, 109, 118, 0.18);
   border: 1px solid rgba(255, 109, 118, 0.3);
 }
 
 .badge.low {
-  color: #2ED389;
+  color: #0d755d;
   background: rgba(46, 211, 137, 0.18);
   border: 1px solid rgba(46, 211, 137, 0.3);
 }

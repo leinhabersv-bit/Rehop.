@@ -8,7 +8,7 @@ A **simulation-first AI ride-recovery hackathon project**. ReHop monitors simula
 
 ## What you can try
 
-- ✅ Mobile-friendly Next.js trip setup, fare comparison, live tracking and demo console.
+- ✅ Mobile-friendly Next.js trip setup, fare comparison, live pickup tracking and device-local ride history.
 - ✅ Python FastAPI service with versioned REST endpoints and ordered WebSocket events.
 - ✅ Four neutral **mock** providers: `PROVIDER_A`, `PROVIDER_B`, `PROVIDER_C`, `PROVIDER_D`.
 - ✅ ONDC/Beckn-shaped *simulator* adapters: `search`, `select`, `init`, `confirm`, `cancel`, `status`, `track` (no network access).
@@ -54,7 +54,7 @@ npm run dev
 
 Open [ReHop](http://localhost:3000) using `localhost`, which matches the API's default allowed browser origin. The frontend defaults to `http://localhost:8000`. To change it, copy `apps/web/.env.example` to `apps/web/.env.local` and change `NEXT_PUBLIC_API_BASE_URL`. If the web origin changes, set `CORS_ORIGINS` in the API process and restart both apps.
 
-Use **Find a ride** to enter a trip, review interpreted details, compare backend quotes, and start tracking. Use [Demo console](http://localhost:3000/demo) for stalled pickups, uncertainty and quote races. The simulator clock advances with the development controls on the journey page. See the [judge demo](docs/demo-script.md) for steps and expected outcomes.
+Use **Book** to enter a trip, review interpreted details, compare backend quotes, and start tracking. Standard pickups progress automatically on the API clock. **Your rides** stores recent ride references on the current device and reads their statuses from the API. See the [rider walkthrough](docs/demo-script.md).
 
 ## Test and inspect
 
@@ -107,7 +107,7 @@ riderescue/
 | Teammate | Branch prefix | What they own |
 |---|---|---|
 | **Frontend 1** | `feat/fe1-*` | Trip setup, quotes, API client, design tokens and routing |
-| **Frontend 2** | `feat/fe2-*` | Driver tracking, risk evidence, recovery approval, timeline, demo console |
+| **Frontend 2** | `feat/fe2-*` | Driver tracking, risk evidence, recovery approval and ride history |
 | **Backend 1** | `feat/be1-*` | APIs, state store, event stream, four mock provider adapters, simulation scenarios |
 | **Backend 2** | `feat/be2-*` | Feature extraction, risk rules, recovery guards, idempotency safety and evaluation |
 

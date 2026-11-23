@@ -21,13 +21,13 @@ export function LoadingSpinner({
 
   const colorClass =
     variant === 'primary'
-      ? 'text-[#B9FF45]'
+      ? 'text-[#173ed7]'
       : variant === 'ai'
-        ? 'text-[#B79CFF]'
+        ? 'text-[#5135ab]'
         : variant === 'white'
-          ? 'text-[#F6F8FC]'
+          ? 'text-[#171b37]'
           : variant === 'muted'
-            ? 'text-[#98A5BC]'
+            ? 'text-[#475673]'
             : 'text-current';
 
   return (

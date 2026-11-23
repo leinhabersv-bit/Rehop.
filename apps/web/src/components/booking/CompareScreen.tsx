@@ -16,6 +16,7 @@ import { api, ApiError } from '@/lib/api/client';
 import type { Journey, Quote } from '@/types';
 import { providerName } from '@/types';
 import { recommendRide } from '@/lib/pickup';
+import { rememberRide } from '@/lib/recent-rides';
 import { ProviderCard, isQuoteWithinPolicy } from './ProviderCard';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 
@@ -102,6 +103,7 @@ export function CompareScreen() {
           !Array.isArray(snapshot.quotes)) return false;
       cache.setQueryData(['journey', request.journeyId], snapshot);
       if (hasConfirmedRide(snapshot, request.quoteId)) {
+        rememberRide(snapshot.id);
         setConfirmedJourney(snapshot);
         setIsConfirmationOpen(true);
         setPendingAttempt(null);
@@ -162,15 +164,15 @@ export function CompareScreen() {
   // Early return for missing journey ID or failed load
   if (!queryJourneyId || (!isLoading && !journey)) {
     return (
-      <div className="min-h-screen bg-[#090F1D] text-[#F6F8FC] px-4 py-8 sm:py-12 flex items-center justify-center">
-        <div className="mx-auto max-w-md w-full rounded-3xl bg-[#0E1624] border border-slate-800 p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF6D76]/15 text-[#FF6D76] border border-[#FF6D76]/30">
+      <div className="min-h-screen bg-[#fff9f0] text-[#171b37] px-4 py-8 sm:py-12 flex items-center justify-center">
+        <div className="mx-auto max-w-md w-full rounded-3xl bg-[#edf1ff] border border-[#d9dbe7] p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#a42644]/15 text-[#a42644] border border-[#a42644]/30">
             <AlertCircle className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">
+          <h2 className="text-xl font-bold text-[#171b37] mb-2">
             {queryJourneyId ? 'Could not load this journey' : 'Choose a trip first'}
           </h2>
-          <p className="text-sm text-[#98A5BC] mb-6 leading-relaxed">
+          <p className="text-sm text-[#475673] mb-6 leading-relaxed">
             {queryJourneyId ? error?.message : 'Choose a pickup and destination to compare simulated rides.'}
           </p>
           {queryJourneyId && <Button onClick={() => refetch()} loading={isFetching} fullWidth className="mb-3">Try again</Button>}
@@ -179,11 +181,11 @@ export function CompareScreen() {
             size="lg"
             fullWidth
             onClick={() => router.push('/book')}
-            className="!bg-[#B9FF45] !text-[#090F1D] !rounded-2xl font-black shadow-[0_0_24px_rgba(185,255,69,0.3)] hover:brightness-105"
+            className="!bg-[#173ed7] !text-white !rounded-2xl font-black shadow-[0_0_24px_rgba(39,59,119,0.12)] hover:brightness-105"
           >
             Go to Booking Form
           </Button>
-          <p className="mt-4 text-xs text-slate-500">
+          <p className="mt-4 text-xs text-[#475673]">
             All providers (Provider A-D) and fares are synthetic.
           </p>
         </div>
@@ -199,47 +201,47 @@ export function CompareScreen() {
         <button
           type="button"
           onClick={() => router.push('/book')}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#bdd0e7] hover:text-white focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#475673] hover:text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
         >
           <ArrowLeft size={17} aria-hidden="true" /> Edit trip
         </button>
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#B9FF45]">Simulated booking</p>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#173ed7]">Simulated booking</p>
           <h1 className="text-3xl font-black tracking-tight sm:text-5xl">{canBook ? 'Review your ride' : 'Your ride'}</h1>
         </div>
         {journey && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#304055] bg-[#111c2e] p-3.5 text-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#d9dbe7] bg-[#edf1ff] p-3.5 text-sm">
             <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 font-bold">
-              <MapPin size={16} className="shrink-0 text-[#B9FF45]" aria-hidden="true" />
+              <MapPin size={16} className="shrink-0 text-[#173ed7]" aria-hidden="true" />
               {journey.pickup.label} <span aria-hidden="true">→</span> {journey.dropoff.label}
             </span>
-            <span className="text-[#bdc9db]">Max wait <strong className="text-white">{maxWaitMinutes} min</strong></span>
-            <span className="text-[#bdc9db]">Fare cap <strong className="text-white">₹{journey.policy.max_total_fare_inr}</strong></span>
+            <span className="text-[#475673]">Max wait <strong className="text-[#171b37]">{maxWaitMinutes} min</strong></span>
+            <span className="text-[#475673]">Fare cap <strong className="text-[#171b37]">₹{journey.policy.max_total_fare_inr}</strong></span>
           </div>
         )}
       </header>
 
-      {isLoading && <p role="status" className="rounded-2xl border border-[#304055] p-5 text-[#bdc9db]">Checking simulated fares and pickup times…</p>}
+      {isLoading && <p role="status" className="rounded-2xl border border-[#d9dbe7] p-5 text-[#475673]">Checking simulated fares and pickup times…</p>}
 
       {journey && (
-        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#B9FF45]/40 bg-gradient-to-br from-[#1b2e2b] via-[#131f2f] to-[#101827] p-5 sm:p-7">
+        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#173ed7]/40 bg-white p-5 sm:p-7">
           {canBook && selectedQuote ? (
             <>
-              <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-[#d8ffa1]">
+              <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-[#475673]">
                 <Sparkles size={17} aria-hidden="true" /> {chosenRecommendation ? 'ReHop recommends' : 'Your selection'}
               </p>
               <h2 id="ride-choice" className="text-2xl font-black tracking-tight sm:text-4xl">{selectedProviderName}</h2>
-              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#415467] py-3">
+              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3">
                 <div>
-                  <dt className="text-sm text-[#c0cede]">Estimated pickup</dt>
+                  <dt className="text-sm text-[#475673]">Estimated pickup</dt>
                   <dd className="text-2xl font-black">{Math.ceil(selectedQuote.pickup_eta_sec / 60)} min</dd>
                 </div>
                 <div className="pl-4">
-                  <dt className="text-sm text-[#c0cede]">Estimated fare</dt>
+                  <dt className="text-sm text-[#475673]">Estimated fare</dt>
                   <dd className="text-2xl font-black">₹{selectedQuote.estimated_fare_inr}</dd>
                 </div>
               </dl>
-              <p className={selectedMeetsDeadline ? 'mb-5 text-sm text-[#d4e3d9]' : 'mb-5 text-sm font-bold text-[#ffcb92]'}>
+              <p className={selectedMeetsDeadline ? 'mb-5 text-sm text-[#475673]' : 'mb-5 text-sm font-bold text-[#475673]'}>
                 {chosenRecommendation
                   ? 'Lowest fare among available rides that meet your maximum wait and fare cap.'
                   : selectedMeetsDeadline ? 'This ride fits your maximum wait and fare cap.' : 'This pickup is estimated to exceed your maximum wait.'}
@@ -250,13 +252,13 @@ export function CompareScreen() {
               <h2 id="ride-choice" className="text-xl font-black">
                 {canBook ? 'No ride meets both limits' : 'Check your journey status'}
               </h2>
-              <p className="mt-1 text-sm text-[#bdc9db]">
+              <p className="mt-1 text-sm text-[#475673]">
                 {canBook ? 'Adjust your trip limits or review any available alternatives below.' : 'Open tracking for the latest provider status.'}
               </p>
             </div>
           )}
 
-          {bookingError && <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#FF9CA1]/40 bg-[#351d2b] p-3 text-sm text-[#ffc8cc]"><AlertCircle size={17} className="shrink-0" aria-hidden="true" />{bookingError}</p>}
+          {bookingError && <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]"><AlertCircle size={17} className="shrink-0" aria-hidden="true" />{bookingError}</p>}
 
           <Button
             variant="primary"
@@ -286,7 +288,7 @@ export function CompareScreen() {
               aria-controls="ride-quotes"
               onClick={() => setShowAlternatives(!alternativesVisible)}
               disabled={!recommended}
-              className="min-h-10 rounded-lg border border-[#34445a] px-3 text-sm font-bold text-[#dce8f7] hover:border-[#B9FF45] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
+              className="min-h-10 rounded-lg border border-[#d9dbe7] px-3 text-sm font-bold text-[#475673] hover:border-[#173ed7] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
             >
               {alternativesVisible ? 'Hide provider quotes' : `Compare all ${quotes.length} rides`}
             </button>
@@ -308,15 +310,15 @@ export function CompareScreen() {
                   />
                 ))}
               </div>
-              <a href="#book-recommendation" className="inline-block py-2 text-sm font-bold text-[#B9FF45] underline underline-offset-4">Review selected ride ↑</a>
+              <a href="#book-recommendation" className="inline-block py-2 text-sm font-bold text-[#173ed7] underline underline-offset-4">Review selected ride ↑</a>
             </>
           )}
         </section>
       )}
 
-      {journey && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#304055] pt-3 text-sm text-[#bac7da]">
+      {journey && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#d9dbe7] pt-3 text-sm text-[#475673]">
         <span>Quotes and pickup ETAs are simulated.</span>
-        <button type="button" onClick={() => void refetch()} disabled={isFetching} className="inline-flex min-h-10 items-center gap-2 rounded-lg font-bold hover:text-white focus-visible:outline-2 focus-visible:outline-[#B9FF45]">
+        <button type="button" onClick={() => void refetch()} disabled={isFetching} className="inline-flex min-h-10 items-center gap-2 rounded-lg font-bold hover:text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#B9FF45]">
           <RefreshCw size={15} aria-hidden="true" /> Check latest status
         </button>
       </div>}

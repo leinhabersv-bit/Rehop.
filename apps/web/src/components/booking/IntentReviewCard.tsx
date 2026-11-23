@@ -59,7 +59,7 @@ export function IntentReviewCard({
 
   return (
     <div
-      className={`relative rounded-3xl bg-[#0D1524] border border-[#233550] p-6 sm:p-7 shadow-[0_12px_48px_rgba(0,0,0,0.5)] ${className}`}
+      className={`relative rounded-3xl bg-[#edf1ff] border border-[#d9dbe7] p-6 sm:p-7 shadow-[0_12px_48px_rgba(39,59,119,0.12)] ${className}`}
     >
       {/* Top Header / Eyebrow */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -68,11 +68,11 @@ export function IntentReviewCard({
             variant="ai"
             size="md"
             dot
-            className="!bg-[#B79CFF]/15 !text-[#B79CFF] !border-[#B79CFF]/40 font-extrabold uppercase tracking-wider text-[11px]"
+            className="!bg-[#5135ab]/15 !text-[#5135ab] !border-[#5135ab]/40 font-extrabold uppercase tracking-wider text-[11px]"
           >
             Request review
           </Badge>
-          <span className="text-xs font-semibold text-[#98A5BC]">
+          <span className="text-xs font-semibold text-[#475673]">
             {intent.source === 'llm' ? 'AI interpretation' : 'Rule-based interpretation'}
           </span>
         </div>
@@ -80,7 +80,7 @@ export function IntentReviewCard({
         <button
           type="button"
           onClick={() => setIsEditing(!isEditing)}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B9FF45] hover:underline hover:brightness-110 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#173ed7] hover:underline hover:brightness-110 transition-colors"
         >
           <Edit3 className="h-3.5 w-3.5" />
           {isEditing ? 'Done editing' : 'Quick edit'}
@@ -89,34 +89,34 @@ export function IntentReviewCard({
 
       {/* Main Heading */}
       <div className="mb-6">
-        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#F6F8FC]">
+        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#171b37]">
           Review your ride request
         </h2>
-        <p className="text-sm font-medium text-[#98A5BC] mt-1">
+        <p className="text-sm font-medium text-[#475673] mt-1">
           Check the extracted details, then review your recovery and spending limits.
         </p>
       </div>
 
       {/* 1. Original User Request Quote Box */}
       {intent.original_text && (
-        <div className="rounded-2xl bg-[#10192A] border border-[#1E2E46] p-4 mb-5">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#B79CFF] mb-1.5">
+        <div className="rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-4 mb-5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#5135ab] mb-1.5">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Your request</span>
           </div>
-          <p className="text-sm italic font-medium text-[#F6F8FC] leading-relaxed">
+          <p className="text-sm italic font-medium text-[#171b37] leading-relaxed">
             &ldquo;{intent.original_text}&rdquo;
           </p>
         </div>
       )}
 
       {/* 2. Extracted Preferences Card */}
-      <div className="rounded-2xl bg-[#10192A] border border-[#1E2E46] p-4 sm:p-5 mb-5">
-        <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-[#1E2E46]">
-          <h3 className="text-sm sm:text-base font-extrabold text-[#F6F8FC]">
+      <div className="rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-4 sm:p-5 mb-5">
+        <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-[#d9dbe7]">
+          <h3 className="text-sm sm:text-base font-extrabold text-[#171b37]">
             Extracted preferences
           </h3>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#2ED389]/15 border border-[#2ED389]/30 px-2.5 py-0.5 text-xs font-bold text-[#2ED389]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0d755d]/15 border border-[#0d755d]/30 px-2.5 py-0.5 text-xs font-bold text-[#0d755d]">
             <CheckCircle2 className="h-3.5 w-3.5" />
             {fieldsCount} fields extracted
           </span>
@@ -125,9 +125,9 @@ export function IntentReviewCard({
         {/* Structured Grid / List */}
         <div className="space-y-3.5">
           {/* Pickup */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#162235]/60">
-            <span className="text-xs font-semibold text-[#98A5BC] flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-[#B9FF45]" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
+            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 text-[#173ed7]" />
               Pickup location
             </span>
             {isEditing ? (
@@ -135,20 +135,20 @@ export function IntentReviewCard({
                 aria-label="Pickup location"
                 value={pickup}
                 onChange={(event) => setPickup(event.target.value)}
-                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-2 text-sm text-[#F6F8FC]"
+                className="rounded-lg bg-[#fffdf8] border border-[#d9dbe7] px-3 py-2 text-sm text-[#171b37]"
               >
                 <option value="">Choose a location</option>
                 {locations.map((location) => <option key={location.label}>{location.label}</option>)}
               </select>
             ) : (
-              <span className="text-sm font-bold text-[#F6F8FC]">{pickup || 'Choose a location'}</span>
+              <span className="text-sm font-bold text-[#171b37]">{pickup || 'Choose a location'}</span>
             )}
           </div>
 
           {/* Destination */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#162235]/60">
-            <span className="text-xs font-semibold text-[#98A5BC] flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-[#2ED389]" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
+            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 text-[#0d755d]" />
               Destination
             </span>
             {isEditing ? (
@@ -156,20 +156,20 @@ export function IntentReviewCard({
                 aria-label="Destination"
                 value={dropoff}
                 onChange={(event) => setDropoff(event.target.value)}
-                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-2 text-sm text-[#F6F8FC]"
+                className="rounded-lg bg-[#fffdf8] border border-[#d9dbe7] px-3 py-2 text-sm text-[#171b37]"
               >
                 <option value="">Choose a location</option>
                 {locations.map((location) => <option key={location.label}>{location.label}</option>)}
               </select>
             ) : (
-              <span className="text-sm font-bold text-[#F6F8FC]">{dropoff || 'Choose a location'}</span>
+              <span className="text-sm font-bold text-[#171b37]">{dropoff || 'Choose a location'}</span>
             )}
           </div>
 
           {/* Arrival Deadline / Pickup needed in */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#162235]/60">
-            <span className="text-xs font-semibold text-[#98A5BC] flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-[#B9FF45]" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
+            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-[#173ed7]" />
               Pickup needed within
             </span>
             {isEditing ? (
@@ -181,8 +181,8 @@ export function IntentReviewCard({
                     onClick={() => setNeedInMinutes(mins)}
                     className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
                       needInMinutes === mins
-                        ? 'bg-[#B9FF45] text-[#090F1D]'
-                        : 'bg-[#151F32] text-[#98A5BC] hover:text-[#F6F8FC]'
+                        ? 'bg-[#173ed7] text-white'
+                        : 'bg-[#fffdf8] text-[#475673] hover:text-[#171b37]'
                     }`}
                   >
                     {mins}m
@@ -190,21 +190,21 @@ export function IntentReviewCard({
                 ))}
               </div>
             ) : (
-              <span className="text-sm font-bold text-[#B9FF45]">
+              <span className="text-sm font-bold text-[#173ed7]">
                 {needInMinutes ? `Within ${needInMinutes} minutes` : 'Set in trip details'}
               </span>
             )}
           </div>
 
           {/* Max Fare / Budget */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#162235]/60">
-            <span className="text-xs font-semibold text-[#98A5BC] flex items-center gap-2">
-              <span className="text-[#B9FF45] font-black text-sm">₹</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
+            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
+              <span className="text-[#173ed7] font-black text-sm">₹</span>
               Maximum fare cap
             </span>
             {isEditing ? (
               <div className="flex items-center gap-1">
-                <span className="text-xs font-bold text-[#98A5BC]">₹</span>
+                <span className="text-xs font-bold text-[#475673]">₹</span>
                 <input
                   type="number"
                   aria-label="Maximum fare cap"
@@ -213,11 +213,11 @@ export function IntentReviewCard({
                   step={1}
                   value={budget ?? ''}
                   onChange={(e) => setBudget(e.target.value ? Number(e.target.value) : null)}
-                  className="w-24 rounded-lg bg-[#151F32] border border-[#2B3E5C] px-2 py-1 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
+                  className="w-24 rounded-lg bg-[#fffdf8] border border-[#d9dbe7] px-2 py-1 text-xs font-semibold text-[#171b37] focus:outline-none focus:border-[#173ed7]"
                 />
               </div>
             ) : (
-              <span className="text-sm font-extrabold text-[#F6F8FC]">{budget === null ? 'Set in trip details' : `₹${budget}`}</span>
+              <span className="text-sm font-extrabold text-[#171b37]">{budget === null ? 'Set in trip details' : `₹${budget}`}</span>
             )}
           </div>
 
@@ -225,16 +225,16 @@ export function IntentReviewCard({
       </div>
 
       {/* 3. Safety / Policy Callout Card */}
-      <div className="rounded-2xl bg-[#0C1E26] border border-[#14353D] p-4 mb-6">
+      <div className="rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-4 mb-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#38BDF8]/20 text-[#38BDF8] mt-0.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#edf1ff]/20 text-[#475673] mt-0.5">
             <Info className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <h4 className="text-xs sm:text-sm font-bold text-[#F6F8FC]">
+            <h4 className="text-xs sm:text-sm font-bold text-[#171b37]">
               AI is assisting, not booking
             </h4>
-            <p className="text-xs font-medium text-[#98A5BC] mt-0.5 leading-relaxed">
+            <p className="text-xs font-medium text-[#475673] mt-0.5 leading-relaxed">
               You can edit every field. Booking always requires your explicit confirmation, and no
               fare is charged without your approval.
             </p>
@@ -251,7 +251,7 @@ export function IntentReviewCard({
           fullWidth
           onClick={handleConfirm}
           disabled={!validRoute || (budget !== null && (budget < 100 || budget > 10000))}
-          className="!bg-[#B9FF45] !text-[#090F1D] !border-[#B9FF45] font-extrabold shadow-[0_0_24px_rgba(185,255,69,0.35)]"
+          className="!bg-[#173ed7] !text-white !border-[#173ed7] font-extrabold shadow-[0_0_24px_rgba(39,59,119,0.12)]"
           rightIcon={<ArrowRight className="h-4 w-4" />}
         >
           Use these trip details

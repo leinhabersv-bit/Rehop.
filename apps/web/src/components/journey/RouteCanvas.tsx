@@ -32,23 +32,23 @@ export default function RouteCanvas({ ride, uncertain }: { ride: Ride | null; un
   return (
     <figure className={styles.route}>
       <svg viewBox="0 0 550 240" role="img" aria-label={ride ? 'Illustration of simulated driver progress along the pickup route' : 'No active driver position'}>
-        <rect width="550" height="240" fill="#101b2d" />
-        <path d={roads} stroke="#243249" strokeWidth="12" fill="none" />
-        <path d={roads} stroke="#35465b" strokeWidth="1" fill="none" />
-        <rect x="72" y="36" width="56" height="30" rx="6" fill="#1c343c" />
-        <rect x="394" y="151" width="68" height="43" rx="6" fill="#1d3839" />
+        <rect width="550" height="240" fill="#f0f3fb" />
+        <path d={roads} stroke="#d9dbe7" strokeWidth="12" fill="none" />
+        <path d={roads} stroke="#bbc6dd" strokeWidth="1" fill="none" />
+        <rect x="72" y="36" width="56" height="30" rx="6" fill="#ffe1cc" />
+        <rect x="394" y="151" width="68" height="43" rx="6" fill="#e5ebff" />
         {ride && <polyline points={points} fill="none" stroke="var(--rehop-primary)" strokeOpacity=".25" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round" />}
         {ride && <polyline points={points} fill="none" stroke="var(--rehop-primary)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" />}
-        <circle cx="485" cy="44" r="11" fill="var(--rehop-primary)" stroke="#101b2d" strokeWidth="4" />
+        <circle cx="485" cy="44" r="11" fill="var(--rehop-primary)" stroke="#f0f3fb" strokeWidth="4" />
         <text x="441" y="24" fill="var(--rehop-text)" fontSize="13" fontWeight="700">Pickup</text>
         {ride && (
           <g className={styles.marker} style={{ transform: `translate(${x}px, ${y}px)`, opacity: uncertain ? 0.7 : 1 }}>
-            <circle r="15" fill="#101b2d" stroke="var(--rehop-primary)" strokeWidth="3" />
+            <circle r="15" fill="#f0f3fb" stroke="var(--rehop-primary)" strokeWidth="3" />
             <path d="M-6 4h12v-7L3 -7h-6l-3 4Zm0-6h12M-5 1h1m8 0h1" fill="none" stroke="var(--rehop-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </g>
         )}
       </svg>
-      <figcaption>{ride ? uncertain ? 'Last reported position · Simulated map' : 'Progress based on simulated distance to pickup' : 'No active driver position'}</figcaption>
+      <figcaption>{ride ? uncertain ? 'Last reported driver position' : 'Estimated driver progress' : 'No active driver position'}</figcaption>
     </figure>
   );
 }

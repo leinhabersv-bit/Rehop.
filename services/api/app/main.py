@@ -2,6 +2,8 @@
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,13 +11,44 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.routes.journeys import router
+from app.schemas.enums import JourneyState, RideState
 from app.schemas.errors import ErrorEnvelope, ErrorPayload, SimulationError
 from app.simulation.engine import store
+
+
+def advance_rider_pickups() -> None:
+    with store.lock:
+        for journey in store.sessions.values():
+            if (
+                journey.scenario == "S01"
+                and journey.state == JourneyState.MONITORING
+                and journey.ride is not None
+                and journey.ride.state == RideState.DRIVER_EN_ROUTE
+            ):
+                journey.tick(1)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def run_clock() -> None:
+        while True:
+            await asyncio.sleep(5)
+            await run_in_threadpool(advance_rider_pickups)
+
+    clock = asyncio.create_task(run_clock())
+    try:
+        yield
+    finally:
+        clock.cancel()
+        with suppress(asyncio.CancelledError):
+            await clock
+
 
 app = FastAPI(
     title="RideRescue Simulation API",
     version="0.1.0",
     description="Synthetic cab-provider simulation for a hackathon. No real bookings.",
+    lifespan=lifespan,
 )
 origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
 app.add_middleware(
