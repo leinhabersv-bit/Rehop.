@@ -16,8 +16,8 @@ import {
   Info,
 } from 'lucide-react';
 import { Button, Card, Badge } from '@/components/ui';
-import { api } from '@/lib/api/client';
-import type { Journey, Location, RecoveryPolicy } from '@/types';
+import { api, API_BASE } from '@/lib/api/client';
+import type { Location, RecoveryPolicy } from '@/types';
 import { LocationInput, DEFAULT_LOCATIONS } from './LocationInput';
 import { AiRequestInput, type ParsedIntentResult } from './AiRequestInput';
 import { IntentReviewCard } from './IntentReviewCard';
@@ -27,6 +27,13 @@ export interface BookingFormProps {
   initialDropoff?: string;
   initialNeedIn?: number;
   className?: string;
+}
+
+export const SIMULATED_BASE_TIME = '2026-11-23T08:30:00Z';
+
+export function calculateNeedBy(needInMinutes: number, baseTime: string = SIMULATED_BASE_TIME): string {
+  const simulatedBase = Date.parse(baseTime);
+  return new Date(simulatedBase + needInMinutes * 60000).toISOString();
 }
 
 const VEHICLES = [
@@ -169,8 +176,8 @@ export function BookingForm({
       setValidationError('Pickup and destination must be different locations.');
       return;
     }
-    if (!actualBudget || actualBudget <= 0) {
-      setValidationError('Please enter a valid maximum budget greater than ₹0.');
+    if (!actualBudget || actualBudget < 100 || actualBudget > 10000) {
+      setValidationError('Maximum budget must be between ₹100 and ₹10,000.');
       return;
     }
 
@@ -189,8 +196,7 @@ export function BookingForm({
     };
 
     // Need_by simulation timestamp (UTC ISO format)
-    const simulatedBase = Date.parse('2026-11-23T08:30:00Z');
-    const needByIso = new Date(simulatedBase + actualNeedIn * 60000).toISOString();
+    const needByIso = calculateNeedBy(actualNeedIn);
 
     try {
       // 1. Try real backend API
@@ -198,78 +204,10 @@ export function BookingForm({
       startTransition(() => {
         router.push(`/compare?journey=${journey.id}`);
       });
-    } catch {
-      // 2. Offline / network failure fallback:
-      // Generate fully compliant simulated journey object saved in sessionStorage
-      const simId = `sim-${Date.now().toString(36)}`;
-      const baseFare = actualBudget;
-
-      const simJourney: Journey = {
-        id: simId,
-        pickup: fromLoc,
-        dropoff: toLoc,
-        state: 'OFFERED',
-        version: 1,
-        active_ride_id: null,
-        active_ride: null,
-        last_ride: null,
-        quotes: [
-          {
-            quote_id: `q-a-${Date.now()}`,
-            provider: 'PROVIDER_A',
-            estimated_fare_inr: Math.max(120, Math.round(baseFare * 0.76)),
-            pickup_eta_sec: 180,
-            expires_at: new Date(Date.now() + 600000).toISOString(),
-            is_simulated: true,
-          },
-          {
-            quote_id: `q-b-${Date.now()}`,
-            provider: 'PROVIDER_B',
-            estimated_fare_inr: Math.max(140, Math.round(baseFare * 0.84)),
-            pickup_eta_sec: 240,
-            expires_at: new Date(Date.now() + 600000).toISOString(),
-            is_simulated: true,
-          },
-          {
-            quote_id: `q-c-${Date.now()}`,
-            provider: 'PROVIDER_C',
-            estimated_fare_inr: Math.max(160, Math.round(baseFare * 0.94)),
-            pickup_eta_sec: 320,
-            expires_at: new Date(Date.now() + 600000).toISOString(),
-            is_simulated: true,
-          },
-          {
-            quote_id: `q-d-${Date.now()}`,
-            provider: 'PROVIDER_D',
-            estimated_fare_inr: Math.max(130, Math.round(baseFare * 0.79)),
-            pickup_eta_sec: 420,
-            expires_at: new Date(Date.now() + 600000).toISOString(),
-            is_simulated: true,
-          },
-        ],
-        risk: null,
-        pending_backup: null,
-        recovery_attempts: 0,
-        policy,
-        scenario: 'S01',
-        simulated_time: new Date().toISOString(),
-        is_simulated: true,
-        booking_uncertain: false,
-        last_event_seq: 0,
-        need_by: needByIso,
-        driver_chat_signal: null,
-        deadline_decision: null,
-        cancellation_fee_notice: null,
-      };
-
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(`journey_${simId}`, JSON.stringify(simJourney));
-        sessionStorage.setItem('last_simulated_journey', JSON.stringify(simJourney));
-      }
-
-      startTransition(() => {
-        router.push(`/compare?journey=${simId}`);
-      });
+    } catch (err) {
+      setValidationError(
+        `Failed to create journey: ${err instanceof Error ? err.message : 'Backend unreachable'}. Ensure the backend is running at ${API_BASE}.`
+      );
     } finally {
       setBusy(false);
     }
@@ -367,23 +305,27 @@ export function BookingForm({
           </div>
         </section>
 
-        {/* Arrival Deadline & Budget (2 Column Grid) */}
+        {/* Pickup Deadline & Budget (2 Column Grid) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Arrival Deadline (need_by in simulated minutes) */}
+          {/* Pickup Deadline (need_by in simulated minutes) */}
           <Card className="!p-5 bg-[#0E1726] border-[#1E2E46]">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#B9FF45]" />
-                Pickup needed in
+                Pickup Deadline
               </label>
-              <span className="text-sm font-black text-[#B9FF45]">
-                {needInMinutes} mins
+              <span className="text-xs font-semibold text-[#98A5BC]">
+                Latest acceptable driver pickup time
               </span>
             </div>
 
-            <p className="text-[11px] text-[#98A5BC] mb-3">
-              ReHop uses this deadline to recommend proactive backup switches.
+            <p className="text-[11px] text-[#98A5BC] mb-2 leading-relaxed">
+              Maximum acceptable wait time for driver arrival at pickup (not destination arrival time). ReHop uses this deadline to determine if a stalled pickup warrants a safe backup switch.
             </p>
+
+            <div className="text-xs font-semibold text-[#B9FF45] mb-3">
+              Pickup needed by: {new Date(Date.parse('2026-11-23T08:30:00Z') + needInMinutes * 60000).toISOString().substring(11, 16)} UTC ({needInMinutes} min from simulated start)
+            </div>
 
             {/* Quick chips */}
             <div className="flex flex-wrap gap-1.5 mb-3.5">

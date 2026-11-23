@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Check,
@@ -8,8 +8,7 @@ import {
   ArrowRight,
   Car,
   MapPin,
-  CheckCircle2,
-  Loader2,
+  AlertTriangle,
   X,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
@@ -32,27 +31,6 @@ export function BookingConfirmationModal({
   onTrackRide,
 }: BookingConfirmationModalProps) {
   const router = useRouter();
-
-  // Booking step progress animation:
-  // Step 1: Requesting simulated provider
-  // Step 2: Allocating driver
-  // Step 3: Pickup confirmed!
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep(1);
-      return;
-    }
-
-    const t1 = setTimeout(() => setCurrentStep(2), 500);
-    const t2 = setTimeout(() => setCurrentStep(3), 1100);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [isOpen]);
 
   // Handle escape key
   useEffect(() => {
@@ -78,9 +56,17 @@ export function BookingConfirmationModal({
       : null) ||
     journey.quotes[0];
 
-  const providerLabel = quote ? providerName[quote.provider] : 'Provider A';
+  const activeRide = journey.active_ride;
+  const providerKey = activeRide?.provider || (quote ? quote.provider : 'PROVIDER_A');
+  const providerLabel = providerName[providerKey] || providerKey;
+  const driverId = activeRide?.driver_id || 'Assigned';
+  const rideState = activeRide?.state ? activeRide.state.replaceAll('_', ' ') : 'DRIVER EN ROUTE';
   const fareInr = quote ? quote.estimated_fare_inr : 890;
-  const etaMinutes = quote ? Math.max(1, Math.ceil(quote.pickup_eta_sec / 60)) : 4;
+  const etaMinutes = activeRide
+    ? Math.ceil(activeRide.eta_sec / 60)
+    : quote
+    ? Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))
+    : 4;
 
   // Format reference ID
   const rawId = journey.id.replace(/^sim-/, '').replace(/[^a-zA-Z0-9]/g, '');
@@ -134,82 +120,47 @@ export function BookingConfirmationModal({
 
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#132D21] px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#B9FF45] border border-[#1F4A35]">
             <Check className="h-3 w-3 stroke-[3]" />
-            CONFIRMED
+            BOOKING CONFIRMED
           </span>
         </div>
 
-        {/* Animated Progress Steps */}
-        <div className="mt-4 mb-5 rounded-2xl bg-[#090F1B] border border-[#1A2638] p-3.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
-            <span className={currentStep >= 1 ? 'text-[#B9FF45]' : ''}>1. Request</span>
-            <span className={currentStep >= 2 ? 'text-[#B9FF45]' : ''}>2. Allocate</span>
-            <span className={currentStep >= 3 ? 'text-[#B9FF45]' : ''}>3. Confirmed</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentStep >= 1 ? 'bg-[#B9FF45]' : 'bg-slate-800'
-              }`}
-            />
-            <div
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentStep >= 2 ? 'bg-[#B9FF45]' : 'bg-slate-800'
-              }`}
-            />
-            <div
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentStep >= 3 ? 'bg-[#B9FF45]' : 'bg-slate-800'
-              }`}
-            />
-          </div>
-
-          <p className="mt-2 text-center text-xs text-slate-300 flex items-center justify-center gap-1.5 font-medium">
-            {currentStep === 1 && (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#B9FF45]" />
-                Requesting simulated provider...
-              </>
-            )}
-            {currentStep === 2 && (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#B9FF45]" />
-                Allocating driver...
-              </>
-            )}
-            {currentStep === 3 && (
-              <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-[#2ED389]" />
-                Pickup confirmed!
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Hero Success Graphic */}
-        <div className="text-center">
+        {/* Hero Graphic & Heading */}
+        <div className="text-center mt-6">
           <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#B9FF45] shadow-[0_0_60px_rgba(185,255,69,0.3)]">
             <Check className="h-10 w-10 text-[#090F1D] stroke-[3.5]" />
           </div>
 
           <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-[#B9FF45]">
-            READY TO ROLL
+            DRIVER EN ROUTE
           </div>
 
           <h2
             id="confirmation-modal-title"
             className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white"
           >
-            Ride confirmed<span className="text-[#B9FF45]">.</span>
+            Booking Confirmed<span className="text-[#B9FF45]">.</span>
           </h2>
 
           <p
             id="confirmation-modal-desc"
-            className="mx-auto mt-1 max-w-sm text-xs sm:text-sm text-[#98A5BC]"
+            className="mx-auto mt-2 max-w-sm text-xs sm:text-sm text-[#98A5BC] leading-relaxed"
           >
-            ReHop will keep an eye on pickup progress.
+            Success means pickup confirmed after boarding. ReHop is now monitoring driver telemetry.
           </p>
         </div>
+
+        {/* Booking Uncertain Warning Banner */}
+        {journey.booking_uncertain && (
+          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-[#FFB020]/15 border border-[#FFB020]/30 p-4 text-xs text-[#FFB020]">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold text-sm text-[#FFB020]">Booking Status Uncertain</div>
+              <p className="mt-1 text-slate-300 leading-relaxed text-[11px] sm:text-xs">
+                Booking Status Uncertain: Backend response timed out or requires verification. Do not retry automatically.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Card 1: Confirmed Details Card */}
         <div className="mt-6 rounded-2xl bg-[#0E1624] border border-slate-800 p-4 sm:p-5 space-y-4">
@@ -245,7 +196,7 @@ export function BookingConfirmationModal({
                   </Badge>
                 </div>
                 <div className="text-xs text-slate-400 mt-0.5">
-                  Driver #A-812 · White Sedan (Simulated)
+                  Driver: <strong className="text-slate-200">{driverId}</strong> · {rideState} (Simulated)
                 </div>
               </div>
             </div>
@@ -283,9 +234,9 @@ export function BookingConfirmationModal({
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-500">Status</div>
-                <div className="text-sm sm:text-base font-extrabold text-[#2ED389] mt-0.5">
-                  On time
+                <div className="text-[10px] uppercase font-bold text-slate-500">State</div>
+                <div className="text-xs sm:text-sm font-extrabold text-[#2ED389] mt-0.5 uppercase truncate">
+                  {rideState}
                 </div>
               </div>
             </div>

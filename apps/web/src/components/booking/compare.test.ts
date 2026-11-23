@@ -1,8 +1,73 @@
 import { describe, it, expect } from 'vitest';
 import { ProviderCard } from './ProviderCard';
 import { BookingConfirmationModal } from './BookingConfirmationModal';
-import { CompareScreen, FALLBACK_MOCK_JOURNEY } from './CompareScreen';
-import { providerName, type Quote, type Provider } from '@/types';
+import { CompareScreen } from './CompareScreen';
+import { providerName, type Quote, type Provider, type Journey } from '@/types';
+
+const MOCK_JOURNEY_FOR_TESTS: Journey = {
+  id: 'sim-fallback-demo',
+  pickup: { label: 'VIT Chennai', lat: 12.8406, lng: 80.1534 },
+  dropoff: { label: 'Chennai Airport', lat: 12.9941, lng: 80.1709 },
+  state: 'OFFERED',
+  version: 1,
+  active_ride_id: null,
+  active_ride: null,
+  last_ride: null,
+  quotes: [
+    {
+      quote_id: 'q-demo-a',
+      provider: 'PROVIDER_A',
+      estimated_fare_inr: 890,
+      pickup_eta_sec: 240, // 4 min
+      expires_at: new Date(Date.now() + 540000).toISOString(),
+      is_simulated: true,
+    },
+    {
+      quote_id: 'q-demo-b',
+      provider: 'PROVIDER_B',
+      estimated_fare_inr: 820,
+      pickup_eta_sec: 360, // 6 min
+      expires_at: new Date(Date.now() + 540000).toISOString(),
+      is_simulated: true,
+    },
+    {
+      quote_id: 'q-demo-c',
+      provider: 'PROVIDER_C',
+      estimated_fare_inr: 1050,
+      pickup_eta_sec: 300, // 5 min
+      expires_at: new Date(Date.now() + 540000).toISOString(),
+      is_simulated: true,
+    },
+    {
+      quote_id: 'q-demo-d',
+      provider: 'PROVIDER_D',
+      estimated_fare_inr: 960,
+      pickup_eta_sec: 480, // 8 min
+      expires_at: new Date(Date.now() + 540000).toISOString(),
+      is_simulated: true,
+    },
+  ],
+  risk: null,
+  pending_backup: null,
+  recovery_attempts: 0,
+  policy: {
+    auto_rebook_on_confirmed_driver_cancel: true,
+    max_total_fare_inr: 1200,
+    max_recovery_attempts: 2,
+    preemptive_switch_requires_approval: true,
+    allow_same_provider_retry: true,
+    max_cancellation_fee_inr: 100,
+  },
+  scenario: 'S01',
+  simulated_time: new Date().toISOString(),
+  is_simulated: true,
+  booking_uncertain: false,
+  last_event_seq: 0,
+  need_by: new Date(Date.now() + 25 * 60000).toISOString(),
+  driver_chat_signal: null,
+  deadline_decision: null,
+  cancellation_fee_notice: null,
+};
 
 describe('Compare & Confirmation Components & Business Logic', () => {
   it('exports valid React components', () => {
@@ -24,16 +89,16 @@ describe('Compare & Confirmation Components & Business Logic', () => {
     }
   });
 
-  it('validates FALLBACK_MOCK_JOURNEY specifications', () => {
-    expect(FALLBACK_MOCK_JOURNEY.id).toBe('sim-fallback-demo');
-    expect(FALLBACK_MOCK_JOURNEY.is_simulated).toBe(true);
-    expect(FALLBACK_MOCK_JOURNEY.quotes.length).toBe(4);
+  it('validates mock journey specifications for testing', () => {
+    expect(MOCK_JOURNEY_FOR_TESTS.id).toBe('sim-fallback-demo');
+    expect(MOCK_JOURNEY_FOR_TESTS.is_simulated).toBe(true);
+    expect(MOCK_JOURNEY_FOR_TESTS.quotes.length).toBe(4);
 
-    const providerList = FALLBACK_MOCK_JOURNEY.quotes.map((q) => q.provider);
+    const providerList = MOCK_JOURNEY_FOR_TESTS.quotes.map((q) => q.provider);
     expect(providerList).toEqual(['PROVIDER_A', 'PROVIDER_B', 'PROVIDER_C', 'PROVIDER_D']);
 
     // Check all simulated flags and values
-    for (const quote of FALLBACK_MOCK_JOURNEY.quotes) {
+    for (const quote of MOCK_JOURNEY_FOR_TESTS.quotes) {
       expect(quote.is_simulated).toBe(true);
       expect(quote.estimated_fare_inr).toBeGreaterThan(0);
       expect(quote.pickup_eta_sec).toBeGreaterThan(0);
@@ -42,7 +107,7 @@ describe('Compare & Confirmation Components & Business Logic', () => {
   });
 
   it('correctly sorts quotes by fastest ETA', () => {
-    const quotes = [...FALLBACK_MOCK_JOURNEY.quotes];
+    const quotes = [...MOCK_JOURNEY_FOR_TESTS.quotes];
     const sortedByEta = [...quotes].sort((a, b) => a.pickup_eta_sec - b.pickup_eta_sec);
 
     expect(sortedByEta[0].provider).toBe('PROVIDER_A'); // 240s
@@ -52,7 +117,7 @@ describe('Compare & Confirmation Components & Business Logic', () => {
   });
 
   it('correctly sorts quotes by lowest price', () => {
-    const quotes = [...FALLBACK_MOCK_JOURNEY.quotes];
+    const quotes = [...MOCK_JOURNEY_FOR_TESTS.quotes];
     const sortedByPrice = [...quotes].sort((a, b) => a.estimated_fare_inr - b.estimated_fare_inr);
 
     expect(sortedByPrice[0].provider).toBe('PROVIDER_B'); // ₹820
@@ -63,10 +128,10 @@ describe('Compare & Confirmation Components & Business Logic', () => {
 
   it('correctly flags quotes exceeding policy max fare', () => {
     const maxFare = 900;
-    const affordable = FALLBACK_MOCK_JOURNEY.quotes.filter(
+    const affordable = MOCK_JOURNEY_FOR_TESTS.quotes.filter(
       (q) => q.estimated_fare_inr <= maxFare
     );
-    const exceeding = FALLBACK_MOCK_JOURNEY.quotes.filter(
+    const exceeding = MOCK_JOURNEY_FOR_TESTS.quotes.filter(
       (q) => q.estimated_fare_inr > maxFare
     );
 
@@ -92,5 +157,19 @@ describe('Compare & Confirmation Components & Business Logic', () => {
       pickup_eta_sec: 185,
     };
     expect(Math.max(1, Math.ceil(quoteOddSec.pickup_eta_sec / 60))).toBe(4);
+  });
+
+  it('detects quote expiry correctly based on expires_at timestamp', () => {
+    const expiredQuote: Quote = {
+      quote_id: 'q-expired',
+      provider: 'PROVIDER_A',
+      estimated_fare_inr: 850,
+      pickup_eta_sec: 240,
+      expires_at: new Date(Date.now() - 10000).toISOString(),
+      is_simulated: true,
+    };
+
+    const isExpired = Date.now() >= new Date(expiredQuote.expires_at).getTime();
+    expect(isExpired).toBe(true);
   });
 });
