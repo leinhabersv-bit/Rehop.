@@ -26,7 +26,7 @@ export default function JourneyPanel({id}:{id:string}){
       <h2 id="switch-title">Confirm switching providers</h2>
       <p>Original ride: {ride?providerName[ride.provider]:'Not active'} · Replacement: {providerName[data.pending_backup.provider]} (simulated).</p>
       <p><strong>Backup estimate: ₹{data.pending_backup.estimated_fare_inr} · pickup ETA {Math.ceil(data.pending_backup.pickup_eta_sec/60)} min.</strong></p>
-      <div className="error">Possible cancellation fee: up to ₹{data.cancellation_fee_notice?.potential_fee_upper_bound_inr??0} in this simulator. The 2025 guideline's 10% / ₹100 limit is conditional on cancelling without a valid reason. This is NOT a real provider-confirmed fee, and applicable state/provider rules may differ.</div>
+      <div className="error">Possible cancellation fee: up to ₹{data.cancellation_fee_notice?.potential_fee_upper_bound_inr??0} in this simulator. The 2025 guideline&apos;s 10% / ₹100 limit is conditional on cancelling without a valid reason. This is NOT a real provider-confirmed fee, and applicable state/provider rules may differ.</div>
       <p className="helper">We will recheck the backup quote before cancelling the existing ride. A fresh quote is not a reserved cab. It may disappear after cancellation, leaving no confirmed ride.</p>
       <div className="button-row"><button className="btn" disabled={busy} onClick={()=>{setShowSwitchConfirm(false);void act(()=>api.approve(id,true,data.version));}}>I understand — switch safely</button>
       <button className="btn ghost" disabled={busy} onClick={()=>setShowSwitchConfirm(false)}>Go back</button></div>
