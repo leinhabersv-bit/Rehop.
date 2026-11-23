@@ -104,7 +104,10 @@ export default function HomePage() {
           </div>}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-[#475673] underline">Places © OpenStreetMap contributors</a>
         </section>
-        <section aria-labelledby="pickup-protection-title" className="flex min-w-0 flex-col justify-center overflow-hidden rounded-[28px] bg-[#112575] bg-[radial-gradient(ellipse_at_top_right,#294ee9,transparent_70%)] p-5 text-white sm:p-8 lg:p-10">
+        <section aria-labelledby="pickup-protection-title" className="relative isolate flex min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#112575] px-5 pb-5 pt-32 text-white sm:px-8 sm:pb-8 sm:pt-40 lg:px-10 lg:pb-12">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-[position:65%_40%]" style={{
+            backgroundImage: 'linear-gradient(90deg, rgba(9,22,67,.76), rgba(9,22,67,.04) 90%), linear-gradient(0deg, #101f5e 3%, rgba(12,26,80,.84) 38%, transparent 82%), url(/images/pickup-protection-blue-hour.webp)',
+          }} />
           <span className="mb-5 grid size-12 place-items-center rounded-2xl bg-[#ffb27d] text-[#20195c]">
             <ShieldCheck size={26} aria-hidden="true" />
           </span>
