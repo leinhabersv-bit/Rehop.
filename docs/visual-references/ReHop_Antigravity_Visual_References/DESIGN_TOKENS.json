@@ -1,0 +1,46 @@
+{
+  "product": "ReHop",
+  "tagline": "Your ride. No interruptions.",
+  "mode": "simulation",
+  "colors": {
+    "primary": "#B9FF45",
+    "background": "#090F1D",
+    "surface": "#151F32",
+    "surfaceAlt": "#243249",
+    "text": "#F6F8FC",
+    "muted": "#98A5BC",
+    "success": "#2ED389",
+    "warning": "#FFBD63",
+    "danger": "#FF6D76",
+    "ai": "#B79CFF"
+  },
+  "typeface": "Inter, system-ui, sans-serif",
+  "baseSpacingPx": 8,
+  "radius": {
+    "button": 16,
+    "card": 20
+  },
+  "roles": {
+    "frontend2": [
+      "landing",
+      "booking",
+      "intent-review",
+      "comparison",
+      "confirmation",
+      "shared-visual-components"
+    ],
+    "frontend1": [
+      "tracking",
+      "risk",
+      "recovery",
+      "websockets",
+      "api-contracts"
+    ]
+  },
+  "providers": [
+    "Provider A",
+    "Provider B",
+    "Provider C",
+    "Provider D"
+  ]
+}
