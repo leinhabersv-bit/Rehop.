@@ -4,11 +4,11 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'services'/'api'))
-from app.simulation.engine import Session, LOCATIONS, SCENARIOS, SimulationError
+from app.simulation.engine import Session, LOCATIONS, SCENARIOS, SimulationError, BASE_TIME
 from app.schemas.models import JourneyCreate, RecoveryPolicy
 
 
@@ -16,17 +16,25 @@ def run(seed:int):
     results=[]
     for scenario_id in SCENARIOS:
         policy=RecoveryPolicy(max_total_fare_inr=330) if scenario_id=='S07' else RecoveryPolicy()
-        session=Session(JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy), scenario_id, seed)
-        uber=next(q for q in session.quotes if q['provider']=='UBER_SIM')
-        try:session.book(uber['quote_id'],f'benchmark-{scenario_id}')
+        request=JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy)
+        if scenario_id=='S16': request.need_by=BASE_TIME + timedelta(minutes=5)
+        session=Session(request, scenario_id, seed)
+        primary=next(q for q in session.quotes if q['provider']=='PROVIDER_A')
+        try:session.book(primary['quote_id'],f'benchmark-{scenario_id}')
         except SimulationError:pass
         if scenario_id=='S11':session.cancel('benchmark-stop')
         session.tick(25)
+        if scenario_id in {'S14','S15'} and session.pending_backup:
+            session.approve_switch(True,f'benchmark-switch-{scenario_id}')
         results.append({
             'scenario':scenario_id,'journey_state':session.state,
             'risk_band':session.risk['band'] if session.risk else None,
             'recovery_attempts':session.recovery_attempts,
             'driver_cancelled_events':sum(e['type']=='DRIVER_CANCELLED' for e in session.events),
+            'driver_message_signal':(session.driver_chat_signal or {}).get('label'),
+            'deadline_decision':(session.decision or {}).get('recommendation'),
+            'quote_refresh_failed':any(e['type']=='QUOTE_REFRESH_FAILED' for e in session.events),
+            'post_cancel_quote_lost':any(e['type']=='REPLACEMENT_QUOTE_LOST' for e in session.events),
             'active_ride_count':int(session.ride is not None and session.ride['state'] in {'CONFIRMED','DRIVER_EN_ROUTE','DRIVER_ARRIVED','IN_PROGRESS'}),
             'is_simulated':True,
         })
@@ -43,4 +51,4 @@ if __name__=='__main__':
              'not_real_world_metrics':True,'runs':args.runs,'results':result}
     out=ROOT/'eval'/'results'/'smoke_report.json';out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(summary,indent=2)+'\n')
-    print(f'Wrote {out}; {12*args.runs} simulated scenario executions. No real-world accuracy claim.')
+    print(f'Wrote {out}; {len(SCENARIOS)*args.runs} simulated scenario executions. No real-world accuracy claim.')

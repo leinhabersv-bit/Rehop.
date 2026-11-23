@@ -1,9 +1,9 @@
-export type Provider = 'UBER_SIM'|'OLA_SIM'|'RAPIDO_SIM'|'REDTAXI_SIM';
+export type Provider = 'PROVIDER_A'|'PROVIDER_C'|'PROVIDER_B'|'PROVIDER_D';
 export type Location = { label:string;lat:number;lng:number };
 export type RecoveryPolicy = {
   auto_rebook_on_confirmed_driver_cancel:boolean;max_total_fare_inr:number;
   max_recovery_attempts:number;preemptive_switch_requires_approval:true;
-  allow_same_provider_retry:boolean
+  allow_same_provider_retry:boolean;max_cancellation_fee_inr:number
 };
 export type Quote = { quote_id:string;provider:Provider;estimated_fare_inr:number;pickup_eta_sec:number;expires_at:string;is_simulated:true };
 export type Risk = { score_0_100:number;band:'LOW'|'MEDIUM'|'HIGH'|'UNKNOWN';
@@ -17,6 +17,9 @@ export type Journey = {id:string;pickup:Location;dropoff:Location;state:string;v
   active_ride_id:string|null;active_ride:Ride|null;last_ride:Ride|null;quotes:Quote[];
   risk:Risk|null;pending_backup:Quote|null;recovery_attempts:number;
   policy:RecoveryPolicy;scenario:string;simulated_time:string;is_simulated:true;
-  booking_uncertain:boolean;last_event_seq:number};
+  booking_uncertain:boolean;last_event_seq:number;need_by:string;
+  driver_chat_signal:{label:string;evidence:string;source:string}|null;
+  deadline_decision:{seconds_until_deadline:number;wait_cost_points:number;switch_cost_points:number;recommendation:string}|null;
+  cancellation_fee_notice:{potential_fee_upper_bound_inr:number;actual_fee_inr:number|null;fee_confirmed:boolean;caution:string}|null};
 export type Scenario = {id:string;name:string};
-export const providerName:Record<Provider,string>={UBER_SIM:'Uber',OLA_SIM:'Ola',RAPIDO_SIM:'Rapido',REDTAXI_SIM:'RedTaxi'};
+export const providerName:Record<Provider,string>={PROVIDER_A:'Provider A',PROVIDER_B:'Provider B',PROVIDER_C:'Provider C',PROVIDER_D:'Provider D'};

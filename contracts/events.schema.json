@@ -1,18 +1,76 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/riderescue/events.schema.json",
-  "title": "RideRescue Journey Event Envelope v1",
+  "title": "RideRescue Journey Event Envelope v1.1",
   "description": "All providers and telemetry are simulated; sequence numbers are per journey.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["event_id", "journey_id", "seq", "timestamp", "type", "ride_id", "payload"],
+  "required": [
+    "event_id",
+    "journey_id",
+    "seq",
+    "timestamp",
+    "type",
+    "ride_id",
+    "payload"
+  ],
   "properties": {
-    "event_id": {"type":"string", "minLength":1},
-    "journey_id": {"type":"string", "minLength":1},
-    "seq": {"type":"integer", "minimum":1},
-    "timestamp": {"type":"string", "format":"date-time"},
-    "ride_id": {"type":["string","null"]},
-    "type": {"enum": ["JOURNEY_CREATED","QUOTES_READY","BOOKING_REQUESTED","RIDE_CONFIRMED","TELEMETRY_UPDATED","RISK_UPDATED","BACKUP_FOUND","APPROVAL_REQUIRED","SWITCH_APPROVED","SWITCH_REJECTED","RIDE_CANCEL_REQUESTED","RIDE_CANCEL_CONFIRMED","DRIVER_CANCELLED","RECOVERY_STARTED","RECOVERY_SUCCEEDED","RECOVERY_BLOCKED","RECOVERY_EXHAUSTED","DRIVER_ARRIVED","PICKUP_CONFIRMED","USER_CANCELLED","ERROR"]},
-    "payload": {"type":"object"}
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "journey_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ride_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "type": {
+      "enum": [
+        "APPROVAL_REQUIRED",
+        "BACKUP_FOUND",
+        "BOOKING_REQUESTED",
+        "DEADLINE_DECISION",
+        "DRIVER_ARRIVED",
+        "DRIVER_CANCELLED",
+        "DRIVER_MESSAGE_CLASSIFIED",
+        "ERROR",
+        "EXPLANATION_VERIFIED",
+        "JOURNEY_CREATED",
+        "PICKUP_CONFIRMED",
+        "QUOTES_READY",
+        "QUOTE_REFRESHED",
+        "QUOTE_REFRESH_FAILED",
+        "RECOVERY_BLOCKED",
+        "RECOVERY_EXHAUSTED",
+        "RECOVERY_STARTED",
+        "RECOVERY_SUCCEEDED",
+        "REPLACEMENT_QUOTE_LOST",
+        "RIDE_CANCEL_CONFIRMED",
+        "RIDE_CANCEL_REQUESTED",
+        "RIDE_CONFIRMED",
+        "RISK_SIGNAL_ADDED",
+        "RISK_UPDATED",
+        "SWITCH_APPROVED",
+        "SWITCH_REJECTED",
+        "TELEMETRY_UPDATED",
+        "USER_CANCELLED"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
   }
 }

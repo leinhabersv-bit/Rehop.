@@ -1,0 +1,39 @@
+{
+  "version": "1.1",
+  "mode": "simulated_ondc_shaped_not_network_connected",
+  "providers": [
+    "PROVIDER_A",
+    "PROVIDER_B",
+    "PROVIDER_C",
+    "PROVIDER_D"
+  ],
+  "facade_to_beckn": {
+    "get_quotes": [
+      "search",
+      "on_search"
+    ],
+    "select_candidate": [
+      "select",
+      "on_select"
+    ],
+    "prepare_booking": [
+      "init",
+      "on_init"
+    ],
+    "book": [
+      "confirm",
+      "on_confirm"
+    ],
+    "cancel": [
+      "cancel",
+      "on_cancel"
+    ],
+    "get_ride_state": [
+      "status",
+      "on_status",
+      "track",
+      "on_track"
+    ]
+  },
+  "note": "The local simulator is synchronous; real network semantics are authenticated asynchronous requests/callbacks."
+}

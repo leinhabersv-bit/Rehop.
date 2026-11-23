@@ -1,37 +1,39 @@
-# Architecture | RideRescue v0.1
+# RideRescue architecture v1.1 — pre-freeze correction
 
 ```text
-Next.js FE1: setup/quotes     Next.js FE2: journey, risk, demo
-             \                  /
-               FastAPI REST + WebSocket  <- contracts/openapi.yaml
-                         |
-               BE1 event/source of truth
-                |                  |
-          mock providers       telemetry ticks
-                                   |
-                          BE2 risk features
-                                   |
-                          BE2 policy guardrails
-                                   |
-                         BE1 simulated operations
+ FE1: pickup, rider intent, deadline, preferences, provider quotes
+ FE2: tracking, driver chat event, deadline decision, fee notice, recovery timeline
+                             |
+                      FastAPI REST / WS
+                             |
+ BE1: neutral provider simulation, event store, idempotency, quote TTL
+   |       search / select / init / confirm / cancel / status / track
+   |                      |
+   |              ondc-shaped LOCAL adapters (NOT ONDC network clients)
+   |
+ BE2: advisory LLM modules + telemetry risk features + cost-of-wait decision
+                             |
+       DETERMINISTIC SAFETY POLICY authorizes or rejects each command
+                             |
+                BE1 records confirmed outcomes
 ```
 
-## Important separation
+## Rule of authority
 
-**BE1** is authoritative for simulated provider events and ride state. **BE2** recommends candidate actions and enforces spending, approval, and retry policy. **FE1/FE2** render backend data and may initiate explicit authorized actions but never invent ride outcomes.
+- LLM: extracts a rider's intent, classifies *untrusted* driver text into an advisory signal, rewrites explanations without adding unsupported numerical claims.
+- Risk/decision: evaluates model + GPS + ETA + `need_by` against quote and (conditional) cancellation cost. This is a recommendation, **not** a booking authorization.
+- Policy: enforces explicit approval, valid states, no double active rides, idempotency, fare cap, fee cap, retry cap, fresh offers and terminal stop.
+- Provider: reports action outcomes; a timed-out `confirm` remains `UNKNOWN`, never silently retried.
 
-## Current starter limitations
+## Safe preemptive switch
 
-- Four provider names refer to **mock adapters only**. No actual Uber, Ola, Rapido or RedTaxi booking, data feed or official partner agreement.
-- API stores data in memory; BE1 must implement SQLite transactions and durable idempotency before real-world use.
-- The current simulated movement profiles cover representative cases; 12 scenarios are defined, but not all are complete adversarial reproductions.
-- WebSocket events are emitted by polling the authoritative in-memory event log. For a single-process demo only.
-- GPS positions are conceptual; the frontend map is not a real street map.
-- Risk score is a transparent synthetic heuristic, not a field-validated probability. No claim of driver intent.
-- Latest quote and cancellation status must be verified before any future production integration.
+1. Risk and urgency warrant a proposal; collect alternatives without booking concurrently.
+2. Rider sees current ETA, `need_by`, fresh replacement estimate and conditional cancellation-fee illustration and chooses approve/decline.
+3. Immediately before cancellation: `search` + `select` / `init` for a **fresh backup quote** and recheck budgets, expiry and limits. If unavailable, **do not cancel original**.
+4. If available: `cancel` the original and await verified `on_cancel` semantics (locally simulated as immediate confirmed event).
+5. Only after confirmed cancellation: `confirm` replacement and verify outcome. Do not claim `init` guarantees stock or hold.
+6. If replacement vanishes after cancellation, retry bounded `search`/`confirm` where eligible or disclose "no confirmed ride". Never report success without a confirmed booking.
 
-## Human approval boundary
+## Current limitations
 
-A detected stall may initiate **parallel search**, never parallel active booking. Preemptive switches always require rider approval, confirmation of the old cancellation, and eligibility checks before a new booking. Reactive recovery occurs only when a driver cancellation is confirmed and the rider has opted into it.
-
-Read the two original blueprints in `docs/reference/` before changing interfaces.
+Everything remains simulated and in memory. The ONDC naming is *architectural alignment*, not network membership. No real ride tracking, actual prices, charges, holds, guaranteed pickups, or fee payments are claimed. The simulator uses an illustrative 10%-up-to-Rs100 bound for certain no-valid-reason rider cancellations; applicable state/provider policies must replace this assumption in production.

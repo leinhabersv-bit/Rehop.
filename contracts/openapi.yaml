@@ -4,6 +4,61 @@ info:
   description: Synthetic cab-provider simulation for a hackathon. No real bookings.
   version: 0.1.0
 paths:
+  /api/v1/intent/parse:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Parse Intent
+      operationId: parse_intent_api_v1_intent_parse_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseIntentRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/driver-message:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Driver Message
+      operationId: driver_message_api_v1_journeys__journey_id__driver_message_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverMessageRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/locations:
     get:
       tags:
@@ -417,6 +472,22 @@ components:
       - quote_id
       - idempotency_key
       title: BookRequest
+    DriverMessageRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Text
+        idempotency_key:
+          type: string
+          minLength: 3
+          title: Idempotency Key
+      type: object
+      required:
+      - text
+      - idempotency_key
+      title: DriverMessageRequest
     HTTPValidationError:
       properties:
         detail:
@@ -434,6 +505,12 @@ components:
           $ref: '#/components/schemas/Location'
         policy:
           $ref: '#/components/schemas/RecoveryPolicy'
+        need_by:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Need By
       type: object
       required:
       - pickup
@@ -461,6 +538,17 @@ components:
       - lat
       - lng
       title: Location
+    ParseIntentRequest:
+      properties:
+        text:
+          type: string
+          maxLength: 500
+          minLength: 4
+          title: Text
+      type: object
+      required:
+      - text
+      title: ParseIntentRequest
     QuoteRequest:
       properties:
         pickup:
@@ -499,6 +587,12 @@ components:
           type: boolean
           title: Allow Same Provider Retry
           default: true
+        max_cancellation_fee_inr:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Max Cancellation Fee Inr
+          default: 100
       type: object
       title: RecoveryPolicy
     TickRequest:

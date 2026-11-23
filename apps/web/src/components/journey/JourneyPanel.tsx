@@ -12,6 +12,7 @@ export default function JourneyPanel({id}:{id:string}){
   const {data,error}=useQuery({queryKey:['journey',id],queryFn:()=>api.journey(id),refetchInterval:1500});
   const events=useJourneyEvents(id);
   const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');
+  const [showSwitchConfirm,setShowSwitchConfirm]=useState(false);
   const refresh=()=>queryClient.invalidateQueries({queryKey:['journey',id]});
   async function act(fn:()=>Promise<unknown>){setMessage('');setBusy(true);try{await fn();await refresh()}
     catch(e){setMessage(e instanceof Error?e.message:'Action failed.')}finally{setBusy(false)}}
@@ -21,6 +22,15 @@ export default function JourneyPanel({id}:{id:string}){
   const isArrived=ride?.state==='DRIVER_ARRIVED';
   const risk=data.risk;
   return <>
+    {showSwitchConfirm&&data.pending_backup&&<div className="dialog-shade" role="presentation"><div className="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="switch-title">
+      <h2 id="switch-title">Confirm switching providers</h2>
+      <p>Original ride: {ride?providerName[ride.provider]:'Not active'} · Replacement: {providerName[data.pending_backup.provider]} (simulated).</p>
+      <p><strong>Backup estimate: ₹{data.pending_backup.estimated_fare_inr} · pickup ETA {Math.ceil(data.pending_backup.pickup_eta_sec/60)} min.</strong></p>
+      <div className="error">Possible cancellation fee: up to ₹{data.cancellation_fee_notice?.potential_fee_upper_bound_inr??0} in this simulator. The 2025 guideline's 10% / ₹100 limit is conditional on cancelling without a valid reason. This is NOT a real provider-confirmed fee, and applicable state/provider rules may differ.</div>
+      <p className="helper">We will recheck the backup quote before cancelling the existing ride. A fresh quote is not a reserved cab. It may disappear after cancellation, leaving no confirmed ride.</p>
+      <div className="button-row"><button className="btn" disabled={busy} onClick={()=>{setShowSwitchConfirm(false);void act(()=>api.approve(id,true,data.version));}}>I understand — switch safely</button>
+      <button className="btn ghost" disabled={busy} onClick={()=>setShowSwitchConfirm(false)}>Go back</button></div>
+    </div></div>}
     <div className="status-heading"><div><span className="eyebrow">Simulation · {data.scenario}</span>
       <h1 style={{marginBottom:6}}>Live pickup monitor</h1>
       <p className="muted">{data.pickup.label} → {data.dropoff.label}</p></div>
@@ -38,15 +48,25 @@ export default function JourneyPanel({id}:{id:string}){
         <section className="panel stack"><h2>Recovery controls</h2>
           {ride&&<p>Current provider: <strong>{providerName[ride.provider]}</strong> · {ride.state.replaceAll('_',' ')}</p>}
           {risk&&<div className="inline-note"><strong>Pickup risk: {risk.band} ({risk.score_0_100}/100)</strong><p style={{margin:'5px 0 0'}}>{risk.explanation}</p></div>}
+          <p className="helper">Pickup deadline: {new Date(data.need_by).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})} (simulated UTC)</p>
+          {data.deadline_decision&&<div className="inline-note">Deadline decision: {data.deadline_decision.recommendation.replaceAll('_',' ').toLowerCase()} · wait score {data.deadline_decision.wait_cost_points} vs switch score {data.deadline_decision.switch_cost_points} (simulator points, not money)</div>}
+          {data.driver_chat_signal&&<div className="inline-note">Driver chat signal: <strong>{data.driver_chat_signal.label}</strong> · {data.driver_chat_signal.source}. Advisory only.</div>}
           {data.pending_backup&&<div className="inline-note"><strong>Backup available: {providerName[data.pending_backup.provider]}</strong>
             <p>₹{data.pending_backup.estimated_fare_inr} · ETA {Math.ceil(data.pending_backup.pickup_eta_sec/60)} min · simulated</p>
-            <p className="helper">Approval cancels the existing simulated ride first, verifies cancellation, then books a replacement.</p>
-            <div className="button-row"><button className="btn small" disabled={busy} onClick={()=>act(()=>api.approve(id,true,data.version))}>Approve safe switch</button>
+            <p className="helper">RideRescue refreshes the backup quote before requesting cancellation. A fresh quote is not a guaranteed reservation.</p>
+            {data.cancellation_fee_notice&&<div className="error" role="status">Possible rider cancellation fee: up to ₹{data.cancellation_fee_notice.potential_fee_upper_bound_inr} in this simulation (2025 guideline illustration, only if cancellation lacks a valid reason). Not a verified provider charge. {data.cancellation_fee_notice.caution}</div>}
+            <div className="button-row"><button className="btn small" disabled={busy} onClick={()=>setShowSwitchConfirm(true)}>Review switch & fee</button>
               <button className="btn small ghost" disabled={busy} onClick={()=>act(()=>api.approve(id,false,data.version))}>Keep waiting</button></div></div>}
           {data.state==='EXHAUSTED'&&<div className="error">No suitable backup remains within your spending and retry limits.</div>}
           {data.state==='PICKUP_CONFIRMED'&&<div className="inline-note"><strong>✓ Pickup confirmed.</strong> Recovery actions have stopped.</div>}
           {data.state==='USER_CANCELLED'&&<div className="inline-note">You stopped this journey. No further automatic bookings will be made.</div>}
           {data.booking_uncertain&&<div className="error">Booking status is unknown. Replacement booking is blocked until verified.</div>}
+          {ride&&<div className="stack"><label>Inject a simulated driver message (developer test)
+            <input id="driver-message" defaultValue="Traffic, 10 min" maxLength={500}/></label>
+            <button className="btn small secondary" disabled={busy} onClick={()=>{
+              const field=document.getElementById('driver-message') as HTMLInputElement|null;
+              if(field)act(()=>api.driverMessage(id,field.value));
+            }}>Classify driver message</button></div>}
           <div className="button-row">
             <button className="btn small secondary" disabled={busy||done} onClick={()=>act(()=>api.tick(id,6))}>Advance 30 sec</button>
             <button className="btn small secondary" disabled={busy||done} onClick={()=>act(()=>api.tick(id,24))}>Advance 2 min</button>

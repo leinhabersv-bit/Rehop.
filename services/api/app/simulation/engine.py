@@ -8,6 +8,9 @@ from uuid import uuid4
 from app.intelligence.policy import ACTIVE_RIDE_STATES, may_rebook
 from app.intelligence.risk import assess
 from app.intelligence.recovery import rank_backups
+from app.intelligence.decision import compare_wait_switch
+from app.intelligence.llm import classify_driver_message, explain_with_verified_numbers
+from app.simulation.providers import ADAPTERS
 from app.schemas.models import JourneyCreate, RecoveryPolicy
 
 BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=timezone.utc)
@@ -24,6 +27,10 @@ SCENARIOS = {
     'S07': 'Backups exceed fare cap', 'S08': 'Stale GPS updates',
     'S09': 'Near pickup, stationary', 'S10': 'Arrival/cancellation race',
     'S11': 'User cancels during recovery', 'S12': 'Booking status unknown',
+    'S13': 'Driver chat requests rider cancellation',
+    'S14': 'Refreshed backup unavailable: original preserved',
+    'S15': 'Quote lost after cancellation: disclose recovery gap',
+    'S16': 'Urgent and relaxed pickup deadlines',
 }
 
 
@@ -39,6 +46,11 @@ class Session:
         self.pickup = request.pickup.model_dump()
         self.dropoff = request.dropoff.model_dump()
         self.policy = request.policy.model_dump()
+        self.need_by = request.need_by or (BASE_TIME + timedelta(minutes=20))
+        self.driver_chat_signal: dict[str, Any] | None = None
+        self.decision: dict[str, Any] | None = None
+        self.explained_bands: set[str] = set()
+        self.cancellation_fee_notice: dict[str, Any] | None = None
         self.scenario = scenario
         self.seed = seed
         self.rng = random.Random(seed)
@@ -64,15 +76,61 @@ class Session:
         self.state = 'WAITING_FOR_RIDE'
 
     def _make_quotes(self) -> list[dict[str, Any]]:
-        base = [('UBER_SIM', 320, 300), ('RAPIDO_SIM', 285, 240),
-                ('OLA_SIM', 360, 360), ('REDTAXI_SIM', 395, 540)]
+        quotes = [ADAPTERS[name].search(self.id, self.clock) for name in
+                  ('PROVIDER_A','PROVIDER_B','PROVIDER_C','PROVIDER_D')]
         if self.scenario == 'S07':
-            base = [('UBER_SIM', 300, 300), ('RAPIDO_SIM', 390, 240),
-                    ('OLA_SIM', 420, 360), ('REDTAXI_SIM', 440, 540)]
-        return [dict(quote_id=f'{self.id}_{name.lower()}', provider=name,
-                     estimated_fare_inr=fare, pickup_eta_sec=eta,
-                     expires_at=(BASE_TIME + timedelta(days=1)).isoformat(),
-                     is_simulated=True) for name, fare, eta in base]
+            for quote in quotes:
+                if quote['provider'] != 'PROVIDER_A': quote['estimated_fare_inr'] += 120
+        return quotes
+
+    def _refresh_backup(self, quote: dict[str, Any]) -> dict[str, Any] | None:
+        """A fresh simulated search/select/init BEFORE touching the current booking."""
+        if self.scenario == 'S14':
+            self.add_event('QUOTE_REFRESH_FAILED', {'reason':'Backup disappeared during search; original kept'})
+            return None
+        refreshed = ADAPTERS[quote['provider']].search(self.id, self.clock,
+                        fare=quote['estimated_fare_inr'], eta=quote['pickup_eta_sec'])
+        if (refreshed['estimated_fare_inr'] > self.policy['max_total_fare_inr']
+                or not ADAPTERS[quote['provider']].init(refreshed, self.clock)):
+            self.add_event('QUOTE_REFRESH_FAILED', {'reason':'Quote no longer eligible'})
+            return None
+        self.quotes = [refreshed if q['provider']==refreshed['provider'] else q for q in self.quotes]
+        self.add_event('QUOTE_REFRESHED', {'candidate':refreshed, 'not_a_reservation':True})
+        return refreshed
+
+    def _fee_notice(self) -> dict[str, Any]:
+        fare = next((q['estimated_fare_inr'] for q in self.quotes if self.ride and q['quote_id']==self.ride['quote_id']), 0)
+        bound = min(round(fare*0.10), 100)
+        # Guideline 18.2 applies ONLY to passenger cancellation without valid reason;
+        # actual provider/state rule may differ. This is a simulation estimate.
+        return dict(potential_fee_upper_bound_inr=bound, actual_fee_inr=None,
+                    fee_confirmed=False, source='MVAG 2025 clause 18.2: conditional illustration',
+                    caution='Not a guaranteed charge. Provider and state rules govern; valid reasons may avoid the fee.')
+
+    def _evaluate_backup(self, candidate: dict[str, Any]):
+        if not self.ride:
+            return None
+        fee = self._fee_notice()
+        current_fare = next((q['estimated_fare_inr'] for q in self.quotes if q['quote_id']==self.ride['quote_id']), 0)
+        return compare_wait_switch(now=self.clock,need_by=self.need_by,
+            current_eta_sec=self.ride['eta_sec'], backup_eta_sec=candidate['pickup_eta_sec'],
+            current_fare_inr=current_fare, backup_fare_inr=candidate['estimated_fare_inr'],
+            cancellation_fee_upper_bound_inr=fee['potential_fee_upper_bound_inr'],
+            risk_band=self.risk['band'] if self.risk else 'UNKNOWN',
+            chat_signal=(self.driver_chat_signal or {}).get('label'))
+
+    def driver_message(self, text: str, key: str):
+        if key in self.idempotency:
+            return self.snapshot()
+        if not self.ride or self.state in {'USER_CANCELLED','PICKUP_CONFIRMED','EXHAUSTED'}:
+            raise SimulationError('INVALID_STATE','No active driver conversation.')
+        self.driver_chat_signal = classify_driver_message(text)
+        self.idempotency[key]='message_processed'
+        self.add_event('DRIVER_MESSAGE_CLASSIFIED', {'message':text[:300], 'signal':self.driver_chat_signal},self.ride['ride_id'])
+        # Never cancel from driver chat. Advice can elevate attention, not permissions.
+        if self.driver_chat_signal['label']=='REQUEST_RIDER_CANCEL':
+            self.add_event('RISK_SIGNAL_ADDED', {'signal':'driver_requests_rider_cancellation','advisory_only':True},self.ride['ride_id'])
+        return self.snapshot()
 
     def add_event(self, kind: str, payload: dict[str, Any], ride_id: str | None = None):
         self.version += 1
@@ -86,6 +144,8 @@ class Session:
     def snapshot(self) -> dict[str, Any]:
         return dict(id=self.id, pickup=self.pickup, dropoff=self.dropoff,
                     created_at=BASE_TIME.isoformat(), state=self.state,
+                    need_by=self.need_by.isoformat(), driver_chat_signal=self.driver_chat_signal,
+                    deadline_decision=self.decision, cancellation_fee_notice=self.cancellation_fee_notice,
                     active_ride_id=self.ride['ride_id'] if self.ride else None,
                     version=self.version, last_event_seq=len(self.events),
                     policy=self.policy, quotes=self.quotes, active_ride=self.ride,
@@ -118,7 +178,7 @@ class Session:
             raise SimulationError('QUOTE_NOT_FOUND', 'Quote is missing or expired.', retryable=True)
         if quote['estimated_fare_inr'] > self.policy['max_total_fare_inr']:
             raise SimulationError('POLICY_FARE_LIMIT', 'Ride exceeds the user-approved fare limit.')
-        if self.clock >= datetime.fromisoformat(quote['expires_at']):
+        if self.clock >= datetime.fromisoformat(quote['expires_at']) or not ADAPTERS[quote['provider']].confirm(quote, self.clock):
             raise SimulationError('QUOTE_EXPIRED', 'Request an updated quote.', retryable=True)
         if self.scenario == 'S12' and self.ride_count == 0:
             self.booking_uncertain = True
@@ -131,6 +191,9 @@ class Session:
         self.eta_delta_s = 0
         self.risk = None
         self.pending_backup = None
+        self.decision = None
+        self.explained_bands.clear()
+        self.cancellation_fee_notice = None
         self.ride = dict(ride_id=f'ride_{self.ride_count}_{self.id}',
                          journey_id=self.id, provider=quote['provider'],
                          quote_id=quote_id, state='DRIVER_EN_ROUTE',
@@ -163,7 +226,11 @@ class Session:
             self.state = 'EXHAUSTED'
             self.add_event('RECOVERY_EXHAUSTED', {'reason':'No eligible backup under fare and availability rules'})
             return
-        candidate = candidates[0]
+        candidate = self._refresh_backup(candidates[0])
+        if not candidate:
+            self.state = 'EXHAUSTED'
+            self.add_event('RECOVERY_EXHAUSTED', {'reason':'No fresh backup after driver cancellation'})
+            return
         if not self.policy['auto_rebook_on_confirmed_driver_cancel']:
             self.pending_backup = candidate
             self.state = 'AWAITING_APPROVAL'
@@ -215,7 +282,7 @@ class Session:
                         gps_age_s=int(gps_age), gps_quality='POOR')
                 self.add_event('RISK_UPDATED', self.risk, self.ride['ride_id'])
                 continue
-            stationary = self.scenario == 'S03' or (self.scenario == 'S02' and 3 <= self.ride_ticks <= 7) or self.scenario == 'S09'
+            stationary = self.scenario in {'S03','S13','S14','S15','S16'} or (self.scenario == 'S02' and 3 <= self.ride_ticks <= 7) or self.scenario == 'S09'
             if stationary:
                 self.stationary_ticks += 1
                 self.eta_delta_s += 15
@@ -232,14 +299,30 @@ class Session:
                          eta_delta_s=self.eta_delta_s,
                          distance_to_pickup_m=self.ride['distance_to_pickup_m'],
                          gps_age_s=0, gps_quality='GOOD')
+            if self.risk['band'] in {'MEDIUM','HIGH'} and self.risk['band'] not in self.explained_bands:
+                checked = explain_with_verified_numbers(self.risk['explanation'],
+                            [self.ride['eta_sec'],self.ride['distance_to_pickup_m']])
+                self.risk['explanation'] = checked['explanation']
+                self.risk['explanation_source'] = checked['source']
+                self.explained_bands.add(self.risk['band'])
+                self.add_event('EXPLANATION_VERIFIED', {'source':checked['source'],
+                    'numbers_checked_against_telemetry':True}, self.ride['ride_id'])
             self.add_event('RISK_UPDATED', self.risk, self.ride['ride_id'])
-            if self.risk['band'] == 'HIGH' and not self.pending_backup:
+            if self.scenario == 'S13' and self.ride_ticks == 5:
+                self.driver_message('Please cancel kar do, I am not coming.', f'injected_chat_{self.id}')
+            if self.risk['band'] in {'HIGH','MEDIUM'} and not self.pending_backup:
                 candidates = self._backups()
                 if candidates:
-                    self.pending_backup = candidates[0]
-                    self.state = 'AWAITING_APPROVAL'
-                    self.add_event('BACKUP_FOUND', {'candidate':self.pending_backup}, self.ride['ride_id'])
-                    self.add_event('APPROVAL_REQUIRED', {'reason':'High pickup risk; preemptive switch needs user approval'}, self.ride['ride_id'])
+                    assessment = self._evaluate_backup(candidates[0])
+                    self.decision = assessment
+                    self.add_event('DEADLINE_DECISION', assessment, self.ride['ride_id'])
+                    if assessment['recommendation']=='PROPOSE_SWITCH':
+                        self.pending_backup = candidates[0]
+                        self.cancellation_fee_notice = self._fee_notice()
+                        self.state = 'AWAITING_APPROVAL'
+                        self.add_event('BACKUP_FOUND', {'candidate':self.pending_backup}, self.ride['ride_id'])
+                        self.add_event('APPROVAL_REQUIRED', {'reason':'Deadline-aware switching proposal; rider approval required',
+                            'cancellation_fee_notice':self.cancellation_fee_notice}, self.ride['ride_id'])
                 else:
                     self.add_event('RECOVERY_BLOCKED', {'reason':'No eligible backup'}, self.ride['ride_id'])
             if self.ride['distance_to_pickup_m'] <= 0:
@@ -253,6 +336,7 @@ class Session:
         self.state = 'MONITORING'
         self.risk = None
         self.pending_backup = None
+        self.cancellation_fee_notice = None
         self.add_event('DRIVER_ARRIVED', {'message':'Simulated driver reached pickup.'}, self.ride['ride_id'])
 
     def approve_switch(self, approved: bool, key: str, expected_version: int | None = None):
@@ -269,15 +353,38 @@ class Session:
             self.pending_backup = None
             self.state = 'MONITORING'
             return self.snapshot()
-        self.add_event('SWITCH_APPROVED', {'new_provider':self.pending_backup['provider']})
+        # Refresh provider offer before any rider-side cancellation; never rely on stale offers.
+        candidate = self._refresh_backup(self.pending_backup)
+        if candidate is None:
+            self.pending_backup = None
+            self.cancellation_fee_notice = None
+            self.state = 'MONITORING' if self.ride else 'EXHAUSTED'
+            self.idempotency[key] = 'backup_unavailable'
+            return self.snapshot()
+        if self.ride and self.cancellation_fee_notice and (
+                self.cancellation_fee_notice['potential_fee_upper_bound_inr'] >
+                self.policy['max_cancellation_fee_inr']):
+            self.add_event('RECOVERY_BLOCKED', {'reason':'CANCELLATION_FEE_LIMIT'})
+            self.idempotency[key] = 'fee_limit'
+            return self.snapshot()
+        self.add_event('SWITCH_APPROVED', {'new_provider':candidate['provider'],
+                           'cancellation_fee_notice':self.cancellation_fee_notice})
         if self.ride:
             old_ride = self.ride.copy()
             self.add_event('RIDE_CANCEL_REQUESTED', {'old_provider':old_ride['provider']}, old_ride['ride_id'])
+            if ADAPTERS[old_ride['provider']].cancel(old_ride) != 'CONFIRMED':
+                raise SimulationError('CANCEL_UNCONFIRMED','Provider cancellation confirmation missing.')
             self.ride['state'] = 'RIDER_CANCELLED'
             self.last_ride = self.ride.copy()
             self.add_event('RIDE_CANCEL_CONFIRMED', {'old_provider':old_ride['provider']}, old_ride['ride_id'])
             self.ride = None
-        candidate = self.pending_backup.copy()
+        # A refreshed quote is NOT a reservation. Providers may still reject confirm.
+        if self.scenario == 'S15':
+            self.add_event('REPLACEMENT_QUOTE_LOST', {'reason':'Illustrative race after confirmed original cancellation'})
+            self.pending_backup = None
+            self.state = 'EXHAUSTED'
+            self.idempotency[key] = 'quote_lost_after_cancel'
+            return self.snapshot()
         permitted, reason = may_rebook(journey_state=self.state, active_ride_state=None,
                     attempts=self.recovery_attempts, max_attempts=self.policy['max_recovery_attempts'],
                     quote_fare_inr=candidate['estimated_fare_inr'],
@@ -291,7 +398,13 @@ class Session:
         self.idempotency[key] = 'approved'
         self.state = 'RECOVERING'
         self.add_event('RECOVERY_STARTED', {'attempt':self.recovery_attempts,'candidate':candidate})
-        return self.book(candidate['quote_id'],f'approve_rebook_{self.id}_{self.recovery_attempts}', replacement=True)
+        try:
+            return self.book(candidate['quote_id'],f'approve_rebook_{self.id}_{self.recovery_attempts}', replacement=True)
+        except SimulationError as exc:
+            # Status really is ride-less; never claim the replacement was secured.
+            self.state = 'EXHAUSTED'
+            self.add_event('RECOVERY_EXHAUSTED', {'reason':exc.code, 'original_cancellation_confirmed':True})
+            return self.snapshot()
 
     def cancel(self, key: str, expected_version: int | None = None):
         if key in self.idempotency:
@@ -304,6 +417,7 @@ class Session:
             self.last_ride = self.ride.copy()
             self.ride = None
         self.pending_backup = None
+        self.cancellation_fee_notice = None
         self.state = 'USER_CANCELLED'
         self.idempotency[key] = 'cancelled'
         self.add_event('USER_CANCELLED', {'message':'Rider stopped the journey.'})
@@ -318,6 +432,7 @@ class Session:
         self.ride['state'] = 'IN_PROGRESS'
         self.state = 'PICKUP_CONFIRMED'
         self.pending_backup = None
+        self.cancellation_fee_notice = None
         self.idempotency[key] = 'picked_up'
         self.add_event('PICKUP_CONFIRMED', {'message':'Passenger boarded simulated ride.'},self.ride['ride_id'])
         return self.snapshot()

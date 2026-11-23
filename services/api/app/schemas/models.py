@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class Provider(str, Enum):
-    UBER_SIM = 'UBER_SIM'
-    OLA_SIM = 'OLA_SIM'
-    RAPIDO_SIM = 'RAPIDO_SIM'
-    REDTAXI_SIM = 'REDTAXI_SIM'
+    PROVIDER_A = 'PROVIDER_A'
+    PROVIDER_C = 'PROVIDER_C'
+    PROVIDER_B = 'PROVIDER_B'
+    PROVIDER_D = 'PROVIDER_D'
 
 
 class Location(BaseModel):
@@ -24,14 +24,18 @@ class RecoveryPolicy(BaseModel):
     max_recovery_attempts: int = Field(default=2, ge=0, le=5)
     preemptive_switch_requires_approval: Literal[True] = True
     allow_same_provider_retry: bool = True
+    max_cancellation_fee_inr: int = Field(default=100, ge=0, le=100)
 
 
 class JourneyCreate(BaseModel):
     pickup: Location
     dropoff: Location
     policy: RecoveryPolicy = Field(default_factory=RecoveryPolicy)
+    need_by: datetime | None = None  # latest acceptable simulated pickup time
     @model_validator(mode='after')
     def different_locations(self):
+        if self.need_by is not None and (self.need_by.tzinfo is None or self.need_by.utcoffset() is None):
+            raise ValueError('need_by requires a timezone offset')
         if self.pickup.label == self.dropoff.label:
             raise ValueError('Pickup and destination must differ')
         return self
@@ -61,6 +65,15 @@ class ActionRequest(BaseModel):
 
 class TickRequest(BaseModel):
     steps: int = Field(default=1, ge=1, le=180)
+
+
+class ParseIntentRequest(BaseModel):
+    text: str = Field(min_length=4, max_length=500)
+
+
+class DriverMessageRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    idempotency_key: str = Field(min_length=3)
 
 
 class ErrorPayload(BaseModel):

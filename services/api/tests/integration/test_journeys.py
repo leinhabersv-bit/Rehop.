@@ -32,14 +32,14 @@ def test_stall_proposes_backup_without_double_booking():
         'approved':True,'idempotency_key':'switch-1','expected_version':j['version']})
     assert after.status_code==200, after.text
     assert after.json()['recovery_attempts']==1
-    assert after.json()['active_ride']['provider']!='UBER_SIM'
+    assert after.json()['active_ride']['provider']!='PROVIDER_A'
 
 
 def test_second_cancellation_triggers_bounded_retry():
     j=start('S05')
     j=client.post(f'/api/v1/journeys/{j["id"]}/tick',json={'steps':20}).json()
     assert j['recovery_attempts']==2
-    assert j['active_ride']['provider']=='OLA_SIM'
+    assert j['active_ride']['provider']=='PROVIDER_C'
     assert sum(e['type']=='DRIVER_CANCELLED' for e in client.get(f'/api/v1/journeys/{j["id"]}/events').json()['events'])==2
 
 

@@ -1,9 +1,21 @@
 from __future__ import annotations
 from fastapi import APIRouter
-from app.schemas.models import JourneyCreate, QuoteRequest, BookRequest, ApprovalRequest, ActionRequest, TickRequest
+from app.schemas.models import JourneyCreate, QuoteRequest, BookRequest, ApprovalRequest, ActionRequest, TickRequest, ParseIntentRequest, DriverMessageRequest
 from app.simulation.engine import LOCATIONS, SCENARIOS, SimulationError, store
+from app.intelligence.llm import parse_ride_intent
 
 router = APIRouter(prefix='/api/v1', tags=['RideRescue simulation'])
+
+
+@router.post('/intent/parse')
+def parse_intent(req: ParseIntentRequest):
+    return parse_ride_intent(req.text, LOCATIONS)
+
+
+@router.post('/journeys/{journey_id}/driver-message')
+def driver_message(journey_id: str, req: DriverMessageRequest):
+    with store.lock:
+        return store.get(journey_id).driver_message(req.text,req.idempotency_key)
 
 
 @router.get('/locations')
@@ -84,10 +96,14 @@ def run_scenario(scenario_id: str, seed: int = 2026):
     with store.lock:
         policy = {'max_total_fare_inr': 330} if scenario_id == 'S07' else {}
         request = JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy)
+        if scenario_id == 'S16':
+            from datetime import timedelta
+            from app.simulation.engine import BASE_TIME
+            request.need_by = BASE_TIME + timedelta(minutes=5)
         journey = store.create(request, scenario=scenario_id, seed=seed)
         if scenario_id != 'S12':
-            uber = next(q for q in journey.quotes if q['provider']=='UBER_SIM')
-            journey.book(uber['quote_id'], f'scenario_initial_{scenario_id}')
+            primary = next(q for q in journey.quotes if q['provider']=='PROVIDER_A')
+            journey.book(primary['quote_id'], f'scenario_initial_{scenario_id}')
         return journey.snapshot()
 
 
