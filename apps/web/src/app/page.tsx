@@ -12,13 +12,13 @@ import {
   Layers,
   Activity,
   Clock,
-  Radar,
   MapPin,
   ChevronRight,
   Info,
   Timer,
   Shield,
 } from 'lucide-react';
+import PickupPreview from '@/components/landing/PickupPreview';
 import { Badge, Card } from '@/components/ui';
 import { api } from '@/lib/api/client';
 
@@ -55,9 +55,9 @@ export default function HomePage() {
     <div className="flex flex-col gap-16 md:gap-24 pb-12">
       {/* 1. HERO SECTION */}
       <section className="relative pt-4 sm:pt-8 md:pt-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 lg:gap-8 items-center">
           {/* Left Column: Headlines & Call to Actions */}
-          <div className="lg:col-span-7 flex flex-col items-start gap-6">
+          <div className="min-w-0 lg:col-span-6 flex flex-col items-start gap-5 sm:gap-6">
             {/* Eyebrow badge */}
             <Badge
               variant="simulation"
@@ -69,7 +69,7 @@ export default function HomePage() {
             </Badge>
 
             {/* Hero Headline */}
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-[#F6F8FC] leading-[1.08] m-0">
+            <h1 className="text-4xl sm:text-6xl lg:text-[3.65rem] xl:text-[4rem] font-black tracking-tight text-[#F6F8FC] leading-[1.08] m-0">
               Your ride.
               <span className="block mt-1 bg-gradient-to-r from-[#B9FF45] via-[#d7ff7b] to-[#2ED389] bg-clip-text text-transparent">
                 No interruptions.
@@ -82,10 +82,10 @@ export default function HomePage() {
             </p>
 
             {/* Hero Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2.5 pt-2 w-full sm:w-auto sm:gap-3.5">
               <Link
                 href="/book"
-                className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 rounded-2xl bg-[#B9FF45] text-[#090F1D] font-extrabold text-sm sm:text-base hover:brightness-105 transition-all shadow-[0_0_24px_rgba(185,255,69,0.35)] active:scale-95 group w-full sm:w-auto"
+                className="inline-flex flex-1 items-center justify-center gap-2 px-3 sm:flex-none sm:px-7 py-3.5 rounded-2xl bg-[#B9FF45] text-[#090F1D] font-extrabold text-sm sm:text-base hover:brightness-105 transition-all shadow-[0_0_24px_rgba(185,255,69,0.35)] active:scale-95 group whitespace-nowrap"
               >
                 Find a ride
                 <ArrowRight className="w-5 h-5 stroke-[2.5] transition-transform group-hover:translate-x-1" />
@@ -93,10 +93,10 @@ export default function HomePage() {
 
               <Link
                 href="/demo"
-                className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 rounded-2xl bg-[#151F32] hover:bg-[#243249] text-[#F6F8FC] border border-[#243249] font-bold text-sm sm:text-base transition-all hover:border-[#384c6c] active:scale-95 w-full sm:w-auto"
+                className="inline-flex flex-1 items-center justify-center gap-2 px-3 sm:flex-none sm:px-6 py-3.5 rounded-2xl bg-[#151F32] hover:bg-[#243249] text-[#F6F8FC] border border-[#243249] font-bold text-sm sm:text-base transition-all hover:border-[#384c6c] active:scale-95 whitespace-nowrap"
               >
                 <Play className="w-4 h-4 fill-current text-[#B9FF45]" />
-                Try Incident Demo
+                Try the demo
               </Link>
 
             </div>
@@ -112,166 +112,11 @@ export default function HomePage() {
                 <CheckCircle2 className="w-4 h-4 text-[#B9FF45] shrink-0" />
                 Simulated Providers A–D
               </span>
-              <span className="text-[#243249] hidden sm:inline">•</span>
-              <span className="inline-flex items-center gap-1.5 text-[#98A5BC]">
-                <Activity className="w-4 h-4 text-[#B79CFF] shrink-0" />
-                5s Telemetry Ticks
-              </span>
             </div>
           </div>
 
-          {/* Right Column: Live Pickup Preview Widget (matching 01_Landing_Desktop.png) */}
-          <div className="lg:col-span-5">
-            <div className="relative rounded-[24px] border border-[#243249] bg-[#151F32]/95 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-md overflow-hidden">
-              {/* Atmospheric background glow */}
-              <div className="absolute -top-16 -right-16 w-48 h-48 bg-[#B9FF45]/10 rounded-full blur-3xl pointer-events-none" />
-
-              {/* Widget Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-[#243249]">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#B9FF45]/15 text-[#B9FF45]">
-                    <Radar className="w-4 h-4" />
-                  </span>
-                  <span className="font-bold text-sm text-[#F6F8FC] tracking-tight">
-                    Example pickup
-                  </span>
-                </div>
-                <Badge variant="simulation" size="sm" dot>
-                  Illustrative
-                </Badge>
-              </div>
-
-              {/* Map Route Canvas Simulation */}
-              <div className="relative my-4 h-52 w-full rounded-2xl bg-[#090F1D] border border-[#243249]/80 p-3 overflow-hidden flex flex-col justify-between">
-                {/* Simulated Street Grid pattern */}
-                <svg
-                  className="absolute inset-0 w-full h-full opacity-35"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <defs>
-                    <pattern id="grid-pattern" width="30" height="30" patternUnits="userSpaceOnUse">
-                      <path
-                        d="M 30 0 L 0 0 0 30"
-                        fill="none"
-                        stroke="#243249"
-                        strokeWidth="0.8"
-                      />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-                </svg>
-
-                {/* Simulated Vector Route */}
-                <svg
-                  className="absolute inset-0 w-full h-full"
-                  aria-hidden="true"
-                  viewBox="0 0 400 200"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  {/* Outer ambient glow path */}
-                  <path
-                    d="M 40 160 C 110 165, 120 40, 210 60 S 320 160, 360 40"
-                    stroke="#B9FF45"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    className="opacity-25"
-                  />
-                  {/* Primary neon lime route */}
-                  <path
-                    d="M 40 160 C 110 165, 120 40, 210 60 S 320 160, 360 40"
-                    stroke="#B9FF45"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                  />
-                  {/* Directional animated dash */}
-                  <path
-                    d="M 40 160 C 110 165, 120 40, 210 60 S 320 160, 360 40"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    strokeDasharray="6 14"
-                    strokeLinecap="round"
-                    className="opacity-70"
-                  />
-
-                  {/* Origin Node (Solid Lime) */}
-                  <circle cx="40" cy="160" r="7" fill="#B9FF45" />
-                  <circle cx="40" cy="160" r="14" fill="#B9FF45" className="opacity-30" />
-
-                  {/* Destination Node (Pickup Target) */}
-                  <circle cx="360" cy="40" r="7" fill="#2ED389" />
-                  <circle cx="360" cy="40" r="14" stroke="#2ED389" strokeWidth="2" strokeDasharray="3 3" />
-
-                  {/* Simulated Car Marker Midway */}
-                  <g transform="translate(200, 52)">
-                    <rect
-                      x="-24"
-                      y="-14"
-                      width="48"
-                      height="28"
-                      rx="8"
-                      fill="#151F32"
-                      stroke="#B9FF45"
-                      strokeWidth="1.5"
-                    />
-                    <circle cx="-12" cy="14" r="3.5" fill="#B9FF45" />
-                    <circle cx="12" cy="14" r="3.5" fill="#B9FF45" />
-                  </g>
-                </svg>
-
-                {/* Floating Map Labels */}
-                <div className="relative z-10 flex justify-between items-start pointer-events-none">
-                  <span className="text-[10px] font-bold text-[#98A5BC] bg-[#151F32]/80 px-2 py-0.5 rounded border border-[#243249]">
-                    Driver start
-                  </span>
-                  <span className="text-[10px] font-bold text-[#2ED389] bg-[#151F32]/80 px-2 py-0.5 rounded border border-[#2ED389]/40">
-                    VIT Chennai
-                  </span>
-                </div>
-
-                <div className="relative z-10 flex justify-between items-end pointer-events-none">
-                  <span className="text-[10px] font-bold text-[#B9FF45] bg-[#090F1D]/90 px-2.5 py-1 rounded-md border border-[#B9FF45]/30">
-                    Provider A
-                  </span>
-                </div>
-              </div>
-
-              {/* Metrics Dock: 2 Mini Cards */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="rounded-xl border border-[#243249] bg-[#1A273F] p-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#98A5BC]">
-                    Driver ETA
-                  </span>
-                  <div className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black text-[#F6F8FC]">
-                      4
-                    </span>
-                    <span className="text-xs font-semibold text-[#98A5BC]">min</span>
-                  </div>
-                  <span className="text-[11px] text-[#2ED389] font-medium flex items-center gap-1 mt-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2ED389]" />
-                    Approaching pickup
-                  </span>
-                </div>
-
-                <div className="rounded-xl border border-[#243249] bg-[#1A273F] p-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#98A5BC]">
-                    Recovery State
-                  </span>
-                  <div className="mt-1">
-                    <span className="inline-flex items-center gap-1.5 text-base font-extrabold text-[#B9FF45]">
-                      <ShieldCheck className="w-4 h-4 text-[#B9FF45]" />
-                      Backup quote found
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[#98A5BC] font-medium block mt-1">
-                    Provider B · Quote only
-                  </span>
-                </div>
-              </div>
-
-            </div>
+          <div className="min-w-0 lg:col-span-6">
+            <PickupPreview />
           </div>
         </div>
       </section>
