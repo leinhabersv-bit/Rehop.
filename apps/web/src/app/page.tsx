@@ -54,10 +54,10 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-16 md:gap-24 pb-12">
       {/* 1. HERO SECTION */}
-      <section className="relative pt-4 sm:pt-8 md:pt-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 lg:gap-8 items-center">
+      <section className="relative sm:pt-8 md:pt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12 lg:gap-8 items-center">
           {/* Left Column: Headlines & Call to Actions */}
-          <div className="min-w-0 lg:col-span-6 flex flex-col items-start gap-5 sm:gap-6">
+          <div className="min-w-0 lg:col-span-6 flex flex-col items-start gap-4 sm:gap-6">
             {/* Eyebrow badge */}
             <Badge
               variant="simulation"
