@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Clock3, MapPin, Navigation, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
+import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
 import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 
@@ -56,13 +57,13 @@ export default function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl pb-8">
+    <div className="mx-auto max-w-6xl space-y-5 pb-8 lg:space-y-7">
+      <RideIntro />
       <div className="grid items-stretch gap-5 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
-        <section aria-labelledby="home-title" className="min-w-0 rounded-[28px] bg-[#fffdf8] p-5 sm:p-8">
-          <p className="mb-3 inline-flex rounded-full bg-[#ffdec8] px-3 py-1 text-xs font-bold text-[#573125]">Rides with a backup plan</p>
-          <h1 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
+        <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-20 rounded-[28px] bg-[#fffdf8] p-5 sm:p-8">
+          <h2 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
             Where to<span className="text-[#173ed7]">?</span>
-          </h1>
+          </h2>
           <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] sm:text-base">Check the route and drive time before booking. Get pickup updates and a backup if your driver cancels.</p>
           <form onSubmit={continueTrip} className="space-y-3">
             <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
@@ -105,7 +106,7 @@ export default function HomePage() {
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-[#475673] underline">Places © OpenStreetMap contributors</a>
         </section>
         <aside className="relative flex min-h-[340px] min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#173ed7] text-white lg:min-h-[560px]">
-          <Image src="/images/rehop-cobalt.webp" alt="" fill priority sizes="(min-width: 1024px) 600px, 100vw" className="object-cover object-[64%_center]" />
+          <Image src="/images/rehop-cobalt.webp" alt="" fill sizes="(min-width: 1024px) 600px, 100vw" className="object-cover object-[64%_center]" />
           <div className="relative bg-gradient-to-t from-[#10257c]/95 via-[#10257c]/80 to-transparent px-6 pb-6 pt-24 sm:px-8 sm:pb-8">
             <ShieldCheck size={24} className="mb-2 text-[#ffb27d]" aria-hidden="true" />
             <h2 className="text-2xl font-black tracking-tight !text-white">Pickup protection</h2>
