@@ -43,7 +43,42 @@
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
+    "EXPLANATION_VERIFIED",
     "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "TELEMETRY_UPDATED",
+    "EXPLANATION_VERIFIED",
+    "RISK_UPDATED",
+    "DEADLINE_DECISION",
+    "BACKUP_FOUND",
+    "APPROVAL_REQUIRED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
@@ -57,8 +92,7 @@
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
-    "RISK_UPDATED",
-    "DRIVER_ARRIVED"
+    "RISK_UPDATED"
   ],
   "event_payload_keys": [
     [
@@ -184,6 +218,35 @@
       "is_simulated"
     ],
     [
+      "numbers_checked_against_telemetry",
+      "source"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "explanation_source",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
       "band",
       "confidence",
       "explanation",
@@ -191,6 +254,243 @@
       "model_version",
       "score_0_100",
       "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "numbers_checked_against_telemetry",
+      "source"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "explanation_source",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
+    ],
+    [
+      "formula",
+      "recommendation",
+      "seconds_until_deadline",
+      "switch_cost_points",
+      "switch_late_sec",
+      "wait_cost_points",
+      "wait_late_sec"
+    ],
+    [
+      "candidate"
+    ],
+    [
+      "cancellation_fee_notice",
+      "reason"
     ],
     [
       "distance_to_pickup_m",
@@ -296,9 +596,6 @@
       "model_version",
       "score_0_100",
       "signals"
-    ],
-    [
-      "message"
     ]
   ]
 }

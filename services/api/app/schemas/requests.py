@@ -21,24 +21,28 @@ class RecoveryPolicy(BaseModel):
     max_cancellation_fee_inr: int = Field(default=100, ge=0, le=100)
 
 
-class JourneyCreate(BaseModel):
+class QuoteRequest(BaseModel):
     pickup: Location
     dropoff: Location
-    policy: RecoveryPolicy = Field(default_factory=RecoveryPolicy)
-    need_by: datetime | None = None  # latest acceptable simulated pickup time
 
     @model_validator(mode="after")
     def different_locations(self):
-        if self.need_by is not None and (self.need_by.tzinfo is None or self.need_by.utcoffset() is None):
-            raise ValueError("need_by requires a timezone offset")
-        if self.pickup.label == self.dropoff.label:
+        if self.pickup.label.strip().casefold() == self.dropoff.label.strip().casefold() or (
+            self.pickup.lat == self.dropoff.lat and self.pickup.lng == self.dropoff.lng
+        ):
             raise ValueError("Pickup and destination must differ")
         return self
 
 
-class QuoteRequest(BaseModel):
-    pickup: Location
-    dropoff: Location
+class JourneyCreate(QuoteRequest):
+    policy: RecoveryPolicy = Field(default_factory=RecoveryPolicy)
+    need_by: datetime | None = None  # latest acceptable simulated pickup time
+
+    @model_validator(mode="after")
+    def aware_pickup_deadline(self):
+        if self.need_by is not None and (self.need_by.tzinfo is None or self.need_by.utcoffset() is None):
+            raise ValueError("need_by requires a timezone offset")
+        return self
 
 
 class BookRequest(BaseModel):

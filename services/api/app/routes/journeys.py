@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Query
 
 from app.intelligence.llm import parse_ride_intent
 from app.schemas.enums import Provider
@@ -50,9 +52,12 @@ def get_quotes(req: QuoteRequest):
 
 
 @router.post("/journeys", status_code=201)
-def create_journey(req: JourneyCreate):
+def create_journey(
+    req: JourneyCreate,
+    scenario: Annotated[Literal["S01", "S03"], Query(description="Simulated pickup behavior.")] = "S01",
+):
     with store.lock:
-        return store.create(req).snapshot().model_dump(mode="json")
+        return store.create(req, scenario=scenario).snapshot().model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}")
@@ -140,6 +145,7 @@ def run_scenario(scenario_id: str, seed: int = 2026):
         if scenario_id != "S12":
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
             journey.book(primary.quote_id, f"scenario_initial_{scenario_id}")
+        store.last_scenario[scenario_id] = journey.id
         return journey.snapshot().model_dump(mode="json")
 
 

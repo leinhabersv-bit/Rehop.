@@ -101,6 +101,19 @@ paths:
       - RideRescue simulation
       summary: Create Journey
       operationId: create_journey_api_v1_journeys_post
+      parameters:
+      - name: scenario
+        in: query
+        required: false
+        schema:
+          enum:
+          - S01
+          - S03
+          type: string
+          description: Simulated pickup behavior.
+          default: S01
+          title: Scenario
+        description: Simulated pickup behavior.
       requestBody:
         content:
           application/json:

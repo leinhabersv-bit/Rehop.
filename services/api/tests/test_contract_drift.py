@@ -15,3 +15,11 @@ def path_methods(document):
 def test_openapi_paths_and_methods_match_contract():
     contract = yaml.safe_load(OPENAPI_CONTRACT.read_text(encoding="utf-8"))
     assert path_methods(app.openapi()) == path_methods(contract)
+
+
+def test_journey_creation_query_parameters_match_contract():
+    contract = yaml.safe_load(OPENAPI_CONTRACT.read_text(encoding="utf-8"))
+    route = "/api/v1/journeys"
+    assert (
+        app.openapi()["paths"][route]["post"]["parameters"] == contract["paths"][route]["post"]["parameters"]
+    )

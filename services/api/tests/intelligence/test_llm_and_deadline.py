@@ -1,5 +1,8 @@
 from datetime import timedelta
 
+import pytest
+
+from app.intelligence import llm
 from app.intelligence.decision import compare_wait_switch
 from app.intelligence.llm import classify_driver_message, explain_with_verified_numbers, parse_ride_intent
 from app.schemas.models import JourneyCreate
@@ -21,9 +24,40 @@ def test_intent_parser_requires_confirmation(monkeypatch):
     assert parsed.requires_confirmation is True
 
 
-def test_explanation_rejects_llm_invented_numbers(monkeypatch):
-    from app.intelligence import llm
+@pytest.mark.parametrize(
+    ("text", "pickup", "dropoff"),
+    [
+        ("From Chennai Airport to VIT Chennai", "Chennai Airport", "VIT Chennai"),
+        ("To VIT Chennai from Chennai Airport", "Chennai Airport", "VIT Chennai"),
+        ("Chennai Airport VIT Chennai", "Chennai Airport", "VIT Chennai"),
+        ("From Chennai Airport", "Chennai Airport", None),
+        ("To Chennai Airport", None, "Chennai Airport"),
+        ("Chennai Airport", None, None),
+    ],
+)
+def test_fallback_resolves_direction_and_leaves_missing_endpoint_blank(monkeypatch, text, pickup, dropoff):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    result = parse_ride_intent(text, LOCATIONS)
+    assert (result.pickup, result.dropoff) == (pickup, dropoff)
+    assert result.source == "rule_fallback"
 
+
+def test_malformed_chat_classification_uses_labeled_fallback(monkeypatch):
+    monkeypatch.setattr(llm, "_llm_json", lambda *args: {"label": ["ARRIVING"], "evidence": "Traffic"})
+    signal = classify_driver_message("Traffic on the way")
+    assert signal.label == "TRAFFIC_DELAY"
+    assert signal.source == "rule_fallback"
+
+
+def test_model_cannot_supply_unmentioned_location(monkeypatch):
+    monkeypatch.setattr(llm, "_llm_json", lambda *args: {"pickup": "Guindy", "dropoff": "Chennai Airport"})
+    parsed = parse_ride_intent("To Chennai Airport", LOCATIONS)
+    assert parsed.pickup is None
+    assert parsed.dropoff == "Chennai Airport"
+    assert parsed.requires_confirmation
+
+
+def test_explanation_rejects_llm_invented_numbers(monkeypatch):
     monkeypatch.setattr(
         llm, "_llm_json", lambda *args: {"explanation": "Your ETA is 200 minutes and fare is 9000"}
     )

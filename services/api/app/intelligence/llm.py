@@ -77,8 +77,10 @@ def classify_driver_message(text: str) -> ChatSignal:
     )
     if (
         data
+        and isinstance(data.get("label"), str)
         and data.get("label") in LABELS
         and isinstance(data.get("evidence"), str)
+        and data["evidence"].strip()
         and data["evidence"][:60] in text
     ):
         return ChatSignal(
@@ -107,10 +109,20 @@ def parse_ride_intent(text: str, locations: list[Location]) -> RideIntent:
         "Use only exact allowed location labels or null. Do not guess.",
         text,
     )
-    low = text.lower()
+    low = text.casefold()
+    locations_in_text = []
+    for name in allowed:
+        match = re.search(rf"(?<!\w){re.escape(name.casefold())}(?!\w)", low)
+        if match:
+            marker = re.search(r"\b(from|to)\s*$", low[: match.start()])
+            locations_in_text.append((match.start(), name, marker.group(1) if marker else None))
+    locations_in_text.sort()
     if data:
-        pickup = data.get("pickup") if data.get("pickup") in allowed else None
-        dropoff = data.get("dropoff") if data.get("dropoff") in allowed else None
+        mentioned_names = [name for _, name, _ in locations_in_text]
+        pickup = data.get("pickup") if data.get("pickup") in mentioned_names else None
+        dropoff = data.get("dropoff") if data.get("dropoff") in mentioned_names else None
+        if pickup == dropoff:
+            pickup = dropoff = None
         mins = data.get("need_in_minutes")
         if not isinstance(mins, int) or not 5 <= mins <= 120:
             mins = None
@@ -121,10 +133,12 @@ def parse_ride_intent(text: str, locations: list[Location]) -> RideIntent:
             source="llm",
             requires_confirmation=True,
         )
-    found = [name for name in allowed if name.lower() in low]
-    # An ambiguous phrase cannot silently become an authorized trip.
-    pickup = found[0] if len(found) > 1 else None
-    dropoff = found[1] if len(found) > 1 else (found[0] if found else None)
+    pickups = [name for _, name, role in locations_in_text if role == "from"]
+    dropoffs = [name for _, name, role in locations_in_text if role == "to"]
+    pickup = pickups[0] if len(pickups) == 1 else None
+    dropoff = dropoffs[0] if len(dropoffs) == 1 else None
+    if len(locations_in_text) == 2 and not pickups and not dropoffs:
+        pickup, dropoff = [name for _, name, _ in locations_in_text]
     minutes = None
     match = re.search(r"(?:in|within|next)\s+(\d{1,3})\s*(?:min|minute)", low)
     if match:

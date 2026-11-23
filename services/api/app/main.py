@@ -6,6 +6,7 @@ import os
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from app.routes.journeys import router
 from app.schemas.errors import ErrorEnvelope, ErrorPayload, SimulationError
@@ -40,19 +41,29 @@ def health():
 
 @app.websocket("/ws/journeys/{journey_id}")
 async def journey_stream(websocket: WebSocket, journey_id: str):
+    def pending_events(after_seq: int):
+        with store.lock:
+            journey = store.get(journey_id)
+            return journey.events[after_seq:]
+
     await websocket.accept()
     try:
-        with store.lock:
-            store.get(journey_id)
-        last_seq = max(0, int(websocket.query_params.get("since_seq", "0")))
+        try:
+            last_seq = max(0, int(websocket.query_params.get("since_seq", "0")))
+        except ValueError:
+            await websocket.close(code=4400)
+            return
         while True:
-            with store.lock:
-                journey = store.get(journey_id)
-                pending = [e for e in journey.events if e.seq > last_seq]
+            pending = await run_in_threadpool(pending_events, last_seq)
             for event in pending:
                 await websocket.send_json(event.model_dump(mode="json"))
                 last_seq = event.seq
-            await asyncio.sleep(0.5)
+            try:
+                message = await asyncio.wait_for(websocket.receive(), timeout=0.5)
+            except TimeoutError:
+                continue
+            if message["type"] == "websocket.disconnect":
+                return
     except (WebSocketDisconnect, asyncio.CancelledError):
         return
     except SimulationError:

@@ -165,8 +165,31 @@ def test_unknown_replacement_booking_stays_reconciling(monkeypatch):
     assert result.booking_uncertain
 
 
-def test_exhaustion_clears_backup_and_blocks_late_cancel():
+def test_retry_limit_keeps_original_ride_and_blocks_preemptive_switch(monkeypatch):
     session = make_session("S03", max_recovery_attempts=0)
+    original = session.book(session.quotes[0].quote_id, "book").active_ride_id
+    snapshot = session.tick(25)
+    assert snapshot.pending_backup is None
+    assert snapshot.active_ride_id == original
+    assert snapshot.state is JourneyState.MONITORING
+
+    session.policy.max_recovery_attempts = 1
+    assert session.tick(1).pending_backup is not None
+    session.policy.max_recovery_attempts = 0
+
+    def should_not_cancel(ride):
+        pytest.fail(f"Retry limit cannot cancel {ride.ride_id}")
+
+    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_A], "cancel", should_not_cancel)
+    blocked = session.approve_switch(True, "approve")
+    assert blocked.active_ride_id == original
+    assert blocked.state is JourneyState.MONITORING
+    assert blocked.pending_backup is None
+    assert session.events[-1].type is EventType.RECOVERY_BLOCKED
+
+
+def test_exhaustion_clears_backup_and_blocks_late_cancel():
+    session = make_session("S15")
     session.book(session.quotes[0].quote_id, "book")
     session.tick(25)
     assert session.pending_backup is not None
@@ -179,14 +202,62 @@ def test_exhaustion_clears_backup_and_blocks_late_cancel():
     assert session.snapshot() == exhausted
 
 
-def test_rejecting_backup_after_driver_cancellation_keeps_legacy_monitoring_state():
+def test_rejecting_backup_after_driver_cancellation_closes_the_journey_without_a_ride():
     session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=False)
     session.book(session.quotes[0].quote_id, "book")
     assert session.tick(8).state is JourneyState.AWAITING_APPROVAL
     rejected = session.approve_switch(False, "reject")
-    assert rejected.state is JourneyState.MONITORING
+    assert rejected.state is JourneyState.EXHAUSTED
     assert rejected.active_ride is None
     assert rejected.pending_backup is None
+
+
+def test_direct_cancel_requires_provider_confirmation_and_replays_uncertainty(monkeypatch):
+    session = make_session()
+    original = session.book(session.quotes[0].quote_id, "book").active_ride_id
+    calls = []
+
+    def provider_cancel(ride):
+        calls.append(ride.ride_id)
+        return OperationResult(status=OpStatus.UNKNOWN)
+
+    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_A], "cancel", provider_cancel)
+    version = session.version
+    for _ in range(2):
+        with pytest.raises(SimulationError) as error:
+            session.cancel("cancel", expected_version=version)
+        assert error.value.code == "CANCEL_UNCONFIRMED"
+    assert calls == [original]
+    assert session.state is JourneyState.RECONCILING
+    assert session.snapshot().active_ride_id == original
+    assert EventType.RIDE_CANCEL_CONFIRMED not in [event.type for event in session.events]
+
+
+def test_client_key_cannot_preempt_scenario_driver_message(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    session = make_session("S13")
+    session.book(session.quotes[0].quote_id, f"injected_chat_{session.id}")
+    result = session.tick(5)
+    assert result.driver_chat_signal.label == "REQUEST_RIDER_CANCEL"
+    assert result.state is JourneyState.MONITORING
+
+
+@pytest.mark.parametrize(
+    ("status", "state"),
+    [(OpStatus.FAILED, JourneyState.EXHAUSTED), (OpStatus.UNKNOWN, JourneyState.RECONCILING)],
+)
+def test_automatic_replacement_failure_does_not_stick_in_recovering(monkeypatch, status, state):
+    session = make_session("S04")
+    session.book(session.quotes[0].quote_id, "book")
+    monkeypatch.setattr(
+        ADAPTERS[Provider.PROVIDER_B], "confirm", lambda quote, now: OperationResult(status=status)
+    )
+    result = session.tick(10)
+    assert result.state is state
+    assert result.active_ride is None
+    assert result.last_ride.state is RideState.DRIVER_CANCELLED
+    assert result.booking_uncertain is (status is OpStatus.UNKNOWN)
+    assert result.recovery_attempts == 1
 
 
 def test_snapshot_invariants_detect_invalid_mutations():

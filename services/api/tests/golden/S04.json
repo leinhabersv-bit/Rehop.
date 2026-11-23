@@ -61,11 +61,6 @@
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
-    "DRIVER_CANCELLED",
-    "QUOTE_REFRESHED",
-    "RECOVERY_STARTED",
-    "RIDE_CONFIRMED",
-    "RECOVERY_SUCCEEDED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
@@ -80,9 +75,9 @@
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
-    "DRIVER_CANCELLED",
-    "QUOTE_REFRESHED",
-    "RECOVERY_EXHAUSTED"
+    "TELEMETRY_UPDATED",
+    "RISK_UPDATED",
+    "DRIVER_ARRIVED"
   ],
   "event_payload_keys": [
     [
@@ -326,25 +321,6 @@
       "signals"
     ],
     [
-      "provider"
-    ],
-    [
-      "candidate",
-      "not_a_reservation"
-    ],
-    [
-      "attempt",
-      "candidate"
-    ],
-    [
-      "replacement",
-      "ride"
-    ],
-    [
-      "attempt",
-      "provider"
-    ],
-    [
       "distance_to_pickup_m",
       "eta_sec",
       "gps_quality",
@@ -450,14 +426,22 @@
       "signals"
     ],
     [
-      "provider"
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
     ],
     [
-      "candidate",
-      "not_a_reservation"
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signals"
     ],
     [
-      "reason"
+      "message"
     ]
   ]
 }
