@@ -84,6 +84,8 @@ riderescue/
 └── .github/workflows/           # CI starter
 ```
 
+**Backend developers:** Start with [the backend quickstart](docs/backend-quickstart.md) for setup, endpoints, validation commands, BE1/BE2 boundaries and safety rules.
+
 ## Four-person ownership
 
 | Teammate | Branch prefix | What they own |
