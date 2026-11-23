@@ -1,12 +1,12 @@
-# RideRescue 🚕
+# ReHop
 
-**Your cab cancelled. Your plans shouldn't.**
+**Your ride. No interruptions.**
 
-A **simulation-first AI ride-recovery hackathon project**. RideRescue monitors simulated pickup progress, highlights likely pickup failure, finds a safe backup, and helps recover from confirmed driver cancellations **without unapproved parallel bookings**.
+A **simulation-first AI ride-recovery hackathon project**. ReHop monitors simulated pickup progress, explains delay risks, and helps riders recover within the limits they set. Some internal modules and published contracts retain the original RideRescue name.
 
-> ⚠️ **All providers, rides, fares, locations and telemetry shown by the demo are simulated.** This does not connect to Provider A–D, or any real rider accounts. No real cab is booked or cancelled.
+> **All providers, rides, fares, locations and telemetry are simulated.** Provider A–D are synthetic adapters. All bookings, cancellations, and fees stay inside the simulator.
 
-## What is in the starter?
+## What you can try
 
 - ✅ Mobile-friendly Next.js trip setup, fare comparison, live tracking and demo console.
 - ✅ Python FastAPI service with versioned REST endpoints and ordered WebSocket events.
@@ -17,53 +17,69 @@ A **simulation-first AI ride-recovery hackathon project**. RideRescue monitors s
 - ✅ Fresh-backup pre-cancellation validation and conditional 2025-guideline fee notice; fee is a simulated upper-bound illustration, **not** a provider quote.
 - ✅ Representative seeded simulation scenarios S01–S16, including a stalled pickup, two cancellations, budget limits and GPS uncertainty.
 - ✅ Automated backend tests and a synthetic smoke-report command.
-- 🟡 SQLite persistence, expanded scenarios, production-grade concurrency testing, and end-to-end UI tests are development milestones, **not finished features**.
+- 🟡 This demo runs in a single process. Restarting the API clears journeys. SQLite persistence and production concurrency are future work.
 
 ## Tech stack
 
 | Frontend | Backend | Intelligence | Collaboration |
 |---|---|---|---|
 | Next.js / React / TypeScript | FastAPI + Pydantic | AI interpreter + deterministic safety policy | GitHub PRs |
-| Tailwind CSS / TanStack Query | REST + WebSocket | Synthetic provider event engine | pytest / Vitest / Playwright planned |
+| Tailwind CSS / TanStack Query | REST + WebSocket | Synthetic provider event engine | pytest / Vitest / Playwright |
 
 ## Run locally
 
-Prerequisites: **Node.js 20+**, **Python 3.11+**. Two terminals are recommended.
+Use **Node.js 22.12 or later on the 22.x release line** and **Python 3.11** to match GitHub Actions. Open two terminals from the repository root.
 
 **Terminal 1 — backend**
 
 ```bash
 cd services/api
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\\Scripts\\activate
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload --port 8000
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-API docs: **http://localhost:8000/docs**. Health: **http://localhost:8000/health**.
+On Windows PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1`. You can also use `.\.venv\Scripts\python.exe` in place of each `python` command after creating the environment.
+
+[API docs](http://localhost:8000/docs) · [Health check](http://localhost:8000/health)
 
 **Terminal 2 — frontend**
 
 ```bash
 cd apps/web
-cp .env.example .env.local         # Windows: copy .env.example .env.local
-npm install
+npm ci
 npm run dev
 ```
 
-Web app: **http://localhost:3000**. Open **/demo**, run S03, advance two simulated minutes, and inspect the deadline decision, risk and backup. Run S13 to classify an injected driver message, S14 to abort a switch when a refreshed quote disappears, and S15 to inspect the unavoidable post-cancel confirmation race. Or use the regular trip setup and quote selection flow.
+Open [ReHop](http://localhost:3000) using `localhost`, which matches the API's default allowed browser origin. The frontend defaults to `http://localhost:8000`. To change it, copy `apps/web/.env.example` to `apps/web/.env.local` and change `NEXT_PUBLIC_API_BASE_URL`. If the web origin changes, set `CORS_ORIGINS` in the API process and restart both apps.
 
-> The UI uses the backend as its source of truth. It does not generate fake location or booking-success events. A browser connection to the backend is required.
+Use **Find a ride** to enter a trip, review interpreted details, compare backend quotes, and start tracking. Use [Demo console](http://localhost:3000/demo) for stalled pickups, uncertainty and quote races. The simulator clock advances with the development controls on the journey page. See the [judge demo](docs/demo-script.md) for steps and expected outcomes.
 
 ## Test and inspect
 
+Run the frontend checks from `apps/web` after `npm ci`.
+
 ```bash
-cd services/api && pip install -r requirements-dev.txt && pytest -q
-# From repository root:
-python eval/run_benchmark.py --seed 2026 --runs 1
+npm run lint
+npx next typegen
+npx tsc --noEmit
+npm run test
+npm run build
 ```
 
-The benchmark command is currently a **smoke report**, not a validated success-rate evaluation. Reports are generated to `eval/results/` (ignored by Git). The final hackathon team must add paired baselines, held-out scenario variants, and report real measured simulator-only values.
+Stop the development server before running a build in the same checkout so the two processes do not share conflicting `.next` output. Run `./scripts/check.sh` from `services/api` using the activated backend environment. For Windows alternatives and the smoke command, see the [backend quickstart](docs/backend-quickstart.md).
+
+Run browser tests from `apps/web` after a production build. Activate the backend environment so the test runner can start the API. Use a build configured for the default API port and free ports 3000 and 8000 before the run.
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+If both servers are already running elsewhere, set `REHOP_TEST_WEB` and `REHOP_TEST_API` to their URLs. The frontend build's API URL and the API's allowed browser origin must match those addresses.
+
+The benchmark command writes a synthetic smoke report under `eval/results/`. Its output describes the seeded simulator runs.
 
 ## Repository layout
 
@@ -110,14 +126,7 @@ Read **`AGENTS.md`**, **`docs/design-freeze-v1.1.md`**, **`docs/ondc-beckn-path.
 9. Refresh the backup quote **before** cancellation; still disclose that this is not a reservation.
 10. Show a conditional possible cancellation charge and seek rider approval; do not invent a real fee.
 
-## Suggested milestones
-
-- **Contracts first** — freeze REST/event schemas; FE1 generates typed wrapper.
-- **One vertical slice** — S01 healthy pickup and S03 stall to approval.
-- **Safety edge cases** — S05 double cancellation, S07 budget rejection, S08 stale telemetry, S10 race, S12 timeout.
-- **Demo & proof** — full E2E tests, simulator metrics and explicit limitations.
-
-**Optional real LLM:** Copy `services/api/.env.example` into the environment for the API process. With a valid `OPENAI_API_KEY`, the API sends selected ride text to the configured chat-completions model; without a key it explicitly reports `rule_fallback` or `deterministic_template`. No LLM can execute booking actions. An AI model output is never a source of truth for fares, GPS, policy or payment.
+**Optional LLM.** Set `OPENAI_API_KEY` in the API process environment or copy `services/api/.env.example` to `services/api/.env`, set the key, and add `--env-file .env` to the Uvicorn command. The API can send selected rider or driver text to the configured model. With no key, it uses labeled rules and templates. Provider and policy code own all booking decisions.
 
 **Future integration:** The ONDC mobility specification is built on Beckn. Namma Yatri publicly identifies itself as built on these standards. RideRescue is **ONDC-shaped, not ONDC-connected**: actual deployment needs compliant BAP/BPP partnerships, onboarding, auth, signing, callbacks, validation, payments and commercial agreements. See [`docs/ondc-beckn-path.md`](docs/ondc-beckn-path.md).
 
@@ -134,18 +143,6 @@ Read **`AGENTS.md`**, **`docs/design-freeze-v1.1.md`**, **`docs/ondc-beckn-path.
 - [`docs/reference/RideRescue_Pre_Freeze_v1.1_Changes.pdf`](docs/reference/RideRescue_Pre_Freeze_v1.1_Changes.pdf) — concise amendment PDF.
 - [`docs/reference/RideRescue_ONDC_Beckn_Production_Path.pptx`](docs/reference/RideRescue_ONDC_Beckn_Production_Path.pptx) — editable ONDC/Beckn pitch slide.
 - [`docs/architecture.md`](docs/architecture.md), [`docs/claims-and-limitations.md`](docs/claims-and-limitations.md).
-
-## Publishing to your GitHub account
-
-This folder is initialized as a local Git repository. Create a **new empty public repository** called `riderescue` in GitHub (do **not** add a README or .gitignore because they're already included), then:
-
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/riderescue.git
-git branch -M main
-git push -u origin main
-```
-
-Repository visibility may be changed later, but the Hackathon instructions in your project notes expect a public repository for the submission.
 
 ## License
 

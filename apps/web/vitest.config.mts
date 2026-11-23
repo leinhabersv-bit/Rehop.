@@ -1,0 +1,15 @@
+import { configDefaults, defineConfig } from 'vitest/config';
+import { resolve } from 'node:path';
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@': resolve(import.meta.dirname, './src'),
+    },
+  },
+  oxc: { jsx: { runtime: 'automatic' } },
+  test: {
+    environment: 'node',
+    exclude: [...configDefaults.exclude, 'e2e/**'],
+  },
+});
