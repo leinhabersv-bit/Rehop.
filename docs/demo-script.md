@@ -1,6 +1,6 @@
 # ReHop 3-minute judge demo
 
-**Fast walkthrough.** From the homepage select **Try recovery demo**, then **Run recovery demo**. Advance two simulated minutes, open the switch review, and approve the replacement. Advance the replacement until arrival and select **Confirm boarding**.
+**Fast walkthrough.** From the homepage select **Try recovery demo**, then **Run automatic recovery demo**. Select **Simulate driver cancellation**. The demo has opted in ahead of time, so ReHop checks the backup and books it automatically after cancellation. Select **Advance replacement pickup** and **Confirm boarding**. Use **Try the approval flow** to show the separate case where a driver stalls and the original ride is still active.
 
 1. **0:00–0:20** Open ReHop, choose **Find a ride**, and describe the trip: “From VIT Chennai to Chennai Airport, pickup within 15 minutes.” All shown locations, fares, and driver movement are simulated.
 2. **0:20–0:45** Interpret the request and review pickup, destination and the 15-minute pickup deadline. Point out the interpreter source. The demo works without an API key using deterministic rules. Use the trip details and review the fare, fee and retry limits. Choose **Simulate a stalled pickup** before asking for quotes.

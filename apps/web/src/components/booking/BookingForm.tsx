@@ -307,6 +307,14 @@ export function BookingForm({
           </Card>
         </div>
 
+        <label className="flex min-h-14 cursor-pointer items-start gap-3 rounded-2xl border border-[#4b6659] bg-[#152823] p-4">
+          <input type="checkbox" checked={autoRebook} onChange={(event) => setAutoRebook(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#B9FF45]" />
+          <span>
+            <strong className="block text-sm text-white">Automatically rebook if my driver cancels</strong>
+            <span className="text-xs leading-relaxed text-[#c4d4d0]">After confirmed cancellation, book an eligible backup within my fare and retry limits.</span>
+          </span>
+        </label>
+
         {/* Safety Limits Section (Collapsible Accordion) */}
         <div className="rounded-2xl bg-[#0E1726] border border-[#1E2E46] overflow-hidden">
           <button
@@ -320,10 +328,10 @@ export function BookingForm({
               </div>
               <div>
                 <span className="text-xs sm:text-sm font-extrabold text-[#F6F8FC] block">
-                  Safety & Autonomous Recovery Limits
+                  Recovery limits
                 </span>
                 <span className="text-[11px] text-[#98A5BC]">
-                  Configures auto-rebook policies and cancellation fee guardrails
+                  Set the retry limit and maximum switch fee
                 </span>
               </div>
             </div>
@@ -342,25 +350,6 @@ export function BookingForm({
 
           {showAdvancedSafety && (
             <div className="p-5 pt-1 border-t border-[#1E2E46] flex flex-col gap-4">
-              {/* Auto rebook toggle */}
-              <label className="flex items-start gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoRebook}
-                  onChange={(e) => setAutoRebook(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded accent-[#B9FF45] border-[#2B3E5C]"
-                />
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-[#F6F8FC] block">
-                    Automatically rebook after confirmed driver cancellation
-                  </span>
-                  <span className="text-[11px] text-[#98A5BC]">
-                    If a driver cancels on you, ReHop immediately engages a ranked backup provider
-                    within your budget without waiting for your manual input.
-                  </span>
-                </div>
-              </label>
-
               {/* Recovery Attempts & Cancellation Fee Cap */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#162235]">
                 <div>

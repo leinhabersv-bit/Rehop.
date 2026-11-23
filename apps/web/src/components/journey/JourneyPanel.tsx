@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
 import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import RouteCanvas from './RouteCanvas';
+import AutomaticRecoveryDemo from './AutomaticRecoveryDemo';
 import SwitchReview from './SwitchReview';
 import styles from './journey.module.css';
 
@@ -163,6 +164,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   }
 
   const ride = data.active_ride;
+  const automaticDemo = data.scenario === 'S04' && data.policy.auto_rebook_on_confirmed_driver_cancel && data.state !== 'USER_CANCELLED';
   const risk = data.risk;
   const deadline = data.deadline_decision;
   const done = finished.has(data.state);
@@ -210,6 +212,17 @@ export default function JourneyPanel({ id }: { id: string }) {
           <button className="btn secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh status</button>
         </div>
       )}
+      {automaticDemo && (
+        <AutomaticRecoveryDemo
+          journey={data}
+          busy={action}
+          error={error}
+          canAdvance={canAdvance}
+          canBoard={canBoard}
+          onAdvance={(steps) => void act('Advancing the simulation…', () => api.tick(id, steps))}
+          onBoard={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}
+        />
+      )}
       <div className={styles.columns}>
         <div className="stack">
           <section className={`panel stack ${styles.card}`} aria-labelledby="progress-title">
@@ -232,7 +245,7 @@ export default function JourneyPanel({ id }: { id: string }) {
               {risk?.band === 'UNKNOWN' ? 'The last reported pickup estimate' : 'The current pickup estimate'} is past your deadline.
             </p>}
             {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Compare rides</Link></div>}
-            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
+            {ride?.state === 'DRIVER_ARRIVED' && !done && !automaticDemo && <div className="button-row">
               <button className="btn" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
           </section>
@@ -280,8 +293,8 @@ export default function JourneyPanel({ id }: { id: string }) {
                 </div>
               </div>
             )}
-            {action && <p role="status" className="helper">{action}</p>}
-            {error && <p role="alert" className="error">{error}</p>}
+            {action && !automaticDemo && <p role="status" className="helper">{action}</p>}
+            {error && !automaticDemo && <p role="alert" className="error">{error}</p>}
           </section>
 
           {!done && !reconciling && (

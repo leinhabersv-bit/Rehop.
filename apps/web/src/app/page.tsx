@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Clock3, MapPin, Play, Route, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Ban, Clock3, MapPin, Play, Route, ShieldCheck } from 'lucide-react';
 import HeroFilm from '@/components/landing/HeroFilm';
 import styles from '@/components/landing/home.module.css';
 import { api } from '@/lib/api/client';
@@ -17,9 +17,9 @@ const sampleRoutes = [
 ];
 
 const demoSteps = [
-  { icon: Clock3, title: 'A pickup stalls', description: 'The driver stops making progress.' },
-  { icon: Route, title: 'ReHop checks a backup', description: 'See the alternative and any switch fee.' },
-  { icon: ShieldCheck, title: 'You approve the switch', description: 'ReHop verifies cancellation before rebooking.' },
+  { icon: Ban, title: 'The driver cancels', description: 'The simulator confirms the original ride is cancelled.' },
+  { icon: Route, title: 'ReHop checks a backup', description: 'It checks availability, fare, and retry limits.' },
+  { icon: ShieldCheck, title: 'ReHop books the replacement', description: 'The demo has already opted in to automatic recovery.' },
 ];
 
 const field = 'mt-2 w-full min-w-0 rounded-xl border border-[#34445a] bg-[#0b1422] px-3.5 py-3.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B9FF45] disabled:opacity-60';
@@ -53,7 +53,7 @@ export default function HomePage() {
             </p>
             <h1 id="home-title" className={styles.title}>Your ride. <span>No interruptions.</span></h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-[#dfebf9] sm:mt-5 sm:text-lg">
-              Set your limits. ReHop recommends a ride, tracks pickup, and checks a backup if your driver stalls.
+              Set your limits. ReHop recommends a ride, tracks your pickup, and can book a backup if your driver cancels.
             </p>
             <div className="mt-5 flex flex-wrap gap-2.5 sm:mt-7">
               <Link href="/book" className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#B9FF45] px-3 text-sm font-extrabold text-[#0a121a] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B9FF45] sm:flex-none sm:px-6">

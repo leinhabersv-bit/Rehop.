@@ -146,6 +146,7 @@ test('retries an interrupted booking with the original idempotency key', async (
 
 test('S12 leaves an unresolved provider outcome visible with booking blocked', async ({ page, request }) => {
   await page.goto(`${web}/demo`);
+  await page.getByText('More scenarios', { exact: true }).click();
   await page.getByRole('button', { name: /run s12\b/i }).click();
   const id = await reachQuotes(page);
   await bookWithProviderA(page);
@@ -157,6 +158,44 @@ test('S12 leaves an unresolved provider outcome visible with booking blocked', a
   expect(await getJourney(request, id)).toMatchObject({ state: 'RECONCILING', booking_uncertain: true, active_ride: null });
   await tracking.click();
   await expect(page.getByRole('status').filter({ hasText: /booking status is unknown/i })).toBeVisible();
+});
+
+test('featured recovery books a replacement automatically after confirmed driver cancellation', async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(web);
+  await page.getByRole('link', { name: 'Try recovery demo' }).click();
+  await page.getByRole('button', { name: 'Run automatic recovery demo' }).click();
+  await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
+  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  const original = await getJourney(request, id);
+  expect(original).toMatchObject({
+    scenario: 'S04', active_ride: { provider: 'PROVIDER_A' },
+    policy: { auto_rebook_on_confirmed_driver_cancel: true },
+  });
+
+  await page.getByRole('button', { name: 'Simulate driver cancellation' }).click();
+  await expect(page.getByRole('heading', { name: 'Replacement booked automatically' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /review switch|review replacement|approve/i })).toHaveCount(0);
+  const recovered = await getJourney(request, id);
+  expect(recovered).toMatchObject({ state: 'MONITORING', pending_backup: null, recovery_attempts: 1,
+    last_ride: { state: 'DRIVER_CANCELLED', provider: 'PROVIDER_A' }, active_ride: { provider: 'PROVIDER_B' } });
+  expect(recovered.active_ride_id).not.toBe(original.active_ride_id);
+
+  const response = await request.get(`${api}/api/v1/journeys/${id}/events`);
+  expect(response.ok()).toBe(true);
+  const { events }: { events: Event[] } = await response.json();
+  const types = events.map(({ type }) => type);
+  expect(types).not.toContain('APPROVAL_REQUIRED');
+  const cancellation = types.indexOf('DRIVER_CANCELLED');
+  const refresh = types.indexOf('QUOTE_REFRESHED');
+  expect(cancellation).toBeGreaterThan(-1);
+  expect(refresh).toBeGreaterThan(cancellation);
+  expect(types.lastIndexOf('RIDE_CONFIRMED')).toBeGreaterThan(refresh);
+
+  await page.getByRole('button', { name: 'Advance replacement pickup' }).click();
+  await page.getByRole('button', { name: 'Confirm boarding' }).click();
+  await expect(page.getByRole('heading', { name: 'Replacement pickup confirmed' })).toBeVisible();
+  expect(await getJourney(request, id)).toMatchObject({ state: 'PICKUP_CONFIRMED', active_ride: { provider: 'PROVIDER_B' } });
 });
 
 test('blocks approval when the journey changes while the rider is reviewing the offer', async ({ page, request }) => {
