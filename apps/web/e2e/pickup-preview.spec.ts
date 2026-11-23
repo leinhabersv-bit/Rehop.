@@ -40,6 +40,26 @@ test('the intro can be played and paused with reduced motion enabled', async ({ 
   await expect(intro.getByRole('button', { name: 'Play intro' })).toBeVisible();
 });
 
+test('shared controls navigate home and traverse the current app history', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto(`${web}/book`);
+  const navigation = page.getByRole('navigation', { name: 'Page navigation' });
+  const back = navigation.getByRole('button', { name: 'Back' });
+  const forward = navigation.getByRole('button', { name: 'Forward' });
+  const home = navigation.getByRole('link', { name: 'Home' });
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
+  await home.click();
+  await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Your rides' }).click();
+  await expect(page).toHaveURL(/\/trips$/);
+  await back.click();
+  await expect(page).toHaveURL(`${web}/`);
+  await forward.click();
+  await expect(page).toHaveURL(/\/trips$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+});
+
 test('a rider can set a five-minute maximum and confirm the recommended ride', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 850 });
   await page.goto(web);

@@ -59,7 +59,7 @@ export default function HomePage() {
     <div className="mx-auto max-w-6xl space-y-5 pb-8 lg:space-y-7">
       <RideIntro />
       <div className="grid items-stretch gap-5 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
-        <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-20 rounded-[28px] bg-[#fffdf8] p-5 sm:p-8">
+        <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-28 rounded-[28px] bg-[#fffdf8] p-5 sm:scroll-mt-20 sm:p-8">
           <h2 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
             Where to<span className="text-[#173ed7]">?</span>
           </h2>
