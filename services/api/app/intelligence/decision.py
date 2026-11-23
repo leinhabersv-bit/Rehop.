@@ -2,6 +2,9 @@
 
 from datetime import datetime
 
+from app.schemas.domain import DeadlineDecision
+from app.schemas.enums import ChatLabel, RiskBand
+
 
 def compare_wait_switch(
     *,
@@ -12,24 +15,28 @@ def compare_wait_switch(
     current_fare_inr: int,
     backup_fare_inr: int,
     cancellation_fee_upper_bound_inr: int,
-    risk_band: str,
-    chat_signal: str | None = None,
-) -> dict:
+    risk_band: RiskBand,
+    chat_signal: ChatLabel | None = None,
+) -> DeadlineDecision:
     left = max(0, int((need_by - now).total_seconds()))
     wait_late = max(0, current_eta_sec - left)
     switch_late = max(0, backup_eta_sec - left)
     # Illustrative simulated preference scores, never predicted monetary losses.
-    wait_cost = wait_late * 2 + (90 if risk_band == "HIGH" else 40 if risk_band == "MEDIUM" else 0)
+    wait_cost = wait_late * 2 + (
+        90 if risk_band == RiskBand.HIGH else 40 if risk_band == RiskBand.MEDIUM else 0
+    )
     switch_cost = (
         switch_late * 2 + max(0, backup_fare_inr - current_fare_inr) + cancellation_fee_upper_bound_inr
     )
-    if chat_signal == "REQUEST_RIDER_CANCEL":
+    if chat_signal == ChatLabel.REQUEST_RIDER_CANCEL:
         wait_cost += 20  # advisory only; never sufficient to cancel a ride
     # Switching must offer a meaningful improvement and must be approved.
     recommend = (
-        switch_cost + 30 < wait_cost and backup_eta_sec < current_eta_sec and risk_band in {"MEDIUM", "HIGH"}
+        switch_cost + 30 < wait_cost
+        and backup_eta_sec < current_eta_sec
+        and risk_band in {RiskBand.MEDIUM, RiskBand.HIGH}
     )
-    return dict(
+    return DeadlineDecision(
         seconds_until_deadline=left,
         wait_late_sec=wait_late,
         switch_late_sec=switch_late,

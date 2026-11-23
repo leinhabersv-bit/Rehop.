@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.routes.journeys import router
-from app.simulation.engine import SimulationError, store
+from app.schemas.errors import ErrorEnvelope, ErrorPayload, SimulationError
+from app.simulation.engine import store
 
 app = FastAPI(
     title="RideRescue Simulation API",
@@ -26,7 +27,9 @@ app.include_router(router)
 async def simulation_error_handler(request: Request, exc: SimulationError):
     return JSONResponse(
         status_code=exc.status,
-        content={"error": {"code": exc.code, "message": str(exc), "retryable": exc.retryable}},
+        content=ErrorEnvelope(
+            error=ErrorPayload(code=exc.code, message=str(exc), retryable=exc.retryable)
+        ).model_dump(mode="json"),
     )
 
 
@@ -45,10 +48,10 @@ async def journey_stream(websocket: WebSocket, journey_id: str):
         while True:
             with store.lock:
                 journey = store.get(journey_id)
-                pending = [e for e in journey.events if e["seq"] > last_seq]
+                pending = [e for e in journey.events if e.seq > last_seq]
             for event in pending:
-                await websocket.send_json(event)
-                last_seq = event["seq"]
+                await websocket.send_json(event.model_dump(mode="json"))
+                last_seq = event.seq
             await asyncio.sleep(0.5)
     except (WebSocketDisconnect, asyncio.CancelledError):
         return

@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-STOPPED = {"PICKUP_CONFIRMED", "USER_CANCELLED", "EXHAUSTED"}
-ACTIVE_RIDE_STATES = {"CONFIRMED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "IN_PROGRESS"}
+from app.schemas.enums import JourneyState, RideState
+
+STOPPED = {JourneyState.PICKUP_CONFIRMED, JourneyState.USER_CANCELLED, JourneyState.EXHAUSTED}
+ACTIVE_RIDE_STATES = {
+    RideState.CONFIRMED,
+    RideState.DRIVER_EN_ROUTE,
+    RideState.DRIVER_ARRIVED,
+    RideState.IN_PROGRESS,
+}
 
 
 def may_rebook(
     *,
-    journey_state: str,
-    active_ride_state: str | None,
+    journey_state: JourneyState,
+    active_ride_state: RideState | None,
     attempts: int,
     max_attempts: int,
     quote_fare_inr: int,
