@@ -50,6 +50,12 @@ a {
   text-decoration: none;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html:has(#trip-planner) {
+    scroll-behavior: smooth;
+  }
+}
+
 button, select, input, textarea {
   font: inherit;
 }

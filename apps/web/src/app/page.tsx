@@ -4,8 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Clock3, MapPin, Navigation, ShieldCheck } from 'lucide-react';
-import Image from 'next/image';
+import { ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
 import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
@@ -105,15 +104,26 @@ export default function HomePage() {
           </div>}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-[#475673] underline">Places © OpenStreetMap contributors</a>
         </section>
-        <aside className="relative flex min-h-[340px] min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#173ed7] text-white lg:min-h-[560px]">
-          <Image src="/images/rehop-cobalt.webp" alt="" fill sizes="(min-width: 1024px) 600px, 100vw" className="object-cover object-[64%_center]" />
-          <div className="relative bg-gradient-to-t from-[#10257c]/95 via-[#10257c]/80 to-transparent px-6 pb-6 pt-24 sm:px-8 sm:pb-8">
-            <ShieldCheck size={24} className="mb-2 text-[#ffb27d]" aria-hidden="true" />
-            <h2 className="text-2xl font-black tracking-tight !text-white">Pickup protection</h2>
-            <p className="mt-1 max-w-sm text-sm leading-relaxed text-white">If your ride stalls, you decide whether to switch. If your driver cancels, RIDE &amp; SEEK books the best available backup within your limits and tracks it for you.</p>
-            <Link href="/trips" className="mt-3 inline-flex items-center gap-2 rounded-lg font-bold text-[#ffcfaa]">Your rides <ArrowRight size={16} aria-hidden="true" /></Link>
-          </div>
-        </aside>
+        <section aria-labelledby="pickup-protection-title" className="flex min-w-0 flex-col justify-center overflow-hidden rounded-[28px] bg-[#112575] bg-[radial-gradient(ellipse_at_top_right,#294ee9,transparent_70%)] p-5 text-white sm:p-8 lg:p-10">
+          <span className="mb-5 grid size-12 place-items-center rounded-2xl bg-[#ffb27d] text-[#20195c]">
+            <ShieldCheck size={26} aria-hidden="true" />
+          </span>
+          <h2 id="pickup-protection-title" className="text-[clamp(2.1rem,4vw,3.5rem)] font-black leading-none tracking-[-.055em] !text-white">Pickup protection</h2>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#e4eaff] sm:text-base">RIDE &amp; SEEK tracks your pickup and helps you keep the trip moving.</p>
+          <dl className="mt-6 grid gap-3">
+            <div className="rounded-2xl border border-white/20 bg-[#0c1a54]/60 p-3.5 sm:p-4">
+              <dt className="flex items-center gap-3 font-extrabold text-white"><Clock3 size={21} className="shrink-0 text-[#ffb27d]" aria-hidden="true" />Driver stalls</dt>
+              <dd className="mt-1 pl-[33px] text-sm leading-relaxed text-[#e4eaff]">See a backup and decide whether to switch. Your current ride stays active while you decide.</dd>
+            </div>
+            <div className="rounded-2xl bg-[#ffdec8] p-3.5 text-[#281a3d] sm:p-4">
+              <dt className="flex items-center gap-3 font-extrabold"><RefreshCw size={21} className="shrink-0 text-[#563580]" aria-hidden="true" />Driver cancels</dt>
+              <dd className="mt-1 pl-[33px] text-sm leading-relaxed">Once cancellation is confirmed, we book an eligible backup within your limits and track the new pickup.</dd>
+            </div>
+          </dl>
+          <Link href="/trips" className="mt-5 inline-flex min-h-10 w-fit items-center gap-2 rounded-lg font-bold text-[#ffcfaa] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+            Your rides <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </section>
       </div>
     </div>
   );

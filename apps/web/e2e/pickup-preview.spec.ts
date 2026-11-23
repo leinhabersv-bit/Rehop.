@@ -11,10 +11,15 @@ for (const width of [320, 390, 1366]) {
     await expect(page.getByRole('link', { name: 'RIDE & SEEK home' })).toBeVisible();
     await expect(page).toHaveTitle(/RIDE & SEEK/);
     await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeInViewport();
+    await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'smooth');
     await page.getByRole('link', { name: 'Plan your ride' }).click();
     await expect(page).toHaveURL(/#trip-planner$/);
     await expect(page.getByRole('heading', { name: 'Where to?' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Review trip details' })).toBeInViewport();
+    const protection = page.getByRole('region', { name: 'Pickup protection' });
+    await expect(protection.getByText('Driver stalls')).toBeVisible();
+    await expect(protection.getByText('Driver cancels')).toBeVisible();
+    await expect(protection.locator('img')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /demo/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
@@ -25,6 +30,7 @@ for (const width of [320, 390, 1366]) {
 test('the intro can be played and paused with reduced motion enabled', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(web);
+  await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
   const intro = page.getByRole('region', { name: 'RIDE & SEEK' });
   const video = intro.locator('video');
   await expect(video).not.toHaveAttribute('src');
