@@ -1,15 +1,17 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
 from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 
-class Provider(str, Enum):
-    PROVIDER_A = 'PROVIDER_A'
-    PROVIDER_C = 'PROVIDER_C'
-    PROVIDER_B = 'PROVIDER_B'
-    PROVIDER_D = 'PROVIDER_D'
+class Provider(str, Enum):  # noqa: UP042 - StrEnum would change how members stringify.
+    PROVIDER_A = "PROVIDER_A"
+    PROVIDER_C = "PROVIDER_C"
+    PROVIDER_B = "PROVIDER_B"
+    PROVIDER_D = "PROVIDER_D"
 
 
 class Location(BaseModel):
@@ -32,12 +34,13 @@ class JourneyCreate(BaseModel):
     dropoff: Location
     policy: RecoveryPolicy = Field(default_factory=RecoveryPolicy)
     need_by: datetime | None = None  # latest acceptable simulated pickup time
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def different_locations(self):
         if self.need_by is not None and (self.need_by.tzinfo is None or self.need_by.utcoffset() is None):
-            raise ValueError('need_by requires a timezone offset')
+            raise ValueError("need_by requires a timezone offset")
         if self.pickup.label == self.dropoff.label:
-            raise ValueError('Pickup and destination must differ')
+            raise ValueError("Pickup and destination must differ")
         return self
 
 
