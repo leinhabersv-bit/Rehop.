@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { ArrowRight, Play } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import styles from './scenarios.module.css';
 
@@ -23,6 +24,7 @@ export default function ScenarioConsole() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const starting = useRef(false);
+  const featured = query.data?.scenarios.find((scenario) => scenario.id === 'S03');
 
   async function start(id: string) {
     if (starting.current) return;
@@ -56,8 +58,21 @@ export default function ScenarioConsole() {
       )}
       {message && <p className="error" role="alert">{message}</p>}
       {query.data?.scenarios.length === 0 && <p className="muted">The simulator has no scenarios available.</p>}
+      {featured && (
+        <section aria-labelledby="featured-demo" className="mb-6 grid gap-5 rounded-3xl border border-[#B9FF45]/40 bg-gradient-to-br from-[#1c312e] to-[#101a2b] p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-7">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#d8ffa1]"><Play size={15} aria-hidden="true" /> Start here</p>
+            <h2 id="featured-demo" className="text-2xl font-black sm:text-3xl">Recover a stalled pickup</h2>
+            <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#bdc9db]">A driver stops making progress. Advance the clock, see ReHop’s recommendation, then approve a switch and confirm boarding.</p>
+          </div>
+          <button type="button" aria-label="Run S03 stalled pickup demo" disabled={busy !== null || query.isError} onClick={() => void start(featured.id)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#B9FF45] px-5 text-sm font-extrabold text-[#0a121a] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B9FF45]">
+            {busy === featured.id ? 'Starting…' : 'Run recovery demo'} <ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </section>
+      )}
+      {query.data && query.data.scenarios.length > 1 && <h2 className="mb-3 text-xl font-black">More scenarios</h2>}
       <ul className="scenario-list">
-        {query.data?.scenarios.map((scenario) => (
+        {query.data?.scenarios.filter((scenario) => scenario.id !== featured?.id).map((scenario) => (
           <li className={`panel ${styles.scenario}`} key={scenario.id}>
             <span className="badge">{scenario.id}</span>
             <h2>{scenario.name}</h2>

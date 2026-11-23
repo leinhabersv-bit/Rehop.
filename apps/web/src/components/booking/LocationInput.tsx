@@ -71,7 +71,7 @@ export function LocationInput({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative rounded-2xl bg-[#0E1726] border border-[#1E293B] p-4 sm:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.36)]">
+      <div className="relative rounded-2xl bg-[#0E1726] border border-[#1E293B] p-3 sm:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.36)]">
         {/* Swap button placed absolutely between inputs */}
         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-10">
           <button
@@ -89,7 +89,7 @@ export function LocationInput({
         <div className="flex flex-col gap-3 pr-12 sm:pr-14">
           {/* Pickup Block */}
           <div ref={pickupRef} className="relative">
-            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3.5 py-2.5 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
+            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3 py-2 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#B9FF45]/15 text-[#B9FF45]">
                 <Navigation className="h-4 w-4" />
               </div>
@@ -108,7 +108,7 @@ export function LocationInput({
                   }}
                   onFocus={() => setPickupOpen(true)}
                   placeholder="Enter pickup point (e.g. VIT Chennai)"
-                  className="w-full bg-transparent text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
+                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
                 />
               </div>
               <button
@@ -165,7 +165,7 @@ export function LocationInput({
 
           {/* Destination Block */}
           <div ref={dropoffRef} className="relative">
-            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3.5 py-2.5 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
+            <div className="flex items-center gap-3 rounded-xl bg-[#131E31] border border-[#22334D] px-3 py-2 transition-colors focus-within:border-[#B9FF45] focus-within:ring-1 focus-within:ring-[#B9FF45]/30">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2ED389]/15 text-[#2ED389]">
                 <MapPin className="h-4 w-4" />
               </div>
@@ -184,7 +184,7 @@ export function LocationInput({
                   }}
                   onFocus={() => setDropoffOpen(true)}
                   placeholder="Enter destination (e.g. Chennai Airport)"
-                  className="w-full bg-transparent text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
+                  className="w-full !border-0 !bg-transparent !p-0 text-sm font-semibold text-[#F6F8FC] placeholder:text-[#98A5BC]/50 focus:outline-none"
                 />
               </div>
               <button
@@ -234,27 +234,6 @@ export function LocationInput({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Quick Suggestion Chips */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-        <span className="text-[11px] font-medium text-[#98A5BC] mr-1">Quick pick:</span>
-        {availableLocations.slice(0, 4).map((loc) => (
-          <button
-            key={loc.label}
-            type="button"
-            onClick={() => {
-              if (!pickup || pickup === loc.label) {
-                onPickupChange(loc.label);
-              } else {
-                onDropoffChange(loc.label);
-              }
-            }}
-            className="rounded-full bg-[#151F32] hover:bg-[#1F2E47] border border-[#243249] hover:border-[#B9FF45]/40 px-2.5 py-0.5 text-[11px] font-medium text-[#98A5BC] hover:text-[#F6F8FC] transition-all"
-          >
-            {loc.label}
-          </button>
-        ))}
       </div>
 
       {error && <p className="text-xs font-semibold text-[#FF6D76] mt-0.5">{error}</p>}

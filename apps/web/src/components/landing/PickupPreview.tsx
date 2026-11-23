@@ -26,11 +26,11 @@ export default function PickupPreview() {
       <figcaption className={styles.details}>
         <div className={styles.detail}>
           <CarFront size={21} aria-hidden="true" />
-          <div><strong>4 min to pickup</strong><span>Provider A</span></div>
+          <div><strong>4 min to pickup</strong><span>Provider B</span></div>
         </div>
         <div className={styles.detail}>
           <ShieldCheck size={21} aria-hidden="true" />
-          <div><strong>Backup quote</strong><span>Provider B</span></div>
+          <div><strong>Backup quote</strong><span>Provider A</span></div>
         </div>
       </figcaption>
     </figure>

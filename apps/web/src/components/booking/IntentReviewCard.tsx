@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import type { Location } from '@/types';
+import { PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 import type { ParsedIntentResult } from './AiRequestInput';
 
 export interface IntentReviewCardProps {
@@ -28,7 +29,7 @@ export interface IntentReviewCardProps {
   className?: string;
 }
 
-const TIME_OPTIONS = [15, 20, 25, 30, 45, 60];
+
 
 export function IntentReviewCard({
   intent,
@@ -173,7 +174,7 @@ export function IntentReviewCard({
             </span>
             {isEditing ? (
               <div className="flex flex-wrap items-center gap-1.5">
-                {TIME_OPTIONS.map((mins) => (
+                {PICKUP_WAIT_PRESETS.map((mins) => (
                   <button
                     key={mins}
                     type="button"

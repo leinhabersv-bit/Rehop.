@@ -1,26 +1,23 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
-  Clock,
   Sparkles,
   RefreshCw,
   AlertCircle,
   MapPin,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { api, ApiError } from '@/lib/api/client';
 import type { Journey, Quote } from '@/types';
 import { providerName } from '@/types';
+import { recommendRide } from '@/lib/pickup';
 import { ProviderCard, isQuoteWithinPolicy } from './ProviderCard';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
-
-type FilterTab = 'all' | 'fastest' | 'cheapest';
 
 export function CompareScreen() {
   const router = useRouter();
@@ -50,8 +47,7 @@ export function CompareScreen() {
     retry: 1,
   });
 
-  // Filter tab state
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [showAlternatives, setShowAlternatives] = useState(false);
 
   // Selected quote state
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
@@ -73,30 +69,9 @@ export function CompareScreen() {
   } | null>(null);
   const attempt = pendingAttempt?.journeyId === queryJourneyId ? pendingAttempt : null;
 
-  // Compute sorted & filtered quotes
-  const quotes = useMemo(() => journey?.quotes || [], [journey?.quotes]);
-
-  const lowestFare = useMemo(() => {
-    if (!quotes.length) return 0;
-    return Math.min(...quotes.map((q) => q.estimated_fare_inr));
-  }, [quotes]);
-
-  const lowestEta = useMemo(() => {
-    if (!quotes.length) return 0;
-    return Math.min(...quotes.map((q) => q.pickup_eta_sec));
-  }, [quotes]);
-
-  const displayedQuotes = useMemo(() => {
-    const list = [...quotes];
-    if (activeTab === 'fastest') {
-      return list.sort((a, b) => a.pickup_eta_sec - b.pickup_eta_sec);
-    }
-    if (activeTab === 'cheapest') {
-      return list.sort((a, b) => a.estimated_fare_inr - b.estimated_fare_inr);
-    }
-    return list;
-  }, [quotes, activeTab]);
-
+  const quotes = journey?.quotes ?? [];
+  const recommended = journey && recommendRide(journey);
+  const displayedQuotes = [...quotes].sort((a, b) => a.estimated_fare_inr - b.estimated_fare_inr);
   const simulatedTimeMs = Date.parse(journey?.simulated_time ?? '');
   const deadlineMs = Date.parse(journey?.need_by ?? '');
   const canBook = journey?.state === 'WAITING_FOR_RIDE' && !journey.booking_uncertain && !journey.active_ride_id;
@@ -104,8 +79,11 @@ export function CompareScreen() {
     journey && Date.parse(quote.expires_at) > simulatedTimeMs &&
     isQuoteWithinPolicy(quote, journey.policy);
   const selectedQuote = quotes.find((quote) => quote.quote_id === selectedQuoteId && isEligible(quote))
-    ?? displayedQuotes.find(isEligible);
+    ?? recommended;
   const selectedProviderName = selectedQuote ? providerName[selectedQuote.provider] : null;
+  const chosenRecommendation = selectedQuote?.quote_id === recommended?.quote_id;
+  const selectedMeetsDeadline = selectedQuote && simulatedTimeMs + selectedQuote.pickup_eta_sec * 1000 <= deadlineMs;
+  const maxWaitMinutes = Math.max(0, Math.round((deadlineMs - simulatedTimeMs) / 60_000));
 
   const handleConfirmBooking = async () => {
     if (inFlight.current || !journey || (!attempt && (!canBook || !selectedQuote))) return;
@@ -213,226 +191,136 @@ export function CompareScreen() {
     );
   }
 
+  const alternativesVisible = showAlternatives || (!recommended && !!quotes.length);
+
   return (
-    <div className="min-h-screen bg-[#090F1D] text-[#F6F8FC] px-4 py-8 sm:py-12">
-      <div className="mx-auto max-w-2xl">
-        {/* Navigation Top Bar */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            type="button"
-            onClick={() => router.push('/book')}
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800/60 border border-white/10 text-slate-300 hover:text-white transition-colors"
-            aria-label="Back to booking"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-
+    <div className="mx-auto w-full max-w-4xl space-y-5 pb-10">
+      <header className="space-y-3">
+        <button
+          type="button"
+          onClick={() => router.push('/book')}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#bdd0e7] hover:text-white focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
+        >
+          <ArrowLeft size={17} aria-hidden="true" /> Edit trip
+        </button>
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#B9FF45]">Simulated booking</p>
+          <h1 className="text-3xl font-black tracking-tight sm:text-5xl">{canBook ? 'Review your ride' : 'Your ride'}</h1>
         </div>
-
-        {/* Hero Header */}
-        <div className="mb-6">
-          <div className="text-xs font-bold tracking-widest text-[#B9FF45] uppercase mb-1">
-            Step 2 of 3 · Compare
+        {journey && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#304055] bg-[#111c2e] p-3.5 text-sm">
+            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 font-bold">
+              <MapPin size={16} className="shrink-0 text-[#B9FF45]" aria-hidden="true" />
+              {journey.pickup.label} <span aria-hidden="true">→</span> {journey.dropoff.label}
+            </span>
+            <span className="text-[#bdc9db]">Max wait <strong className="text-white">{maxWaitMinutes} min</strong></span>
+            <span className="text-[#bdc9db]">Fare cap <strong className="text-white">₹{journey.policy.max_total_fare_inr}</strong></span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Available rides<span className="text-[#B9FF45]">.</span>
-          </h1>
-          <p className="mt-2 text-sm text-[#98A5BC]">
-            Compare simulated fares, pickup times, and eligibility for your trip.
-          </p>
+        )}
+      </header>
 
-          {/* Trip Summary Pill */}
-          {journey && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#101726] border border-[#1E293B] px-4 py-3 text-xs">
-              <div className="flex flex-wrap items-center gap-2 text-slate-300">
-                <MapPin className="h-3.5 w-3.5 text-[#B9FF45] shrink-0" />
-                <span className="font-semibold text-white">{journey.pickup.label}</span>
-                <span className="text-slate-500">→</span>
-                <span className="font-semibold text-white">{journey.dropoff.label}</span>
-                <span className="text-slate-600">·</span>
-                <span className="text-slate-400">
-                  Pickup deadline: <strong className="text-white">{journey.need_by.slice(11, 16)} UTC</strong> (simulated)
-                </span>
-              </div>
+      {isLoading && <p role="status" className="rounded-2xl border border-[#304055] p-5 text-[#bdc9db]">Checking simulated fares and pickup times…</p>}
 
-              <button
-                type="button"
-                onClick={() => router.push('/book')}
-                className="font-bold text-[#B9FF45] hover:underline"
-              >
-                Change trip
-              </button>
+      {journey && (
+        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#B9FF45]/40 bg-gradient-to-br from-[#1b2e2b] via-[#131f2f] to-[#101827] p-5 sm:p-7">
+          {canBook && selectedQuote ? (
+            <>
+              <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-[#d8ffa1]">
+                <Sparkles size={17} aria-hidden="true" /> {chosenRecommendation ? 'ReHop recommends' : 'Your selection'}
+              </p>
+              <h2 id="ride-choice" className="text-2xl font-black tracking-tight sm:text-4xl">{selectedProviderName}</h2>
+              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#415467] py-3">
+                <div>
+                  <dt className="text-sm text-[#c0cede]">Estimated pickup</dt>
+                  <dd className="text-2xl font-black">{Math.ceil(selectedQuote.pickup_eta_sec / 60)} min</dd>
+                </div>
+                <div className="pl-4">
+                  <dt className="text-sm text-[#c0cede]">Estimated fare</dt>
+                  <dd className="text-2xl font-black">₹{selectedQuote.estimated_fare_inr}</dd>
+                </div>
+              </dl>
+              <p className={selectedMeetsDeadline ? 'mb-5 text-sm text-[#d4e3d9]' : 'mb-5 text-sm font-bold text-[#ffcb92]'}>
+                {chosenRecommendation
+                  ? 'Lowest fare among available rides that meet your maximum wait and fare cap.'
+                  : selectedMeetsDeadline ? 'This ride fits your maximum wait and fare cap.' : 'This pickup is estimated to exceed your maximum wait.'}
+              </p>
+            </>
+          ) : (
+            <div className="mb-4">
+              <h2 id="ride-choice" className="text-xl font-black">
+                {canBook ? 'No ride meets both limits' : 'Check your journey status'}
+              </h2>
+              <p className="mt-1 text-sm text-[#bdc9db]">
+                {canBook ? 'Adjust your trip limits or review any available alternatives below.' : 'Open tracking for the latest provider status.'}
+              </p>
             </div>
           )}
-        </div>
 
-        {/* Quote Refresh Bar */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-[#B9FF45]" />
-            <span>
-              Quote expiry follows the simulator clock.
-            </span>
+          {bookingError && <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#FF9CA1]/40 bg-[#351d2b] p-3 text-sm text-[#ffc8cc]"><AlertCircle size={17} className="shrink-0" aria-hidden="true" />{bookingError}</p>}
+
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={isBooking}
+            loadingText="Confirming simulated ride…"
+            disabled={canBook && !attempt && (!selectedQuote || isFetching || !!error)}
+            onClick={() => {
+              if (canBook || attempt) void handleConfirmBooking();
+              else router.push(`/journey/${journey.id}`);
+            }}
+            rightIcon={<ArrowRight size={18} aria-hidden="true" />}
+          >
+            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : selectedProviderName ? `Book with ${selectedProviderName}` : 'No eligible ride selected'}
+          </Button>
+        </section>
+      )}
+
+      {canBook && !!quotes.length && (
+        <section aria-labelledby="compare-rides" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="compare-rides" className="text-base font-bold">Provider quotes</h2>
+            <button
+              type="button"
+              aria-expanded={alternativesVisible}
+              aria-controls="ride-quotes"
+              onClick={() => setShowAlternatives(!alternativesVisible)}
+              disabled={!recommended}
+              className="min-h-10 rounded-lg border border-[#34445a] px-3 text-sm font-bold text-[#dce8f7] hover:border-[#B9FF45] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
+            >
+              {alternativesVisible ? 'Hide provider quotes' : `Compare all ${quotes.length} rides`}
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-1 font-semibold text-slate-300 hover:text-white"
-          >
-            <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin text-[#B9FF45]' : ''}`} />
-            <span>Check latest status</span>
-          </button>
-        </div>
-
-        {/* Sorting & Filter Tabs */}
-        <div className="mb-5 flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
-          <button
-            type="button"
-            aria-pressed={activeTab === 'all'}
-            onClick={() => setActiveTab('all')}
-            className={`
-              inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all
-              ${
-                activeTab === 'all'
-                  ? 'bg-[#14291E] border border-[#265339] text-[#B9FF45]'
-                  : 'bg-[#151C28] border border-[#233044] text-slate-300 hover:text-white'
-              }
-            `}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>All ({quotes.length})</span>
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={activeTab === 'fastest'}
-            onClick={() => setActiveTab('fastest')}
-            className={`
-              inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all
-              ${
-                activeTab === 'fastest'
-                  ? 'bg-[#14291E] border border-[#265339] text-[#B9FF45]'
-                  : 'bg-[#151C28] border border-[#233044] text-slate-300 hover:text-white'
-              }
-            `}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            <span>Fastest ETA</span>
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={activeTab === 'cheapest'}
-            onClick={() => setActiveTab('cheapest')}
-            className={`
-              inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all
-              ${
-                activeTab === 'cheapest'
-                  ? 'bg-[#14291E] border border-[#265339] text-[#B9FF45]'
-                  : 'bg-[#151C28] border border-[#233044] text-slate-300 hover:text-white'
-              }
-            `}
-          >
-            <span>₹</span>
-            <span>Lowest Price</span>
-          </button>
-        </div>
-
-        {/* Main Quotes Content & States */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-28 rounded-2xl bg-[#0F1726] border border-[#1E293B] p-5 animate-pulse flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-xl bg-slate-800" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-28 rounded bg-slate-800" />
-                    <div className="h-3 w-40 rounded bg-slate-800/60" />
-                  </div>
-                </div>
-                <div className="h-6 w-16 rounded bg-slate-800" />
+          {alternativesVisible && (
+            <>
+              <div id="ride-quotes" role="radiogroup" aria-label="Simulated ride quotes" className="grid gap-3 sm:grid-cols-2">
+                {displayedQuotes.map((quote) => (
+                  <ProviderCard
+                    key={quote.quote_id}
+                    quote={quote}
+                    isSelected={selectedQuote?.quote_id === quote.quote_id}
+                    onSelect={setSelectedQuoteId}
+                    maxFare={journey?.policy.max_total_fare_inr}
+                    isBooking={isBooking || !!attempt}
+                    simulatedTimeMs={simulatedTimeMs}
+                    deadlineMs={deadlineMs}
+                    tag={recommended?.quote_id === quote.quote_id ? 'Recommended' : undefined}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        ) : displayedQuotes.length === 0 ? (
-          <div className="rounded-2xl bg-[#0F1726] border border-slate-800 p-8 text-center text-sm">
-            <SlidersHorizontal className="mx-auto h-8 w-8 text-slate-500 mb-2" />
-            <div className="font-bold text-white text-base">
-              No simulated quotes found matching criteria
-            </div>
-            <p className="text-slate-400 mt-1">
-              Try adjusting your max fare limit or destination to find available rides.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => router.push('/book')}
-              className="mt-4"
-            >
-              Adjust Trip Filters
-            </Button>
-          </div>
-        ) : (
-          <div role="radiogroup" aria-label="Simulated ride quotes" className="space-y-3">
-            {displayedQuotes.map((quote) => (
-              <ProviderCard
-                key={quote.quote_id}
-                quote={quote}
-                isSelected={selectedQuote?.quote_id === quote.quote_id}
-                onSelect={(id) => {
-                  setSelectedQuoteId(id);
-                }}
-                maxFare={journey?.policy?.max_total_fare_inr}
-                isBooking={isBooking || !canBook || !!attempt}
-                simulatedTimeMs={simulatedTimeMs}
-                deadlineMs={deadlineMs}
-                tag={quote.estimated_fare_inr === lowestFare ? 'Lowest fare' : quote.pickup_eta_sec === lowestEta ? 'Fastest pickup' : undefined}
-              />
-            ))}
-          </div>
-        )}
+              <a href="#book-recommendation" className="inline-block py-2 text-sm font-bold text-[#B9FF45] underline underline-offset-4">Review selected ride ↑</a>
+            </>
+          )}
+        </section>
+      )}
 
-        {/* Booking Error Banner */}
-        {bookingError && (
-          <div role="alert" className="mt-4 rounded-xl bg-[#FF6D76]/15 border border-[#FF6D76]/30 p-3 text-xs text-[#FF6D76] flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{bookingError}</span>
-          </div>
-        )}
+      {journey && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#304055] pt-3 text-sm text-[#bac7da]">
+        <span>Quotes and pickup ETAs are simulated.</span>
+        <button type="button" onClick={() => void refetch()} disabled={isFetching} className="inline-flex min-h-10 items-center gap-2 rounded-lg font-bold hover:text-white focus-visible:outline-2 focus-visible:outline-[#B9FF45]">
+          <RefreshCw size={15} aria-hidden="true" /> Check latest status
+        </button>
+      </div>}
 
-        {/* Bottom Sticky Action Card */}
-        {journey && (
-          <div className="mt-8 rounded-2xl bg-[#0E1624] border border-slate-800 p-4 sm:p-5 shadow-2xl">
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isBooking}
-              loadingText="Confirming simulated ride..."
-              disabled={canBook && !attempt && (!selectedQuote || isFetching || !!error)}
-              onClick={() => {
-                if (canBook || attempt) void handleConfirmBooking();
-                else router.push(`/journey/${journey.id}`);
-              }}
-              rightIcon={<ArrowRight className="h-5 w-5" />}
-              className="!rounded-2xl shadow-[0_0_24px_rgba(185,255,69,0.3)] hover:brightness-105"
-            >
-              {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : selectedProviderName ? `Book with ${selectedProviderName}` : 'No eligible quote'}
-            </Button>
-
-            <p className="mt-3 text-center text-xs text-slate-500">
-              Prices and ETAs shown are simulated. All providers (Provider A-D) and fares are synthetic.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Screen 4: Booking Confirmation Modal */}
       {confirmedJourney && (
         <BookingConfirmationModal
           isOpen={isConfirmationOpen}

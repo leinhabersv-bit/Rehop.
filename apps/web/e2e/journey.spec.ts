@@ -11,13 +11,15 @@ async function getJourney(request: APIRequestContext, id: string): Promise<Journ
 }
 
 async function reachQuotes(page: Page) {
-  await expect(page.getByRole('radiogroup', { name: 'Simulated ride quotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
+  await expect(page.getByText('ReHop recommends', { exact: true })).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   if (!id) throw new Error('Comparison URL is missing the backend journey ID');
   return id;
 }
 
 async function bookWithProviderA(page: Page) {
+  await page.getByRole('button', { name: 'Compare all 4 rides' }).click();
   const option = page.getByRole('radio', { name: 'Provider A' });
   await option.press('Space');
   await expect(option).toBeChecked();
@@ -27,6 +29,7 @@ async function bookWithProviderA(page: Page) {
 test('interprets, books, switches and confirms pickup on one simulated journey', async ({ page, request }) => {
   await page.goto(web);
   await page.getByRole('link', { name: 'Find a ride' }).first().click();
+  await page.getByText('Describe your trip with AI', { exact: true }).click();
   await page.locator('textarea').fill('From VIT Chennai to Chennai Airport, pickup within 15 minutes, under ₹650.');
   const interpretation = page.waitForResponse((response) => response.url().endsWith('/intent/parse') && response.request().method() === 'POST');
   await page.getByRole('button', { name: /interpret/i }).click();
@@ -35,7 +38,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   });
   await page.getByRole('button', { name: 'Use these trip details' }).click();
   await page.getByRole('checkbox', { name: /simulate a stalled pickup/i }).check();
-  await page.getByRole('button', { name: 'Find available rides' }).click();
+  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
   const id = await reachQuotes(page);
   const quoted = await getJourney(request, id);
   expect(quoted).toMatchObject({ scenario: 'S03', state: 'WAITING_FOR_RIDE', policy: { max_total_fare_inr: 650 } });
@@ -83,13 +86,13 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
 
 async function prepareManualBooking(page: Page) {
   await page.goto(`${web}/book`);
-  await page.getByRole('button', { name: 'Find available rides' }).click();
+  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
   return reachQuotes(page);
 }
 
 test('keeps invalid setup input out of the journey API', async ({ page }) => {
   await page.goto(`${web}/book?needIn=Infinity`);
-  await expect(page.getByRole('slider', { name: 'Pickup Deadline' })).toHaveValue('20');
+  await expect(page.getByRole('slider', { name: 'Maximum pickup wait' })).toHaveValue('10');
   let createRequests = 0;
   page.on('request', (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/journeys') {
@@ -97,7 +100,7 @@ test('keeps invalid setup input out of the journey API', async ({ page }) => {
     }
   });
   await page.getByRole('textbox', { name: 'Pickup location' }).fill('Unlisted pickup');
-  await page.getByRole('button', { name: 'Find available rides' }).click();
+  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
   await expect(page.locator('form').getByRole('alert')).toHaveText(/Choose both places from the simulator location list/);
   await expect(page).toHaveURL(`${web}/book?needIn=Infinity`);
   expect(createRequests).toBe(0);

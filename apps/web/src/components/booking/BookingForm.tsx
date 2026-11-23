@@ -12,8 +12,9 @@ import {
   AlertTriangle,
   Info,
 } from 'lucide-react';
-import { Button, Card, Badge } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import { api, API_BASE } from '@/lib/api/client';
+import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 import type { Location, RecoveryPolicy } from '@/types';
 import { LocationInput } from './LocationInput';
 import { AiRequestInput, type ParsedIntentResult } from './AiRequestInput';
@@ -33,13 +34,12 @@ export function calculateNeedBy(needInMinutes: number, baseTime: string = SIMULA
   return new Date(simulatedBase + needInMinutes * 60000).toISOString();
 }
 
-const DEADLINE_PRESETS = [15, 20, 30, 45, 60];
 const BUDGET_PRESETS = [350, 500, 650, 900, 1200];
 
 export function BookingForm({
   initialPickup = 'VIT Chennai',
   initialDropoff = 'Chennai Airport',
-  initialNeedIn = 20,
+  initialNeedIn = DEFAULT_PICKUP_WAIT,
   className = '',
 }: BookingFormProps) {
   const router = useRouter();
@@ -173,9 +173,12 @@ export function BookingForm({
   };
 
   return (
-    <div className={`flex flex-col gap-8 max-w-3xl mx-auto w-full ${className}`}>
+    <div className={`flex flex-col gap-4 max-w-3xl mx-auto w-full ${className}`}>
       {/* 1. AI Request Natural Language Card */}
-      <AiRequestInput onIntentParsed={handleIntentParsed} />
+      <details className="rounded-2xl border border-[#3f385d] bg-[#18182b] px-4 py-3 text-[#e0d4ff]">
+        <summary className="cursor-pointer rounded-md py-1 text-sm font-bold focus-visible:outline-2 focus-visible:outline-[#B79CFF]">Describe your trip with AI</summary>
+        <div className="mt-3"><AiRequestInput onIntentParsed={handleIntentParsed} /></div>
+      </details>
 
       {/* 2. AI Request Review Card (Displayed if intent is parsed) */}
       {parsedIntent && (
@@ -189,17 +192,10 @@ export function BookingForm({
       )}
 
       {/* 3. Main Booking Form */}
-      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="flex flex-col gap-7">
+      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* Locations (Pickup & Destination) */}
         <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC]">
-              Route Details
-            </span>
-            <span className="text-[11px] font-semibold text-[#B9FF45]">
-              Simulated City Grid
-            </span>
-          </div>
+          <h2 className="text-sm font-bold">Trip route</h2>
 
           {loadingLocations && <p role="status" className="text-sm text-slate-400">Loading simulated locations…</p>}
           {locationError && <p role="alert" className="text-sm text-[#FF6D76]">
@@ -221,27 +217,19 @@ export function BookingForm({
             <div className="flex items-center justify-between mb-2">
               <label htmlFor="pickup-deadline" className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#B9FF45]" />
-                Pickup Deadline
+                Maximum pickup wait
               </label>
-              <span className="text-xs font-semibold text-[#98A5BC]">
-                Latest acceptable driver pickup time
-              </span>
+              <strong className="text-base text-white">{needInMinutes} min</strong>
             </div>
-
-            <p className="text-[11px] text-[#98A5BC] mb-2 leading-relaxed">
-              Maximum acceptable wait time for driver arrival at pickup (not destination arrival time). ReHop uses this deadline to determine if a stalled pickup warrants a safe backup switch.
-            </p>
-
-            <div className="text-xs font-semibold text-[#B9FF45] mb-3">
-              Pickup needed by: {calculateNeedBy(needInMinutes).slice(11, 16)} UTC ({needInMinutes} min from simulated start)
-            </div>
+            <p className="mb-3 text-xs leading-relaxed text-[#b3c2d8]">How long you can wait for the driver. Pickup estimates come from the quotes.</p>
 
             {/* Quick chips */}
             <div className="flex flex-wrap gap-1.5 mb-3.5">
-              {DEADLINE_PRESETS.map((preset) => (
+              {PICKUP_WAIT_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
+                  aria-pressed={needInMinutes === preset}
                   onClick={() => setNeedInMinutes(preset)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                     needInMinutes === preset
@@ -249,7 +237,7 @@ export function BookingForm({
                       : 'bg-[#151F32] text-[#98A5BC] hover:text-[#F6F8FC] border border-[#22334D]'
                   }`}
                 >
-                  {preset}m
+                  {preset} min
                 </button>
               ))}
             </div>
@@ -429,16 +417,6 @@ export function BookingForm({
           </div>
         )}
 
-        {/* Disclosures & Simulation Notice */}
-        <div className="rounded-xl bg-[#151F32]/60 border border-[#243249]/60 px-4 py-3 flex items-center justify-between gap-3 text-xs text-[#98A5BC]">
-          <div className="flex items-center gap-2">
-            <Badge variant="simulation" size="sm" dot>
-              Simulated
-            </Badge>
-            <span>All rides and fares are simulated.</span>
-          </div>
-        </div>
-
         <label className="flex items-start gap-3 text-sm text-[#98A5BC]">
           <input
             type="checkbox"
@@ -451,7 +429,7 @@ export function BookingForm({
         </label>
 
         {/* Submission Button */}
-        <div className="flex flex-col items-center gap-2.5 pt-2">
+        <div className="sticky bottom-0 z-20 -mx-1 flex flex-col items-center gap-2 rounded-2xl border border-[#304055] bg-[#101a2bf5] p-2.5 backdrop-blur">
           <Button
             type="submit"
             disabled={!locationData || !!parsedIntent || navigating}
@@ -463,11 +441,11 @@ export function BookingForm({
             className="!bg-[#B9FF45] !text-[#090F1D] !border-[#B9FF45] font-black text-base shadow-[0_0_28px_rgba(185,255,69,0.35)] hover:brightness-105 active:scale-[0.99] h-14 rounded-2xl"
             rightIcon={<ArrowRight className="h-5 w-5 stroke-[2.5]" />}
           >
-            Find available rides
+            Get ReHop’s recommendation
           </Button>
 
-          <span className="text-xs font-semibold text-[#64748B] text-center">
-            No booking is placed until you confirm.
+          <span className="text-xs font-medium text-[#bac7da] text-center">
+            Simulation only. You confirm the ride on the next screen.
           </span>
         </div>
       </form>

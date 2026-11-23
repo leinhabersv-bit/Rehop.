@@ -3,8 +3,8 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Compass } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import { ArrowLeft } from 'lucide-react';
+import { DEFAULT_PICKUP_WAIT } from '@/lib/pickup';
 import { BookingForm } from '@/components/booking/BookingForm';
 
 function BookingContent() {
@@ -14,54 +14,19 @@ function BookingContent() {
   const requestedMinutes = Number(searchParams.get('needIn'));
   const initialNeedIn = Number.isInteger(requestedMinutes) && requestedMinutes >= 5 && requestedMinutes <= 120
     ? requestedMinutes
-    : 20;
+    : DEFAULT_PICKUP_WAIT;
 
   return (
-    <div className="flex flex-col gap-8 pb-16">
-      {/* Top Navigation / Breadcrumbs & Progress */}
-      <div className="flex items-center justify-between gap-4 border-b border-[#243249]/60 pb-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#98A5BC] hover:text-[#B9FF45] transition-colors group"
-        >
-          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-          <span>Back to Home</span>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pb-10">
+      <header className="space-y-2">
+        <Link href="/" className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#bdd0e7] hover:text-[#B9FF45] focus-visible:outline-2 focus-visible:outline-[#B9FF45]">
+          <ArrowLeft size={17} aria-hidden="true" /> Home
         </Link>
-
-        {/* Step Indicator */}
-        <div className="flex items-center gap-2.5">
-          <Badge
-            variant="primary"
-            size="sm"
-            className="font-extrabold uppercase tracking-widest text-[10px] px-2.5 py-0.5"
-          >
-            Step 1 of 3: Trip Setup
-          </Badge>
-          <div className="hidden sm:flex items-center gap-1.5">
-            <span className="h-2 w-5 rounded-full bg-[#B9FF45]" />
-            <span className="h-2 w-2 rounded-full bg-[#243249]" />
-            <span className="h-2 w-2 rounded-full bg-[#243249]" />
-          </div>
-        </div>
-      </div>
-
-      {/* Screen 2 Header / Hero Copy */}
-      <div className="flex flex-col gap-2 max-w-3xl mx-auto w-full text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#B9FF45]">
-          <Compass className="h-3.5 w-3.5" />
-          <span>Let&apos;s get moving</span>
-        </div>
-
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-[#F6F8FC] leading-tight">
-          Where to?
-        </h1>
-
-        <p className="text-sm sm:text-base font-semibold text-[#98A5BC] max-w-2xl">
-          Tell us what you need. We&apos;ll find the right ride and watch your pickup.
+        <h1 className="text-3xl font-black tracking-tight sm:text-5xl">Set up your trip</h1>
+        <p className="text-sm leading-relaxed text-[#bdc9db] sm:text-base">
+          Tell ReHop where you’re going and how long you can wait. Review its recommendation before booking.
         </p>
-      </div>
-
-      {/* Main Booking Form */}
+      </header>
       <BookingForm
         initialPickup={initialPickup}
         initialDropoff={initialDropoff}

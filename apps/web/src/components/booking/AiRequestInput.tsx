@@ -23,7 +23,7 @@ export interface AiRequestInputProps {
 const EXAMPLE_PROMPTS = [
   'To Chennai Airport within 25 minutes',
   'From Chennai Airport to VIT Chennai under ₹500',
-  'From VIT Chennai to Chennai Airport, pickup within 15 minutes. Keep it under ₹1,200.',
+  'From VIT Chennai to Chennai Airport, pickup within 8 minutes. Keep it under ₹600.',
 ];
 
 export function parseBudget(text: string): number | null {
@@ -116,7 +116,7 @@ export function AiRequestInput({
           }}
           onKeyDown={handleKeyDown}
           disabled={disabled || loading}
-          placeholder='e.g. "From VIT Chennai to Chennai Airport, pickup within 15 minutes."'
+          placeholder='e.g. "From VIT Chennai to Chennai Airport, pickup within 8 minutes."'
           className="w-full resize-none bg-transparent px-4 py-3 text-sm text-[#F6F8FC] placeholder:text-[#98A5BC]/45 focus:outline-none disabled:opacity-50"
         />
 
