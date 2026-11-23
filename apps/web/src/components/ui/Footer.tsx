@@ -28,8 +28,7 @@ export function Footer({ className = '' }: FooterProps) {
               Your ride. No interruptions.
             </p>
             <p className="text-xs text-[#98A5BC] max-w-md leading-relaxed">
-              The intelligent ride companion that monitors pickup progress, flags driver anomalies,
-              and prepares safe backup recoveries before plans are ruined.
+              Compare simulated rides, track pickup progress and review backup options if a ride is delayed.
             </p>
           </div>
 
@@ -50,11 +49,6 @@ export function Footer({ className = '' }: FooterProps) {
                 </Link>
               </li>
               <li>
-                <Link href="/compare" className="hover:text-[#B9FF45] transition-colors">
-                  Compare providers
-                </Link>
-              </li>
-              <li>
                 <Link href="/demo" className="hover:text-[#B9FF45] transition-colors">
                   Demo console
                 </Link>
@@ -68,18 +62,17 @@ export function Footer({ className = '' }: FooterProps) {
               Architecture
             </h4>
             <p className="text-xs text-[#98A5BC] leading-relaxed">
-              Built on an ONDC/Beckn-inspired simulated aggregator protocol. Features deterministic
-              movement ticks, bounded LLM intent parsing, and policy-driven recovery.
+              Local provider adapters use ONDC/Beckn-style operations. ReHop runs the simulator,
+              intent interpreter and recovery policy together.
             </p>
           </div>
         </div>
 
         {/* Simulation Truthfulness Banner */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#98A5BC]">
-          <div className="flex items-center gap-2 text-center md:text-left">
+          <div className="flex items-center gap-2 text-left">
             <span className="w-2 h-2 rounded-full bg-[#FFBD63] shrink-0" />
-            <span className="font-semibold text-[#F6F8FC]">Simulation truthfulness notice:</span>
-            <span>All providers (Provider A-D), fares and telemetry are simulated. No real cab is booked.</span>
+            <span>Providers, fares, bookings and driver telemetry are simulated.</span>
           </div>
 
           <div className="text-center md:text-right text-[11px] text-[#98A5BC]/70">

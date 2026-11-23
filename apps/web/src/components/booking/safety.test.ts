@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { api, ApiError } from '@/lib/api/client';
+import { parseBudget } from './AiRequestInput';
 import { calculateNeedBy, SIMULATED_BASE_TIME } from './BookingForm';
 import { isQuoteExpired, isQuoteWithinPolicy } from './ProviderCard';
 import type { Journey, Quote, RecoveryPolicy } from '@/types';
@@ -338,4 +339,29 @@ describe('Booking Regression & Safety Verification', () => {
 
     expect(sessionStorage.getItem('journey')).toBeNull();
   });
+});
+
+it('reads complete budget values and leaves an absent cap unset', () => {
+  expect(parseBudget('Keep it under ₹500')).toBe(500);
+  expect(parseBudget('INR 1,200')).toBe(1200);
+  expect(parseBudget('Need pickup within 20 minutes')).toBeNull();
+});
+
+it('uses the same booking key and version on an explicit retry after a transport timeout', async () => {
+  const timeout = vi.spyOn(AbortSignal, 'timeout')
+    .mockReturnValueOnce(AbortSignal.abort(new DOMException('Timed out', 'TimeoutError')));
+  const fetchMock = vi.fn()
+    .mockRejectedValueOnce(new DOMException('Timed out', 'TimeoutError'))
+    .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+  vi.stubGlobal('fetch', fetchMock);
+
+  try {
+    await expect(api.book('j-1', 'q-1', 3, 'original-key')).rejects.toMatchObject({ code: 'TIMEOUT' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await api.book('j-1', 'q-1', 3, 'original-key');
+    expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+  } finally {
+    timeout.mockRestore();
+    vi.unstubAllGlobals();
+  }
 });

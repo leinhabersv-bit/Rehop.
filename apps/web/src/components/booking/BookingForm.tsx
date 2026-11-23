@@ -1,12 +1,9 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Car,
-  Zap,
-  Sparkles,
   ShieldCheck,
   Clock,
   ArrowRight,
@@ -18,7 +15,7 @@ import {
 import { Button, Card, Badge } from '@/components/ui';
 import { api, API_BASE } from '@/lib/api/client';
 import type { Location, RecoveryPolicy } from '@/types';
-import { LocationInput, DEFAULT_LOCATIONS } from './LocationInput';
+import { LocationInput } from './LocationInput';
 import { AiRequestInput, type ParsedIntentResult } from './AiRequestInput';
 import { IntentReviewCard } from './IntentReviewCard';
 
@@ -36,37 +33,6 @@ export function calculateNeedBy(needInMinutes: number, baseTime: string = SIMULA
   return new Date(simulatedBase + needInMinutes * 60000).toISOString();
 }
 
-const VEHICLES = [
-  {
-    id: 'Hatchback',
-    label: 'Hatchback',
-    sublabel: 'Quick & economical',
-    icon: Car,
-    multiplier: 0.75,
-  },
-  {
-    id: 'Sedan',
-    label: 'Sedan',
-    sublabel: 'Comfortable & AC',
-    icon: Car,
-    multiplier: 1.0,
-  },
-  {
-    id: 'Auto',
-    label: 'Auto',
-    sublabel: 'Nimble city hop',
-    icon: Zap,
-    multiplier: 0.55,
-  },
-  {
-    id: 'Premier',
-    label: 'Premier',
-    sublabel: 'Executive executive',
-    icon: Sparkles,
-    multiplier: 1.35,
-  },
-];
-
 const DEADLINE_PRESETS = [15, 20, 30, 45, 60];
 const BUDGET_PRESETS = [350, 500, 650, 900, 1200];
 
@@ -77,27 +43,29 @@ export function BookingForm({
   className = '',
 }: BookingFormProps) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const submitting = useRef(false);
+  const form = useRef<HTMLFormElement>(null);
+  const [navigating, startTransition] = useTransition();
 
   // Locations query from backend
-  const { data: locationData } = useQuery({
+  const { data: locationData, isLoading: loadingLocations, isError: locationError, refetch: reloadLocations } = useQuery({
     queryKey: ['locations'],
     queryFn: api.locations,
     staleTime: 60000,
     retry: 1,
   });
 
-  const availableLocations: Location[] = locationData?.locations || DEFAULT_LOCATIONS;
+  const availableLocations: Location[] = locationData?.locations ?? [];
 
   // Form states
   const [pickup, setPickup] = useState(initialPickup);
   const [dropoff, setDropoff] = useState(initialDropoff);
-  const [vehicle, setVehicle] = useState('Sedan');
+  const [stalledSimulation, setStalledSimulation] = useState(false);
   const [budget, setBudget] = useState(650);
   const [needInMinutes, setNeedInMinutes] = useState(initialNeedIn);
 
   // Safety limits states
-  const [autoRebook, setAutoRebook] = useState(true);
+  const [autoRebook, setAutoRebook] = useState(false);
   const [maxAttempts, setAttempts] = useState(2);
   const [maxFee, setMaxFee] = useState(100);
   const [showAdvancedSafety, setShowAdvancedSafety] = useState(false);
@@ -114,54 +82,31 @@ export function BookingForm({
     setParsedIntent(result);
   };
 
-  // Handle Intent confirmation
   const handleIntentConfirmed = (confirmed: {
     pickup: string;
     dropoff: string;
-    need_in_minutes: number;
-    budget: number;
-    vehicle_type: string;
+    need_in_minutes: number | null;
+    budget: number | null;
   }) => {
     setPickup(confirmed.pickup);
     setDropoff(confirmed.dropoff);
-    setNeedInMinutes(confirmed.need_in_minutes);
-    setBudget(confirmed.budget);
-    setVehicle(confirmed.vehicle_type);
-    setParsedIntent(null); // Return to standard view or submit directly
-    executeSubmission({
-      targetPickup: confirmed.pickup,
-      targetDropoff: confirmed.dropoff,
-      targetNeedIn: confirmed.need_in_minutes,
-      targetBudget: confirmed.budget,
-    });
+    if (confirmed.need_in_minutes !== null) setNeedInMinutes(confirmed.need_in_minutes);
+    if (confirmed.budget !== null) setBudget(confirmed.budget);
+    setParsedIntent(null);
+    form.current?.focus();
   };
 
-  const resolveLocation = (label: string): Location => {
-    const found = availableLocations.find(
-      (l) => l.label.toLowerCase() === label.trim().toLowerCase()
-    );
-    if (found) return found;
+  const resolveLocation = (label: string) => availableLocations.find(
+    (location) => location.label.toLowerCase() === label.trim().toLowerCase(),
+  );
 
-    // Generated coordinate fallback for custom typed locations
-    return {
-      label: label.trim(),
-      lat: 12.9 + Math.random() * 0.1,
-      lng: 80.1 + Math.random() * 0.1,
-    };
-  };
-
-  const executeSubmission = async (override?: {
-    targetPickup?: string;
-    targetDropoff?: string;
-    targetNeedIn?: number;
-    targetBudget?: number;
-  }) => {
+  const executeSubmission = async () => {
+    if (submitting.current || navigating) return;
     setValidationError(null);
-
-    const actualPickup = override?.targetPickup || pickup;
-    const actualDropoff = override?.targetDropoff || dropoff;
-    const actualNeedIn = override?.targetNeedIn || needInMinutes;
-    const actualBudget = override?.targetBudget || budget;
+    const actualPickup = pickup;
+    const actualDropoff = dropoff;
+    const actualNeedIn = needInMinutes;
+    const actualBudget = budget;
 
     // Validation
     if (!actualPickup.trim()) {
@@ -181,10 +126,18 @@ export function BookingForm({
       return;
     }
 
-    setBusy(true);
-
     const fromLoc = resolveLocation(actualPickup);
     const toLoc = resolveLocation(actualDropoff);
+    if (!fromLoc || !toLoc) {
+      setValidationError('Choose both places from the simulator location list.');
+      return;
+    }
+    if (!Number.isInteger(actualNeedIn) || actualNeedIn < 5 || actualNeedIn > 120) {
+      setValidationError('Choose a pickup deadline between 5 and 120 minutes.');
+      return;
+    }
+    submitting.current = true;
+    setBusy(true);
 
     const policy: RecoveryPolicy = {
       auto_rebook_on_confirmed_driver_cancel: autoRebook,
@@ -200,7 +153,7 @@ export function BookingForm({
 
     try {
       // 1. Try real backend API
-      const journey = await api.createJourney(fromLoc, toLoc, policy, needByIso);
+      const journey = await api.createJourney(fromLoc, toLoc, policy, needByIso, stalledSimulation ? 'S03' : 'S01');
       startTransition(() => {
         router.push(`/compare?journey=${journey.id}`);
       });
@@ -209,6 +162,7 @@ export function BookingForm({
         `Failed to create journey: ${err instanceof Error ? err.message : 'Backend unreachable'}. Ensure the backend is running at ${API_BASE}.`
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -226,6 +180,8 @@ export function BookingForm({
       {/* 2. AI Request Review Card (Displayed if intent is parsed) */}
       {parsedIntent && (
         <IntentReviewCard
+          key={parsedIntent.original_text}
+          locations={availableLocations}
           intent={parsedIntent}
           onConfirmAndFind={handleIntentConfirmed}
           onEditManually={() => setParsedIntent(null)}
@@ -233,7 +189,7 @@ export function BookingForm({
       )}
 
       {/* 3. Main Booking Form */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="flex flex-col gap-7">
         {/* Locations (Pickup & Destination) */}
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -245,6 +201,10 @@ export function BookingForm({
             </span>
           </div>
 
+          {loadingLocations && <p role="status" className="text-sm text-slate-400">Loading simulated locations…</p>}
+          {locationError && <p role="alert" className="text-sm text-[#FF6D76]">
+            Location list unavailable. <button type="button" className="underline" onClick={() => reloadLocations()}>Try again</button>
+          </p>}
           <LocationInput
             pickup={pickup}
             dropoff={dropoff}
@@ -254,63 +214,12 @@ export function BookingForm({
           />
         </section>
 
-        {/* Vehicle Preference Selector */}
-        <section className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC]">
-              Vehicle Category
-            </span>
-            <span className="text-xs font-medium text-[#98A5BC]">
-              Selected: <strong className="text-[#F6F8FC]">{vehicle}</strong>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {VEHICLES.map((v) => {
-              const isSelected = vehicle.toLowerCase() === v.id.toLowerCase();
-              const Icon = v.icon;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setVehicle(v.id)}
-                  className={`group relative flex flex-col items-start p-3.5 rounded-2xl border text-left transition-all duration-150 ${
-                    isSelected
-                      ? 'bg-[#18263E] border-[#B9FF45] shadow-[0_0_20px_rgba(185,255,69,0.2)] scale-[1.02]'
-                      : 'bg-[#11192A] border-[#22334D] hover:bg-[#152035] hover:border-[#334B70]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
-                        isSelected
-                          ? 'bg-[#B9FF45] text-[#090F1D]'
-                          : 'bg-[#1E2C44] text-[#98A5BC] group-hover:text-[#F6F8FC]'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    {isSelected && (
-                      <span className="h-2 w-2 rounded-full bg-[#B9FF45] shadow-[0_0_6px_#B9FF45]" />
-                    )}
-                  </div>
-
-                  <span className="text-sm font-extrabold text-[#F6F8FC]">{v.label}</span>
-                  <span className="text-[11px] font-medium text-[#98A5BC] mt-0.5 leading-tight">
-                    {v.sublabel}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         {/* Pickup Deadline & Budget (2 Column Grid) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* Pickup Deadline (need_by in simulated minutes) */}
           <Card className="!p-5 bg-[#0E1726] border-[#1E2E46]">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
+              <label htmlFor="pickup-deadline" className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#B9FF45]" />
                 Pickup Deadline
               </label>
@@ -324,7 +233,7 @@ export function BookingForm({
             </p>
 
             <div className="text-xs font-semibold text-[#B9FF45] mb-3">
-              Pickup needed by: {new Date(Date.parse('2026-11-23T08:30:00Z') + needInMinutes * 60000).toISOString().substring(11, 16)} UTC ({needInMinutes} min from simulated start)
+              Pickup needed by: {calculateNeedBy(needInMinutes).slice(11, 16)} UTC ({needInMinutes} min from simulated start)
             </div>
 
             {/* Quick chips */}
@@ -347,10 +256,11 @@ export function BookingForm({
 
             {/* Range Slider */}
             <input
+              id="pickup-deadline"
               type="range"
               min={5}
               max={120}
-              step={5}
+              step={1}
               value={needInMinutes}
               onChange={(e) => setNeedInMinutes(Number(e.target.value))}
               className="w-full accent-[#B9FF45] cursor-pointer"
@@ -364,7 +274,7 @@ export function BookingForm({
           {/* Maximum Budget */}
           <Card className="!p-5 bg-[#0E1726] border-[#1E2E46]">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
+              <label htmlFor="max-fare" className="text-xs font-extrabold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                 <span className="text-[#B9FF45] font-black text-sm">₹</span>
                 Maximum Fare Cap
               </label>
@@ -396,10 +306,11 @@ export function BookingForm({
             <div className="relative flex items-center">
               <span className="absolute left-3.5 text-xs font-extrabold text-[#98A5BC]">₹</span>
               <input
+                id="max-fare"
                 type="number"
                 min={100}
                 max={10000}
-                step={50}
+                step={1}
                 value={budget}
                 onChange={(e) => setBudget(Math.max(0, Number(e.target.value)))}
                 className="w-full rounded-xl bg-[#131E31] border border-[#22334D] pl-8 pr-4 py-2 text-sm font-bold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
@@ -465,10 +376,11 @@ export function BookingForm({
               {/* Recovery Attempts & Cancellation Fee Cap */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#162235]">
                 <div>
-                  <label className="text-xs font-bold text-[#98A5BC] block mb-1.5">
+                  <label htmlFor="attempt-cap" className="text-xs font-bold text-[#98A5BC] block mb-1.5">
                     Maximum recovery attempts
                   </label>
                   <select
+                    id="attempt-cap"
                     value={maxAttempts}
                     onChange={(e) => setAttempts(Number(e.target.value))}
                     className="w-full rounded-xl bg-[#131E31] border border-[#22334D] px-3.5 py-2 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
@@ -481,10 +393,11 @@ export function BookingForm({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#98A5BC] block mb-1.5">
+                  <label htmlFor="fee-cap" className="text-xs font-bold text-[#98A5BC] block mb-1.5">
                     Max allowed cancellation fee
                   </label>
                   <select
+                    id="fee-cap"
                     value={maxFee}
                     onChange={(e) => setMaxFee(Number(e.target.value))}
                     className="w-full rounded-xl bg-[#131E31] border border-[#22334D] px-3.5 py-2 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
@@ -510,7 +423,7 @@ export function BookingForm({
 
         {/* Validation error banner */}
         {validationError && (
-          <div className="flex items-center gap-2.5 rounded-xl bg-[#FF6D76]/15 border border-[#FF6D76]/30 p-3.5 text-xs font-semibold text-[#FF6D76]">
+          <div role="alert" className="flex items-center gap-2.5 rounded-xl bg-[#FF6D76]/15 border border-[#FF6D76]/30 p-3.5 text-xs font-semibold text-[#FF6D76]">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{validationError}</span>
           </div>
@@ -522,18 +435,30 @@ export function BookingForm({
             <Badge variant="simulation" size="sm" dot>
               Simulated
             </Badge>
-            <span>Prices and ETAs are simulated. No live booking until confirmed.</span>
+            <span>All rides and fares are simulated.</span>
           </div>
         </div>
+
+        <label className="flex items-start gap-3 text-sm text-[#98A5BC]">
+          <input
+            type="checkbox"
+            checked={stalledSimulation}
+            onChange={(event) => setStalledSimulation(event.target.checked)}
+            className="mt-1 h-4 w-4 accent-[#B9FF45]"
+          />
+          <span><strong className="text-[#F6F8FC]">Simulate a stalled pickup</strong><br />
+            Use this trip to try an approval-based switch after booking.</span>
+        </label>
 
         {/* Submission Button */}
         <div className="flex flex-col items-center gap-2.5 pt-2">
           <Button
             type="submit"
+            disabled={!locationData || !!parsedIntent || navigating}
             variant="primary"
             size="lg"
             fullWidth
-            loading={busy}
+            loading={busy || navigating}
             loadingText="Preparing simulated rides…"
             className="!bg-[#B9FF45] !text-[#090F1D] !border-[#B9FF45] font-black text-base shadow-[0_0_28px_rgba(185,255,69,0.35)] hover:brightness-105 active:scale-[0.99] h-14 rounded-2xl"
             rightIcon={<ArrowRight className="h-5 w-5 stroke-[2.5]" />}

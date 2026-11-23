@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Car, Zap, Sparkles, Clock, Check, AlertCircle } from 'lucide-react';
-import { Badge } from '@/components/ui';
-import type { Quote, Provider } from '@/types';
+import React from 'react';
+import { Car, Clock, Check, AlertCircle } from 'lucide-react';
+import type { Quote } from '@/types';
 import { providerName } from '@/types';
 
 export interface ProviderCardProps {
@@ -13,7 +12,8 @@ export interface ProviderCardProps {
   maxFare?: number;
   isBooking?: boolean;
   tag?: string;
-  vehicleType?: string;
+  simulatedTimeMs: number;
+  deadlineMs: number;
   className?: string;
 }
 
@@ -37,62 +37,13 @@ export function ProviderCard({
   maxFare,
   isBooking = false,
   tag,
-  vehicleType,
+  simulatedTimeMs,
+  deadlineMs,
   className = '',
 }: ProviderCardProps) {
-  // Format expiry countdown
-  const [secondsLeft, setSecondsLeft] = useState<number>(() => {
-    if (!quote.expires_at) return 600;
-    const diff = Math.floor((new Date(quote.expires_at).getTime() - Date.now()) / 1000);
-    return Math.max(0, diff);
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const isExpired = secondsLeft <= 0 || isQuoteExpired(quote);
-
-  const formatExpiry = (seconds: number) => {
-    if (seconds <= 0 || isExpired) return 'Expired';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    if (mins === 0) return `${secs}s`;
-    return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-  };
-
-  // Derive vehicle category and icon
-  const getVehicleMeta = (provider: Provider, typeOverride?: string) => {
-    if (typeOverride) {
-      if (typeOverride.toLowerCase().includes('auto')) {
-        return { label: typeOverride, icon: Zap };
-      }
-      if (typeOverride.toLowerCase().includes('premier')) {
-        return { label: typeOverride, icon: Sparkles };
-      }
-      return { label: typeOverride, icon: Car };
-    }
-
-    switch (provider) {
-      case 'PROVIDER_A':
-        return { label: 'Sedan · AC', icon: Car };
-      case 'PROVIDER_B':
-        return { label: 'Mini · Compact', icon: Car };
-      case 'PROVIDER_C':
-        return { label: 'Premier · Executive', icon: Sparkles };
-      case 'PROVIDER_D':
-        return { label: 'Auto · Fast City', icon: Zap };
-      default:
-        return { label: 'Sedan', icon: Car };
-    }
-  };
-
-  const vehicleMeta = getVehicleMeta(quote.provider, vehicleType);
-  const VehicleIcon = vehicleMeta.icon;
-
+  const isExpired = isQuoteExpired(quote, simulatedTimeMs);
+  const expiresAt = new Date(quote.expires_at).toISOString().slice(11, 19);
+  const meetsDeadline = simulatedTimeMs + quote.pickup_eta_sec * 1000 <= deadlineMs;
   const isExceedingBudget = typeof maxFare === 'number' && !isQuoteWithinPolicy(quote, maxFare);
   const isSelectable = !isExpired && !isExceedingBudget && !isBooking;
 
@@ -140,29 +91,10 @@ export function ProviderCard({
     );
   };
 
-  const handleCardClick = () => {
-    if (isSelectable && onSelect) {
-      onSelect(quote.quote_id);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && isSelectable && onSelect) {
-      e.preventDefault();
-      onSelect(quote.quote_id);
-    }
-  };
-
   return (
-    <div
-      role="radio"
-      aria-checked={isSelected}
-      aria-disabled={!isSelectable}
-      tabIndex={isSelectable ? 0 : -1}
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
+    <label
       className={`
-        group relative rounded-2xl p-4 sm:p-5 transition-all duration-200 select-none outline-none
+        group relative block rounded-2xl focus-within:ring-2 focus-within:ring-[#B9FF45]/50 p-4 sm:p-5 transition-all duration-200 select-none outline-none
         ${
           isSelected
             ? 'bg-[#101726] border-2 border-[#B9FF45] shadow-[0_0_24px_rgba(185,255,69,0.14)]'
@@ -173,6 +105,15 @@ export function ProviderCard({
         ${className}
       `}
     >
+      <input
+        type="radio"
+        name="ride-quote"
+        aria-label={providerName[quote.provider]}
+        className="sr-only"
+        checked={isSelected}
+        disabled={!isSelectable}
+        onChange={() => onSelect?.(quote.quote_id)}
+      />
       {/* Top Details Row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3.5">
@@ -187,27 +128,22 @@ export function ProviderCard({
               }
             `}
           >
-            <VehicleIcon className="h-5 w-5" />
+            <Car className="h-5 w-5" />
           </div>
 
           {/* Provider Title & Subtext */}
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h3 className="text-base font-bold text-[#F6F8FC] tracking-tight">
                 {providerName[quote.provider] || quote.provider}
               </h3>
-              <Badge variant="simulation" size="sm" dot>
-                Simulated
-              </Badge>
             </div>
 
             <p className="mt-0.5 text-xs text-[#98A5BC]">
-              <span>{vehicleMeta.label}</span>
+              <span>{meetsDeadline ? 'Within pickup deadline' : 'After pickup deadline'}</span>
               <span className="mx-1.5 text-slate-600">·</span>
               <span>Pickup in </span>
               <strong className="font-bold text-[#B9FF45]">{etaMinutes} min</strong>
-              <span className="mx-1.5 text-slate-600">·</span>
-              <span className="text-[11px] text-slate-400">Synthetic fare</span>
             </p>
           </div>
         </div>
@@ -231,31 +167,24 @@ export function ProviderCard({
 
       {/* Bottom Row: Tags, Expiry & Radio / Action */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {renderTag()}
 
           {/* Expiry Countdown Indicator */}
           <span
             className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-              secondsLeft < 30 ? 'text-[#FF6D76]' : 'text-slate-400'
+              isExpired ? 'text-[#FF6D76]' : 'text-slate-400'
             }`}
           >
             <Clock className="h-3 w-3" />
-            <span>Valid {formatExpiry(secondsLeft)}</span>
+            <span>{isExpired ? "Expired" : `Expires ${expiresAt} UTC (simulated)`}</span>
           </span>
         </div>
 
         {/* Action / Radio Selector */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            disabled={!isSelectable}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isSelectable && onSelect) {
-                onSelect(quote.quote_id);
-              }
-            }}
+          <span
+            aria-hidden="true"
             className={`
               rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-150
               ${
@@ -267,8 +196,8 @@ export function ProviderCard({
               }
             `}
           >
-            {isExpired ? 'Expired' : isBooking && isSelected ? 'Booking…' : isSelected ? 'Selected' : 'Select Ride'}
-          </button>
+            {isExpired ? 'Expired' : isSelected ? 'Selected' : 'Select ride'}
+          </span>
 
           {/* Radio Checkmark Circle */}
           <div
@@ -286,7 +215,7 @@ export function ProviderCard({
           </div>
         </div>
       </div>
-    </div>
+    </label>
   );
 }
 

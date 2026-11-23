@@ -8,45 +8,44 @@ import {
   ArrowRight,
   Edit3,
   Clock,
-  Car,
   MapPin,
   RotateCcw,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
+import type { Location } from '@/types';
 import type { ParsedIntentResult } from './AiRequestInput';
 
 export interface IntentReviewCardProps {
   intent: ParsedIntentResult;
+  locations: Location[];
   onConfirmAndFind: (confirmedValues: {
     pickup: string;
     dropoff: string;
-    need_in_minutes: number;
-    budget: number;
-    vehicle_type: string;
+    need_in_minutes: number | null;
+    budget: number | null;
   }) => void;
   onEditManually: () => void;
   className?: string;
 }
 
-const VEHICLE_OPTIONS = ['Hatchback', 'Sedan', 'Auto', 'Premier'];
 const TIME_OPTIONS = [15, 20, 25, 30, 45, 60];
 
 export function IntentReviewCard({
   intent,
+  locations,
   onConfirmAndFind,
   onEditManually,
   className = '',
 }: IntentReviewCardProps) {
   // Editable fields within the review card
-  const [pickup, setPickup] = useState(intent.pickup || 'VIT Chennai');
-  const [dropoff, setDropoff] = useState(intent.dropoff || 'Chennai Airport');
-  const [needInMinutes, setNeedInMinutes] = useState(intent.need_in_minutes || 25);
-  const [budget, setBudget] = useState(intent.budget || 650);
-  const [vehicleType, setVehicleType] = useState(intent.vehicle_type || 'Sedan');
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Field extraction count
-  const fieldsCount = [pickup, dropoff, needInMinutes, budget, vehicleType].filter(Boolean).length;
+  const [pickup, setPickup] = useState(intent.pickup ?? '');
+  const [dropoff, setDropoff] = useState(intent.dropoff ?? '');
+  const [needInMinutes, setNeedInMinutes] = useState(intent.need_in_minutes);
+  const [budget, setBudget] = useState(intent.budget);
+  const [isEditing, setIsEditing] = useState(!intent.pickup || !intent.dropoff);
+  const fieldsCount = [intent.pickup, intent.dropoff, intent.need_in_minutes, intent.budget].filter(Boolean).length;
+  const validRoute = pickup !== dropoff && locations.some((item) => item.label === pickup)
+    && locations.some((item) => item.label === dropoff);
 
   const handleConfirm = () => {
     onConfirmAndFind({
@@ -54,7 +53,6 @@ export function IntentReviewCard({
       dropoff,
       need_in_minutes: needInMinutes,
       budget,
-      vehicle_type: vehicleType,
     });
   };
 
@@ -71,10 +69,10 @@ export function IntentReviewCard({
             dot
             className="!bg-[#B79CFF]/15 !text-[#B79CFF] !border-[#B79CFF]/40 font-extrabold uppercase tracking-wider text-[11px]"
           >
-            AI REQUEST · 02 / 03
+            Request review
           </Badge>
           <span className="text-xs font-semibold text-[#98A5BC]">
-            AI Parsed · <span className="text-[#F6F8FC] font-medium">{intent.source}</span>
+            {intent.source === 'llm' ? 'AI interpretation' : 'Rule-based interpretation'}
           </span>
         </div>
 
@@ -91,10 +89,10 @@ export function IntentReviewCard({
       {/* Main Heading */}
       <div className="mb-6">
         <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#F6F8FC]">
-          We understood your ride.
+          Review your ride request
         </h2>
         <p className="text-sm font-medium text-[#98A5BC] mt-1">
-          Review the details before searching available simulated providers.
+          Check the extracted details, then review your recovery and spending limits.
         </p>
       </div>
 
@@ -132,14 +130,17 @@ export function IntentReviewCard({
               Pickup location
             </span>
             {isEditing ? (
-              <input
-                type="text"
+              <select
+                aria-label="Pickup location"
                 value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-1.5 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
-              />
+                onChange={(event) => setPickup(event.target.value)}
+                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-2 text-sm text-[#F6F8FC]"
+              >
+                <option value="">Choose a location</option>
+                {locations.map((location) => <option key={location.label}>{location.label}</option>)}
+              </select>
             ) : (
-              <span className="text-sm font-bold text-[#F6F8FC]">{pickup}</span>
+              <span className="text-sm font-bold text-[#F6F8FC]">{pickup || 'Choose a location'}</span>
             )}
           </div>
 
@@ -150,14 +151,17 @@ export function IntentReviewCard({
               Destination
             </span>
             {isEditing ? (
-              <input
-                type="text"
+              <select
+                aria-label="Destination"
                 value={dropoff}
-                onChange={(e) => setDropoff(e.target.value)}
-                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-1.5 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
-              />
+                onChange={(event) => setDropoff(event.target.value)}
+                className="rounded-lg bg-[#151F32] border border-[#2B3E5C] px-3 py-2 text-sm text-[#F6F8FC]"
+              >
+                <option value="">Choose a location</option>
+                {locations.map((location) => <option key={location.label}>{location.label}</option>)}
+              </select>
             ) : (
-              <span className="text-sm font-bold text-[#F6F8FC]">{dropoff}</span>
+              <span className="text-sm font-bold text-[#F6F8FC]">{dropoff || 'Choose a location'}</span>
             )}
           </div>
 
@@ -168,7 +172,7 @@ export function IntentReviewCard({
               Pickup needed within
             </span>
             {isEditing ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {TIME_OPTIONS.map((mins) => (
                   <button
                     key={mins}
@@ -186,7 +190,7 @@ export function IntentReviewCard({
               </div>
             ) : (
               <span className="text-sm font-bold text-[#B9FF45]">
-                Within {needInMinutes} minutes
+                {needInMinutes ? `Within ${needInMinutes} minutes` : 'Set in trip details'}
               </span>
             )}
           </div>
@@ -202,46 +206,20 @@ export function IntentReviewCard({
                 <span className="text-xs font-bold text-[#98A5BC]">₹</span>
                 <input
                   type="number"
+                  aria-label="Maximum fare cap"
                   min={100}
-                  max={5000}
-                  step={50}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
+                  max={10000}
+                  step={1}
+                  value={budget ?? ''}
+                  onChange={(e) => setBudget(e.target.value ? Number(e.target.value) : null)}
                   className="w-24 rounded-lg bg-[#151F32] border border-[#2B3E5C] px-2 py-1 text-xs font-semibold text-[#F6F8FC] focus:outline-none focus:border-[#B9FF45]"
                 />
               </div>
             ) : (
-              <span className="text-sm font-extrabold text-[#F6F8FC]">₹{budget}</span>
+              <span className="text-sm font-extrabold text-[#F6F8FC]">{budget === null ? 'Set in trip details' : `₹${budget}`}</span>
             )}
           </div>
 
-          {/* Vehicle Type */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5">
-            <span className="text-xs font-semibold text-[#98A5BC] flex items-center gap-2">
-              <Car className="h-3.5 w-3.5 text-[#B9FF45]" />
-              Vehicle category
-            </span>
-            {isEditing ? (
-              <div className="flex items-center gap-1.5">
-                {VEHICLE_OPTIONS.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setVehicleType(cat)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
-                      vehicleType.toLowerCase() === cat.toLowerCase()
-                        ? 'bg-[#B9FF45] text-[#090F1D]'
-                        : 'bg-[#151F32] text-[#98A5BC] hover:text-[#F6F8FC]'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span className="text-sm font-bold text-[#F6F8FC]">{vehicleType}</span>
-            )}
-          </div>
         </div>
       </div>
 
@@ -271,10 +249,11 @@ export function IntentReviewCard({
           size="lg"
           fullWidth
           onClick={handleConfirm}
+          disabled={!validRoute || (budget !== null && (budget < 100 || budget > 10000))}
           className="!bg-[#B9FF45] !text-[#090F1D] !border-[#B9FF45] font-extrabold shadow-[0_0_24px_rgba(185,255,69,0.35)]"
           rightIcon={<ArrowRight className="h-4 w-4" />}
         >
-          Looks good · Find rides
+          Use these trip details
         </Button>
 
         <Button

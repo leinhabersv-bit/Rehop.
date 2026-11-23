@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
   Play,
-  Sparkles,
   ShieldCheck,
   CheckCircle2,
   Layers,
@@ -20,27 +20,29 @@ import {
   Shield,
 } from 'lucide-react';
 import { Badge, Card } from '@/components/ui';
+import { api } from '@/lib/api/client';
+
+const quickRoutes = [
+  { pickup: 'VIT Chennai', dropoff: 'Chennai Airport', minutes: '20' },
+  { pickup: 'Guindy', dropoff: 'T Nagar', minutes: '30' },
+  { pickup: 'T Nagar', dropoff: 'Chennai Airport', minutes: '15' },
+];
 
 export default function HomePage() {
   const router = useRouter();
 
-  // Quick booking preview state
-  const [pickup, setPickup] = useState('VIT Chennai');
-  const [dropoff, setDropoff] = useState('Chennai Airport');
+  const locations = useQuery({ queryKey: ['locations'], queryFn: api.locations, staleTime: 60_000, retry: 1 });
+  const labels = locations.data?.locations.map(({ label }) => label) ?? [];
+  const [pickupChoice, setPickup] = useState<string>();
+  const [dropoffChoice, setDropoff] = useState<string>();
   const [needInMinutes, setNeedInMinutes] = useState('20');
-  const [simulatedEta, setSimulatedEta] = useState(4);
-
-  const sampleLocations = [
-    'VIT Chennai',
-    'Chennai Airport',
-    'Tambaram Station',
-    'Guindy Metro',
-    'Tidal Park OMR',
-    'Chennai Central',
-  ];
+  const pickup = pickupChoice ?? labels[0] ?? '';
+  const dropoff = dropoffChoice ?? labels[1] ?? '';
+  const canContinue = !locations.isError && pickup !== dropoff && labels.includes(pickup) && labels.includes(dropoff);
 
   const handleQuickBook = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canContinue) return;
     const query = new URLSearchParams({
       pickup,
       dropoff,
@@ -63,7 +65,7 @@ export default function HomePage() {
               dot
               className="border-[#B9FF45]/40 text-[#B9FF45] bg-[#B9FF45]/10 px-3.5 py-1 text-xs uppercase tracking-widest font-extrabold"
             >
-              AI-POWERED RIDE RECOVERY · SIMULATION ENGINE
+              Simulated ride recovery
             </Badge>
 
             {/* Hero Headline */}
@@ -76,14 +78,7 @@ export default function HomePage() {
 
             {/* Subtitle */}
             <p className="text-lg sm:text-xl font-semibold text-[#F6F8FC]/90 max-w-2xl leading-snug">
-              The intelligent ride companion that finds, monitors and recovers your pickup.
-            </p>
-
-            {/* Description */}
-            <p className="text-sm sm:text-base text-[#98A5BC] max-w-2xl leading-relaxed">
-              Never get stranded by sudden cab cancellations again. ReHop continuously tracks driver
-              trajectory, computes pickup risk, and prepares verified backup rides before your
-              schedule is broken.
+              Compare rides, watch your pickup, and find a backup when plans change.
             </p>
 
             {/* Hero Action Buttons */}
@@ -104,20 +99,13 @@ export default function HomePage() {
                 Try Incident Demo
               </Link>
 
-              <Link
-                href="/compare"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-transparent hover:bg-[#151F32] text-[#98A5BC] hover:text-[#F6F8FC] border border-[#243249] font-semibold text-sm transition-all active:scale-95 w-full sm:w-auto"
-              >
-                <Sparkles className="w-4 h-4 text-[#B79CFF]" />
-                Compare Providers
-              </Link>
             </div>
 
             {/* Trust Badges Row */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 text-xs font-semibold text-[#98A5BC]">
               <span className="inline-flex items-center gap-1.5 text-[#2ED389]">
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                No duplicate bookings by default
+                One active ride per journey
               </span>
               <span className="text-[#243249] hidden sm:inline">•</span>
               <span className="inline-flex items-center gap-1.5 text-[#F6F8FC]/80">
@@ -142,14 +130,14 @@ export default function HomePage() {
               <div className="flex items-center justify-between pb-4 border-b border-[#243249]">
                 <div className="flex items-center gap-2.5">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#B9FF45]/15 text-[#B9FF45]">
-                    <Radar className="w-4 h-4 animate-spin" style={{ animationDuration: '8s' }} />
+                    <Radar className="w-4 h-4" />
                   </span>
                   <span className="font-bold text-sm text-[#F6F8FC] tracking-tight">
-                    Live pickup preview
+                    Example pickup
                   </span>
                 </div>
                 <Badge variant="simulation" size="sm" dot>
-                  SIMULATION
+                  Illustrative
                 </Badge>
               </div>
 
@@ -158,6 +146,7 @@ export default function HomePage() {
                 {/* Simulated Street Grid pattern */}
                 <svg
                   className="absolute inset-0 w-full h-full opacity-35"
+                  aria-hidden="true"
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <defs>
@@ -176,6 +165,7 @@ export default function HomePage() {
                 {/* Simulated Vector Route */}
                 <svg
                   className="absolute inset-0 w-full h-full"
+                  aria-hidden="true"
                   viewBox="0 0 400 200"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -207,7 +197,7 @@ export default function HomePage() {
 
                   {/* Origin Node (Solid Lime) */}
                   <circle cx="40" cy="160" r="7" fill="#B9FF45" />
-                  <circle cx="40" cy="160" r="14" fill="#B9FF45" className="opacity-30 animate-ping" />
+                  <circle cx="40" cy="160" r="14" fill="#B9FF45" className="opacity-30" />
 
                   {/* Destination Node (Pickup Target) */}
                   <circle cx="360" cy="40" r="7" fill="#2ED389" />
@@ -233,19 +223,16 @@ export default function HomePage() {
                 {/* Floating Map Labels */}
                 <div className="relative z-10 flex justify-between items-start pointer-events-none">
                   <span className="text-[10px] font-bold text-[#98A5BC] bg-[#151F32]/80 px-2 py-0.5 rounded border border-[#243249]">
-                    VIT Chennai
+                    Driver start
                   </span>
                   <span className="text-[10px] font-bold text-[#2ED389] bg-[#151F32]/80 px-2 py-0.5 rounded border border-[#2ED389]/40">
-                    Pickup Spot
+                    VIT Chennai
                   </span>
                 </div>
 
                 <div className="relative z-10 flex justify-between items-end pointer-events-none">
                   <span className="text-[10px] font-bold text-[#B9FF45] bg-[#090F1D]/90 px-2.5 py-1 rounded-md border border-[#B9FF45]/30">
-                    Provider A · Sedan
-                  </span>
-                  <span className="text-[10px] text-[#98A5BC] bg-[#090F1D]/80 px-2 py-0.5 rounded">
-                    GPS: 12.8406° N, 80.1534° E
+                    Provider A
                   </span>
                 </div>
               </div>
@@ -258,13 +245,13 @@ export default function HomePage() {
                   </span>
                   <div className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-3xl font-black text-[#F6F8FC]">
-                      0{simulatedEta}
+                      4
                     </span>
                     <span className="text-xs font-semibold text-[#98A5BC]">min</span>
                   </div>
                   <span className="text-[11px] text-[#2ED389] font-medium flex items-center gap-1 mt-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#2ED389]" />
-                    On track · 38 km/h
+                    Approaching pickup
                   </span>
                 </div>
 
@@ -275,26 +262,15 @@ export default function HomePage() {
                   <div className="mt-1">
                     <span className="inline-flex items-center gap-1.5 text-base font-extrabold text-[#B9FF45]">
                       <ShieldCheck className="w-4 h-4 text-[#B9FF45]" />
-                      Backup ready
+                      Backup quote found
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#98A5BC] font-medium block mt-1 truncate">
-                    Provider B standby (+₹15)
+                  <span className="text-[11px] text-[#98A5BC] font-medium block mt-1">
+                    Provider B · Quote only
                   </span>
                 </div>
               </div>
 
-              {/* Interactive Telemetry Ticker */}
-              <div className="mt-3 flex items-center justify-between text-[11px] text-[#98A5BC] bg-[#090F1D]/60 rounded-xl px-3 py-2 border border-[#243249]/60">
-                <span className="truncate pr-2">Risk index: 12% · No anomaly flagged</span>
-                <button
-                  type="button"
-                  onClick={() => setSimulatedEta((prev) => (prev > 1 ? prev - 1 : 6))}
-                  className="text-[#B9FF45] font-bold hover:underline shrink-0"
-                >
-                  Tick 5s
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -313,43 +289,41 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-[#B9FF45]" />
                 <span className="text-xs font-bold uppercase tracking-wider text-[#B9FF45]">
-                  Instant Setup
+                  Trip setup
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-[#F6F8FC] mt-1 mb-0">
-                Quick Booking Simulator
+                Plan a simulated ride
               </h2>
               <p className="text-xs sm:text-sm text-[#98A5BC] mt-1 mb-0">
-                Test simulated ride matching and recovery policy with your preferred pickup deadline.
+                Choose a route and the latest time you can be picked up.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start md:self-auto">
-              <Badge variant="neutral" size="sm">
-                Max 2 recovery retries
-              </Badge>
-              <Badge variant="primary" size="sm">
-                Zero double charges
-              </Badge>
-            </div>
           </div>
 
           <form onSubmit={handleQuickBook} className="mt-6 space-y-6">
+            {locations.isPending && <p role="status" className="text-sm text-[#98A5BC]">Loading locations…</p>}
+            {locations.isError && <p role="alert" className="text-sm text-[#FFBD63]">
+              Location list unavailable. <button type="button" className="underline" onClick={() => void locations.refetch()}>Try again</button>
+            </p>}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Pickup selector */}
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
+                <label htmlFor="quick-pickup" className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#B9FF45]" />
                   Pickup Point
                 </label>
                 <div className="relative">
                   <select
+                    id="quick-pickup"
                     value={pickup}
+                    disabled={!labels.length || locations.isError}
                     onChange={(e) => setPickup(e.target.value)}
                     className="w-full appearance-none rounded-xl border border-[#243249] bg-[#090F1D] px-4 py-3 text-sm font-semibold text-[#F6F8FC] focus:border-[#B9FF45] focus:outline-none focus:ring-1 focus:ring-[#B9FF45]"
                   >
-                    {sampleLocations.map((loc) => (
-                      <option key={loc} value={loc} className="bg-[#151F32]">
+                    {labels.map((loc) => (
+                      <option key={loc} value={loc} disabled={loc === dropoff} className="bg-[#151F32]">
                         {loc}
                       </option>
                     ))}
@@ -360,18 +334,20 @@ export default function HomePage() {
 
               {/* Destination selector */}
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
+                <label htmlFor="quick-destination" className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#2ED389]" />
                   Destination
                 </label>
                 <div className="relative">
                   <select
+                    id="quick-destination"
                     value={dropoff}
+                    disabled={!labels.length || locations.isError}
                     onChange={(e) => setDropoff(e.target.value)}
                     className="w-full appearance-none rounded-xl border border-[#243249] bg-[#090F1D] px-4 py-3 text-sm font-semibold text-[#F6F8FC] focus:border-[#B9FF45] focus:outline-none focus:ring-1 focus:ring-[#B9FF45]"
                   >
-                    {sampleLocations.map((loc) => (
-                      <option key={loc} value={loc} className="bg-[#151F32]">
+                    {labels.map((loc) => (
+                      <option key={loc} value={loc} disabled={loc === pickup} className="bg-[#151F32]">
                         {loc}
                       </option>
                     ))}
@@ -382,12 +358,13 @@ export default function HomePage() {
 
               {/* Need By Deadline selector */}
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
+                <label htmlFor="quick-deadline" className="text-xs font-bold uppercase tracking-wider text-[#98A5BC] flex items-center gap-1.5">
                   <Timer className="w-3.5 h-3.5 text-[#B79CFF]" />
                   Pickup Needed Within
                 </label>
                 <div className="relative">
                   <select
+                    id="quick-deadline"
                     value={needInMinutes}
                     onChange={(e) => setNeedInMinutes(e.target.value)}
                     className="w-full appearance-none rounded-xl border border-[#243249] bg-[#090F1D] px-4 py-3 text-sm font-semibold text-[#F6F8FC] focus:border-[#B9FF45] focus:outline-none focus:ring-1 focus:ring-[#B9FF45]"
@@ -402,7 +379,7 @@ export default function HomePage() {
                       30 minutes (Flexible)
                     </option>
                     <option value="45" className="bg-[#151F32]">
-                      45 minutes (Airport)
+                      45 minutes
                     </option>
                   </select>
                   <ChevronRight className="pointer-events-none absolute right-3.5 top-3.5 w-4 h-4 rotate-90 text-[#98A5BC]" />
@@ -411,42 +388,23 @@ export default function HomePage() {
             </div>
 
             {/* Quick Route Suggestion Chips */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs text-[#98A5BC] font-medium mr-1">Popular routes:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setPickup('VIT Chennai');
-                  setDropoff('Chennai Airport');
-                  setNeedInMinutes('20');
-                }}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-[#1A273F] text-[#F6F8FC] hover:border-[#B9FF45] border border-[#243249] transition-colors"
-              >
-                VIT Chennai → Airport
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPickup('Tambaram Station');
-                  setDropoff('Tidal Park OMR');
-                  setNeedInMinutes('30');
-                }}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-[#1A273F] text-[#F6F8FC] hover:border-[#B9FF45] border border-[#243249] transition-colors"
-              >
-                Tambaram → Tidal Park
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPickup('Guindy Metro');
-                  setDropoff('Chennai Central');
-                  setNeedInMinutes('15');
-                }}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-[#1A273F] text-[#F6F8FC] hover:border-[#B9FF45] border border-[#243249] transition-colors"
-              >
-                Guindy → Chennai Central
-              </button>
-            </div>
+            {canContinue && <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs text-[#98A5BC] font-medium mr-1">Try a route</span>
+              {quickRoutes.filter((route) => labels.includes(route.pickup) && labels.includes(route.dropoff)).map((route) => (
+                <button
+                  key={`${route.pickup}-${route.dropoff}`}
+                  type="button"
+                  onClick={() => {
+                    setPickup(route.pickup);
+                    setDropoff(route.dropoff);
+                    setNeedInMinutes(route.minutes);
+                  }}
+                  className="px-3 py-1 rounded-lg text-xs font-medium bg-[#1A273F] text-[#F6F8FC] hover:border-[#B9FF45] border border-[#243249] transition-colors"
+                >
+                  {route.pickup} → {route.dropoff}
+                </button>
+              ))}
+            </div>}
 
             {/* Submit Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#243249]">
@@ -459,9 +417,10 @@ export default function HomePage() {
 
               <button
                 type="submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-[#B9FF45] text-[#090F1D] font-extrabold text-sm hover:brightness-105 transition-all shadow-[0_2px_12px_rgba(185,255,69,0.3)] active:scale-95"
+                disabled={!canContinue}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-[#B9FF45] text-[#090F1D] font-extrabold text-sm hover:brightness-105 transition-all shadow-[0_2px_12px_rgba(185,255,69,0.3)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Find available rides
+                Review trip details
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
@@ -476,11 +435,10 @@ export default function HomePage() {
             Core Architecture
           </Badge>
           <h2 className="text-2xl sm:text-3xl font-black text-[#F6F8FC]">
-            Engineered for pickup certainty
+            How ReHop helps at pickup
           </h2>
           <p className="text-sm sm:text-base text-[#98A5BC]">
-            Four architectural safeguards ensuring your ride is reliably monitored and safely
-            rescued if a driver stalls or cancels.
+            Follow driver progress and decide what to do when a pickup is at risk.
           </p>
         </div>
 
@@ -503,19 +461,18 @@ export default function HomePage() {
 
               <div>
                 <h3 className="text-lg sm:text-xl font-bold text-[#F6F8FC] mb-2">
-                  Multi-Provider Aggregation
+                  Compare Providers
                 </h3>
                 <p className="text-sm text-[#98A5BC] leading-relaxed">
-                  Access simulated fleets across neutral providers simultaneously. Compare real-time
-                  simulated ETAs, fares, and vehicle tiers in one unified view without switching
-                  between proprietary apps.
+                  Compare estimated pickup times and fares from four simulated providers.
+                  See which quotes fit your fare cap and pickup deadline.
                 </p>
               </div>
             </div>
 
             <div className="pt-6 mt-4 border-t border-[#243249]/80 flex items-center justify-between text-xs text-[#98A5BC]">
-              <span className="font-semibold text-[#F6F8FC]">Unified Mobility Protocol</span>
-              <span className="text-[#B9FF45] font-bold">4 Simulated Fleets</span>
+              <span className="font-semibold text-[#F6F8FC]">Fare and pickup ETA</span>
+              <span className="text-[#B9FF45] font-bold">4 simulated providers</span>
             </div>
           </Card>
 
@@ -531,7 +488,7 @@ export default function HomePage() {
                   <Activity className="w-6 h-6 stroke-[2]" />
                 </span>
                 <Badge variant="ai" size="sm">
-                  Real-time Telemetry
+                  Simulated Telemetry
                 </Badge>
               </div>
 
@@ -540,9 +497,8 @@ export default function HomePage() {
                   Early Delay & Risk Detection
                 </h3>
                 <p className="text-sm text-[#98A5BC] leading-relaxed">
-                  Our telemetry intelligence scores heading anomalies, stationary stall cycles, and
-                  speed variance every 5 seconds—flagging potential pickup failures minutes before
-                  legacy ride-hailing apps notify you.
+                  ReHop uses time spent stationary, ETA changes and distance to pickup to estimate
+                  risk. Stale location readings are marked as uncertain.
                 </p>
               </div>
             </div>
@@ -565,7 +521,7 @@ export default function HomePage() {
                   <ShieldCheck className="w-6 h-6 stroke-[2]" />
                 </span>
                 <Badge variant="success" size="sm">
-                  Zero Duplicate Bookings
+                  Verified Cancellation
                 </Badge>
               </div>
 
@@ -574,9 +530,8 @@ export default function HomePage() {
                   Safe Pre-emptive Switch
                 </h3>
                 <p className="text-sm text-[#98A5BC] leading-relaxed">
-                  Strict policy guarantees you are never double-billed. An original ride is verified
-                  as cancelled before any replacement is confirmed. Every preemptive switch requires
-                  your explicit consent with full cancellation fee disclosure.
+                  Preview the possible fee before deciding whether to switch. ReHop checks a fresh
+                  backup quote and waits for cancellation confirmation before booking a replacement.
                 </p>
               </div>
             </div>
@@ -599,26 +554,24 @@ export default function HomePage() {
                   <Clock className="w-6 h-6 stroke-[2]" />
                 </span>
                 <Badge variant="warning" size="sm">
-                  need_by Priority
+                  Pickup Deadline
                 </Badge>
               </div>
 
               <div>
                 <h3 className="text-lg sm:text-xl font-bold text-[#F6F8FC] mb-2">
-                  Deadline-Aware Routing
+                  Wait or Switch
                 </h3>
                 <p className="text-sm text-[#98A5BC] leading-relaxed">
-                  Prioritizes pickup feasibility against your hard arrival deadline (
-                  <code className="text-[#B9FF45] font-mono text-xs">need_by</code>). Compares the
-                  cost of waiting against the cost of switching so you never trigger an unneeded
-                  recovery when your driver is on schedule.
+                  Set the latest time you can be picked up. ReHop compares the risk of waiting
+                  with the cost and estimated pickup time of switching.
                 </p>
               </div>
             </div>
 
             <div className="pt-6 mt-4 border-t border-[#243249]/80 flex items-center justify-between text-xs text-[#98A5BC]">
-              <span className="font-semibold text-[#F6F8FC]">Arrival Guarantee</span>
-              <span className="text-[#FFBD63] font-bold">Dynamic Urgency Scoring</span>
+              <span className="font-semibold text-[#F6F8FC]">Pickup time</span>
+              <span className="text-[#FFBD63] font-bold">Explained Recommendation</span>
             </div>
           </Card>
         </div>
@@ -634,8 +587,7 @@ export default function HomePage() {
             How ReHop Protects Your Journey
           </h2>
           <p className="text-sm sm:text-base text-[#98A5BC]">
-            From your first search to verified arrival, our engine continuously monitors, detects
-            delays, and safeguards your schedule.
+            From trip setup to boarding confirmation.
           </p>
         </div>
 
@@ -653,8 +605,8 @@ export default function HomePage() {
                 Set Route & Safety Limits
               </h3>
               <p className="text-xs sm:text-sm text-[#98A5BC] leading-relaxed">
-                Choose your pickup, destination, and arrival deadline. Define safety caps for maximum
-                fare and acceptable cancellation fees before any ride is placed.
+                Choose your pickup, destination and pickup deadline. Set your maximum fare,
+                cancellation fee and retry count before booking.
               </p>
             </div>
             <div className="pt-6 mt-6 border-t border-[#243249] text-xs font-semibold text-[#B9FF45]">
@@ -672,11 +624,11 @@ export default function HomePage() {
                 </Badge>
               </div>
               <h3 className="text-lg font-bold text-[#F6F8FC]">
-                Continuous Trajectory Monitoring
+                Watch Driver Progress
               </h3>
               <p className="text-xs sm:text-sm text-[#98A5BC] leading-relaxed">
-                ReHop tracks simulated driver progress, calculating distance delta, heading variance,
-                and risk score on deterministic 5-second ticks.
+                Follow driver distance and ETA as the simulation advances in five-second steps.
+                Confirm boarding after the driver reaches the pickup point.
               </p>
             </div>
             <div className="pt-6 mt-6 border-t border-[#243249] text-xs font-semibold text-[#B79CFF]">
@@ -694,11 +646,11 @@ export default function HomePage() {
                 </Badge>
               </div>
               <h3 className="text-lg font-bold text-[#F6F8FC]">
-                Verified Pre-emptive Recovery
+                Review Recovery Options
               </h3>
               <p className="text-xs sm:text-sm text-[#98A5BC] leading-relaxed">
-                If driver cancellation is imminent or delay threatens your deadline, ReHop stages a
-                backup quote and seamlessly switches upon your approval.
+                If a delay threatens pickup, review the quote and possible cancellation fee.
+                Backup availability can change before confirmation.
               </p>
             </div>
             <div className="pt-6 mt-6 border-t border-[#243249] text-xs font-semibold text-[#2ED389]">
@@ -717,17 +669,13 @@ export default function HomePage() {
             </span>
             <div className="flex-1 space-y-1">
               <h4 className="text-sm font-bold text-[#F6F8FC] tracking-tight m-0">
-                Simulation Transparency Notice
+                Simulation only
               </h4>
               <p className="text-xs sm:text-sm text-[#98A5BC] leading-relaxed m-0">
-                All providers, driver positions, and fares shown are simulated. Demonstrator for
-                ONDC/Beckn-inspired ride recovery. Neutral providers (Provider A, B, C, D) are
-                illustrative entities with synthetic ETAs and pricing.
+                Provider A–D, vehicle positions, estimates, and cancellation fees are simulated.
+                ReHop uses local adapters inspired by ONDC and Beckn.
               </p>
             </div>
-            <Badge variant="simulation" size="sm" className="shrink-0">
-              Hackathon Prototype
-            </Badge>
           </div>
         </div>
       </section>
@@ -745,11 +693,10 @@ export default function HomePage() {
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-4">
             <h2 className="text-2xl sm:text-4xl font-black text-[#F6F8FC] tracking-tight m-0">
-              Ready to experience resilient ride recovery?
+              Try a stalled pickup
             </h2>
             <p className="text-sm sm:text-base text-[#98A5BC] leading-relaxed">
-              Test our simulation engine with interactive driver stall incidents or search simulated
-              routes across multiple providers.
+              Run a demo scenario to see why ReHop recommends waiting or switching.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3.5 pt-4">
@@ -766,13 +713,6 @@ export default function HomePage() {
               >
                 <Play className="w-4 h-4 fill-current text-[#B9FF45]" />
                 Try Incident Demo
-              </Link>
-              <Link
-                href="/compare"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-transparent hover:bg-[#151F32] text-[#98A5BC] hover:text-[#F6F8FC] border border-[#243249] font-semibold text-sm transition-all active:scale-95"
-              >
-                <Sparkles className="w-4 h-4 text-[#B79CFF]" />
-                Compare Providers
               </Link>
             </div>
           </div>

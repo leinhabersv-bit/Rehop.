@@ -17,7 +17,6 @@ export function Navbar({ className = '' }: NavbarProps) {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/book', label: 'Book' },
-    { href: '/compare', label: 'Compare' },
     { href: '/demo', label: 'Demo' },
   ];
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ProviderCard } from './ProviderCard';
-import { BookingConfirmationModal } from './BookingConfirmationModal';
+import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 import { CompareScreen } from './CompareScreen';
 import { providerName, type Quote, type Provider, type Journey } from '@/types';
 
@@ -172,4 +172,34 @@ describe('Compare & Confirmation Components & Business Logic', () => {
     const isExpired = Date.now() >= new Date(expiredQuote.expires_at).getTime();
     expect(isExpired).toBe(true);
   });
+});
+
+it('confirms only the authoritative active booking for the requested quote', () => {
+  const original = MOCK_JOURNEY_FOR_TESTS;
+  const activeRide: NonNullable<Journey['active_ride']> = {
+    ride_id: 'ride-1',
+    journey_id: original.id,
+    provider: 'PROVIDER_A',
+    quote_id: 'q-demo-a',
+    state: 'DRIVER_EN_ROUTE',
+    booked_at: original.simulated_time,
+    driver_id: 'SIM_DRIVER_1',
+    distance_to_pickup_m: 1200,
+    eta_sec: 240,
+    last_position_at: original.simulated_time,
+    is_simulated: true,
+  };
+  const booked: Journey = {
+    ...original,
+    state: 'MONITORING',
+    active_ride_id: activeRide.ride_id,
+    active_ride: activeRide,
+  };
+
+  expect(hasConfirmedRide(original, 'q-demo-a')).toBe(false);
+  expect(hasConfirmedRide(booked, 'q-demo-a')).toBe(true);
+  expect(hasConfirmedRide(booked, 'q-demo-b')).toBe(false);
+  expect(hasConfirmedRide({ ...booked, active_ride_id: 'different-ride' })).toBe(false);
+  expect(hasConfirmedRide({ ...booked, booking_uncertain: true })).toBe(false);
+  expect(hasConfirmedRide({ ...booked, state: 'RECONCILING' })).toBe(false);
 });

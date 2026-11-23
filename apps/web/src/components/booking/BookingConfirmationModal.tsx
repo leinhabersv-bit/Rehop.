@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Check,
@@ -8,65 +8,53 @@ import {
   ArrowRight,
   Car,
   MapPin,
-  AlertTriangle,
   X,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
-import type { Journey, Quote } from '@/types';
+import type { Journey } from '@/types';
 import { providerName } from '@/types';
 
 export interface BookingConfirmationModalProps {
   isOpen: boolean;
   onClose?: () => void;
   journey: Journey;
-  selectedQuote?: Quote | null;
   onTrackRide?: (journeyId: string) => void;
+}
+
+export function hasConfirmedRide(journey: Journey, quoteId?: string): boolean {
+  const ride = journey.active_ride;
+  return journey.booking_uncertain === false &&
+    ['MONITORING', 'AT_RISK', 'AWAITING_APPROVAL', 'PICKUP_CONFIRMED'].includes(journey.state) &&
+    !!ride && ride.journey_id === journey.id && ride.ride_id === journey.active_ride_id &&
+    (quoteId === undefined || ride.quote_id === quoteId) &&
+    ['CONFIRMED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.state);
 }
 
 export function BookingConfirmationModal({
   isOpen,
   onClose,
   journey,
-  selectedQuote,
   onTrackRide,
 }: BookingConfirmationModalProps) {
   const router = useRouter();
 
-  // Handle escape key
+  const dialog = useRef<HTMLDialogElement>(null);
+  const activeRide = hasConfirmedRide(journey) ? journey.active_ride : null;
   useEffect(() => {
-    if (!isOpen) return;
+    const node = dialog.current;
+    if (!node || !isOpen) return;
+    node.showModal();
+    return () => node.close();
+  }, [isOpen, activeRide]);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onClose) {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  // Determine quote data
-  const quote =
-    selectedQuote ||
-    (journey.active_ride_id
-      ? journey.quotes.find((q) => q.quote_id === journey.active_ride_id)
-      : null) ||
-    journey.quotes[0];
-
-  const activeRide = journey.active_ride;
-  const providerKey = activeRide?.provider ?? quote?.provider;
-  const providerLabel = providerKey ? (providerName[providerKey] || providerKey) : '—';
-  const driverId = activeRide?.driver_id ?? 'Pending';
-  const rideState = activeRide?.state ? activeRide.state.replaceAll('_', ' ') : 'AWAITING CONFIRMATION';
+  if (!isOpen || !activeRide) return null;
+  const quote = journey.quotes.find((item) =>
+    item.quote_id === activeRide.quote_id && item.provider === activeRide.provider);
+  const providerLabel = providerName[activeRide.provider];
+  const driverId = activeRide.driver_id;
+  const rideState = activeRide.state.replaceAll('_', ' ');
   const fareInr = quote?.estimated_fare_inr ?? null;
-  const etaMinutes = activeRide
-    ? Math.ceil(activeRide.eta_sec / 60)
-    : quote?.pickup_eta_sec
-    ? Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))
-    : null;
+  const etaMinutes = Math.ceil(activeRide.eta_sec / 60);
 
   // Format reference ID
   const rawId = journey.id.replace(/^sim-/, '').replace(/[^a-zA-Z0-9]/g, '');
@@ -100,14 +88,14 @@ export function BookingConfirmationModal({
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialog}
+      onCancel={onClose}
       aria-labelledby="confirmation-modal-title"
       aria-describedby="confirmation-modal-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#070A0F]/85 p-4 backdrop-blur-md transition-all duration-300"
+      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-transparent p-0 backdrop:bg-[#070A0F]/85 backdrop:backdrop-blur-md"
     >
-      <div className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#0F1726] to-[#0B111D] p-6 sm:p-8 text-[#F6F8FC] border border-[#233550] shadow-[0_20px_60px_rgba(0,0,0,0.8)] my-8">
+      <div className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#0F1726] to-[#0B111D] p-6 sm:p-8 text-[#F6F8FC] border border-[#233550] shadow-[0_20px_60px_rgba(0,0,0,0.8)] ">
         {/* Top Header / Bar */}
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
           <button
@@ -149,19 +137,6 @@ export function BookingConfirmationModal({
             Success means pickup confirmed after boarding. ReHop is now monitoring driver telemetry.
           </p>
         </div>
-
-        {/* Booking Uncertain Warning Banner */}
-        {journey.booking_uncertain && (
-          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-[#FFB020]/15 border border-[#FFB020]/30 p-4 text-xs text-[#FFB020]">
-            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-            <div>
-              <div className="font-bold text-sm text-[#FFB020]">Booking Status Uncertain</div>
-              <p className="mt-1 text-slate-300 leading-relaxed text-[11px] sm:text-xs">
-                Booking Status Uncertain: Backend response timed out or requires verification. Do not retry automatically.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Card 1: Confirmed Details Card */}
         <div className="mt-6 rounded-2xl bg-[#0E1624] border border-slate-800 p-4 sm:p-5 space-y-4">
@@ -280,7 +255,7 @@ export function BookingConfirmationModal({
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 

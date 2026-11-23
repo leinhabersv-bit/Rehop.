@@ -99,6 +99,8 @@ export function LocationInput({
                 </span>
                 <input
                   type="text"
+                  aria-label="Pickup location"
+                  onKeyDown={(event) => { if (event.key === 'Escape') setPickupOpen(false); }}
                   value={pickup}
                   onChange={(e) => {
                     onPickupChange(e.target.value);
@@ -173,6 +175,8 @@ export function LocationInput({
                 </span>
                 <input
                   type="text"
+                  aria-label="Destination"
+                  onKeyDown={(event) => { if (event.key === 'Escape') setDropoffOpen(false); }}
                   value={dropoff}
                   onChange={(e) => {
                     onDropoffChange(e.target.value);
