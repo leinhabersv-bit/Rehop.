@@ -7,7 +7,8 @@ export type RecoveryPolicy = {
 };
 export type Quote = { quote_id:string;provider:Provider;estimated_fare_inr:number;pickup_eta_sec:number;expires_at:string;is_simulated:true };
 export type Risk = { score_0_100:number;band:'LOW'|'MEDIUM'|'HIGH'|'UNKNOWN';
-  confidence:number;signals:string[];explanation:string;model_version:string;is_simulated:true };
+  confidence:number;signals:string[];explanation:string;model_version:string;is_simulated:true;
+  explanation_source?:'llm_verified'|'deterministic_template'|null };
 export type Ride = {ride_id:string;journey_id:string;provider:Provider;quote_id:string;
   state:string;booked_at:string;driver_id:string;distance_to_pickup_m:number;
   eta_sec:number;last_position_at:string;is_simulated:true};
