@@ -90,17 +90,17 @@ async function prepareManualBooking(page: Page) {
 test('keeps invalid setup input out of the journey API', async ({ page }) => {
   await page.goto(`${web}/book?needIn=Infinity`);
   await expect(page.getByRole('slider', { name: 'Pickup Deadline' })).toHaveValue('20');
-  const createRequests: string[] = [];
+  let createRequests = 0;
   page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url() === `${api}/api/v1/journeys`) {
-      createRequests.push(request.url());
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/journeys') {
+      createRequests += 1;
     }
   });
   await page.getByRole('textbox', { name: 'Pickup location' }).fill('Unlisted pickup');
   await page.getByRole('button', { name: 'Find available rides' }).click();
-  await expect(page.getByRole('alert')).toHaveText(/Choose both places from the simulator location list/);
+  await expect(page.locator('form').getByRole('alert')).toHaveText(/Choose both places from the simulator location list/);
   await expect(page).toHaveURL(`${web}/book?needIn=Infinity`);
-  expect(createRequests).toHaveLength(0);
+  expect(createRequests).toBe(0);
 });
 
 test('reconciles a server error after booking from the authoritative journey', async ({ page, request }) => {
