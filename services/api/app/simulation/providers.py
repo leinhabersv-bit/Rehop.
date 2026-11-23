@@ -59,8 +59,9 @@ class SimulatedMobilityAdapter:
     def init(self, quote: Quote, now: datetime) -> bool:
         return self.select(quote, now)
 
-    def confirm(self, quote: Quote, now: datetime) -> bool:
-        return self.init(quote, now)
+    def confirm(self, quote: Quote, now: datetime) -> OperationResult:
+        status = OpStatus.CONFIRMED if self.init(quote, now) else OpStatus.FAILED
+        return OperationResult(status=status)
 
     def cancel(self, ride: Ride) -> OperationResult:
         return OperationResult(status=OpStatus.CONFIRMED)

@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
+from app.domain.state_machine import ACTIVE_RIDE_STATES as ACTIVE_RIDE_STATES
+from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
 from app.schemas.enums import JourneyState, RideState
-
-STOPPED = {JourneyState.PICKUP_CONFIRMED, JourneyState.USER_CANCELLED, JourneyState.EXHAUSTED}
-ACTIVE_RIDE_STATES = {
-    RideState.CONFIRMED,
-    RideState.DRIVER_EN_ROUTE,
-    RideState.DRIVER_ARRIVED,
-    RideState.IN_PROGRESS,
-}
 
 
 def may_rebook(
