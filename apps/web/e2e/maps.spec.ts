@@ -3,6 +3,32 @@ import { expect, test } from '@playwright/test';
 const web = process.env.REHOP_TEST_WEB ?? 'http://localhost:3000';
 const api = process.env.REHOP_TEST_API ?? 'http://localhost:8000';
 
+test('popular Chennai locations route to the selected airport terminal', async ({ page }) => {
+  await page.route('**/api/maps?*', (route) => route.fulfill({ json: {
+    coordinates: [[80.276308, 13.082590], [80.164110, 12.982069]],
+    distanceMeters: 19200,
+    durationSeconds: 2100,
+  } }));
+  await page.goto(web);
+  const pickup = page.getByRole('combobox', { name: 'Pickup point' });
+  const destination = page.getByRole('combobox', { name: 'Destination' });
+  await expect(pickup.locator('option', { hasText: 'Kilambakkam Bus Terminus' })).toHaveCount(1);
+  await expect(destination.locator('option', { hasText: 'Marina Beach Lighthouse' })).toHaveCount(1);
+  await pickup.selectOption('Chennai Central Railway Station');
+  await destination.selectOption('Chennai Airport T2 (International)');
+  const requestedRoute = page.waitForRequest((request) => request.url().includes('/api/maps?'));
+  await page.getByRole('button', { name: 'Review trip details' }).click();
+  const route = new URL((await requestedRoute).url());
+  expect(route.searchParams.get('from')).toBe('80.276308,13.082590');
+  expect(route.searchParams.get('to')).toBe('80.164110,12.982069');
+  await expect(page.getByText('35 min drive')).toBeVisible();
+  await expect(page.getByText(/19\.2 km · Traffic excluded/)).toBeVisible();
+  const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
+  const directions = new URL((await google.getAttribute('href'))!);
+  expect(directions.searchParams.get('origin')).toBe('13.0825901,80.2763077');
+  expect(directions.searchParams.get('destination')).toBe('12.9820693,80.1641102');
+});
+
 test('a rider can use a searched location and review the road duration separately from pickup ETA', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const pickup = { label: 'Guindy National Park, Chennai', lat: 13.000005, lng: 80.2280448 };
@@ -13,7 +39,7 @@ test('a rider can use a searched location and review the road duration separatel
       await route.fulfill({ json: { places: [pickup] } });
     } else if (params.get('from') === '80.228045,13.000005') {
       await route.fulfill({ json: {
-        coordinates: [[80.228045, 13.000005], [80.2, 13.004], [80.1709, 12.9941]],
+        coordinates: [[80.228045, 13.000005], [80.2, 13.004], [80.167339, 12.982553]],
         distanceMeters: 8550,
         durationSeconds: 955,
         roadAccessMeters: [190, 20],
@@ -37,13 +63,14 @@ test('a rider can use a searched location and review the road duration separatel
   await expect(page.getByText('16 min drive')).toBeVisible();
   await expect(page.getByText(/8\.6 km · Traffic excluded/)).toBeVisible();
   await expect(page.getByText('Road access is 190 m from pickup.')).toBeVisible();
+  const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
+  await expect(google).toBeVisible();
   await page.getByRole('button', { name: 'Show map' }).click();
   const map = page.getByRole('region', { name: 'Driving route map' });
   await expect(map.locator('svg path').first()).toBeVisible();
-  const google = page.getByRole('link', { name: 'Check traffic in Google Maps' });
   const directions = new URL((await google.getAttribute('href'))!);
   expect(directions.searchParams.get('origin')).toBe('13.000005,80.2280448');
-  expect(directions.searchParams.get('destination')).toBe('12.9941,80.1709');
+  expect(directions.searchParams.get('destination')).toBe('12.9825533,80.167339');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Hide map' }).click();
 

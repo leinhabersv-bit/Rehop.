@@ -11,8 +11,7 @@ import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 
 const sampleRoutes = [
   ['VIT Chennai', 'Chennai Airport'],
-  ['Guindy', 'T Nagar'],
-  ['T Nagar', 'Chennai Airport'],
+  ['Chennai Central Railway Station', 'Chennai Airport T2 (International)'],
 ];
 
 const field = 'mt-1 w-full min-w-0 !rounded-xl !border-[#d9dbe7] !bg-white text-sm font-semibold !text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#173ed7]';
@@ -44,6 +43,7 @@ export default function HomePage() {
           </h1>
           <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] sm:text-base">Book a ride, follow your pickup, and get help finding a backup if your driver cancels.</p>
           <form onSubmit={continueTrip} className="space-y-3">
+            <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
             <label htmlFor="quick-pickup" className="block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><Navigation size={16} className="text-[#173ed7]" aria-hidden="true" /> Pickup point</span>
               <select id="quick-pickup" value={pickup} disabled={!labels.length || locations.isError} onChange={(event) => setPickup(event.target.value)} className={field}>
@@ -74,12 +74,13 @@ export default function HomePage() {
             <MapPin size={16} aria-hidden="true" /> Search any address or landmark
           </Link>
           {ready && <div className="mt-4 flex flex-wrap gap-2" aria-label="Suggested routes">
-            {sampleRoutes.filter(([from, to]) => labels.includes(from) && labels.includes(to)).slice(0, 2).map(([from, to]) => (
+            {sampleRoutes.filter(([from, to]) => labels.includes(from) && labels.includes(to)).map(([from, to]) => (
               <button key={from} type="button" onClick={() => { setPickup(from); setDropoff(to); }} className="min-h-9 rounded-full border border-[#d9dbe7] px-3 text-xs font-bold text-[#334363] hover:border-[#173ed7]">
                 {from} → {to}
               </button>
             ))}
           </div>}
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-[#475673] underline">Places © OpenStreetMap contributors</a>
         </section>
         <aside className="relative flex min-h-[340px] min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#173ed7] text-white lg:min-h-[560px]">
           <Image src="/images/rehop-cobalt.webp" alt="" fill priority sizes="(min-width: 1024px) 600px, 100vw" className="object-cover object-[64%_center]" />

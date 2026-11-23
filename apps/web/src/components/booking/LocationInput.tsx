@@ -7,8 +7,8 @@ import { retryMapRequest, searchPlaces } from '@/lib/maps';
 import type { Location } from '@/types';
 
 export const DEFAULT_LOCATIONS: Location[] = [
-  { label: 'VIT Chennai', lat: 12.8406, lng: 80.1534 },
-  { label: 'Chennai Airport', lat: 12.9941, lng: 80.1709 },
+  { label: 'VIT Chennai', lat: 12.8405315, lng: 80.1530341 },
+  { label: 'Chennai Airport', lat: 12.9825533, lng: 80.167339 },
   { label: 'Indiranagar 100ft Rd', lat: 12.9716, lng: 77.6412 },
   { label: 'Koramangala 4th Block', lat: 12.9345, lng: 77.6264 },
   { label: 'T. Nagar', lat: 13.0418, lng: 80.2341 },
@@ -38,7 +38,11 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
     retry: retryMapRequest,
   });
   const suggestions = locations.filter((place) => place.label.toLowerCase().includes(query.toLowerCase()));
-  const places = submitted ? search.data?.places ?? [] : suggestions;
+  const mapResults = search.data?.places ?? [];
+  const places = submitted ? [
+    ...suggestions,
+    ...mapResults.filter((result) => !suggestions.some((place) => place.lat === result.lat && place.lng === result.lng)),
+  ] : suggestions;
   const Icon = pickup ? Navigation : MapPin;
 
   function submitSearch() {

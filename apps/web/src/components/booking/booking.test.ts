@@ -8,7 +8,7 @@ describe('Booking Components & Logic', () => {
     const airport = DEFAULT_LOCATIONS.find((l) => l.label === 'Chennai Airport');
     expect(vit).toBeDefined();
     expect(airport).toBeDefined();
-    expect(vit?.lat).toBe(12.8406);
-    expect(airport?.lat).toBe(12.9941);
+    expect(vit).toMatchObject({ lat: 12.8405315, lng: 80.1530341 });
+    expect(airport).toMatchObject({ lat: 12.9825533, lng: 80.167339 });
   });
 });

@@ -47,7 +47,7 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
   const result = route.data;
   const isGoogle = result?.provider === 'google';
   const Map = isGoogle ? GoogleDrivingMap : DrivingMap;
-  const externalLabel = googleRoutingEnabled ? 'Open in Google Maps' : 'Check traffic in Google Maps';
+  const externalLabel = isGoogle ? 'Open in Google Maps' : 'Live traffic in Google Maps';
   const driveDuration = result && (result.durationText || formatDrivingDuration(result.durationSeconds));
   const driveDistance = result && (result.distanceText || formatDrivingDistance(result.distanceMeters));
   const roadAccess = result?.roadAccessMeters;
@@ -63,7 +63,7 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
             <p className="font-extrabold text-[#171b37]">Drive from pickup to destination</p>
             {result && <p className="text-sm text-[#475673]">
               <strong className="text-[#173ed7]">{driveDuration} drive</strong>
-              {' · '}{driveDistance}{' · '}{result.trafficAware ? 'Current traffic estimate' : 'Traffic excluded'}
+              {' · '}{driveDistance}{' · '}{result.trafficAware ? 'Live traffic estimate' : 'Traffic excluded'}
               {isGoogle && <> · <span translate="no" className="whitespace-nowrap font-normal text-[#5e5e5e]">Google Maps</span></>}
             </p>}
             {route.isPending && <p role="status" className="text-sm text-[#475673]">Calculating drive time…</p>}
@@ -101,7 +101,12 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
               <a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer" className="underline">Routing by FOSSGIS / OSRM</a>
               <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer" className="underline">Report a map issue</a>
             </>}
-            {collapsed && expanded && <a href={directions.href} target="_blank" rel="noreferrer" className="font-bold text-[#173ed7] underline">{externalLabel}</a>}
+            {collapsed && <a href={directions.href} target="_blank" rel="noreferrer" className="font-bold text-[#173ed7] underline">{externalLabel}</a>}
+            {isGoogle && result.trafficAware && (
+              <button type="button" onClick={() => void route.refetch()} disabled={route.isFetching} className="font-bold text-[#173ed7] underline disabled:opacity-60">
+                {route.isFetching ? 'Updating traffic…' : 'Refresh traffic estimate'}
+              </button>
+            )}
           </div>
         </>
       )}

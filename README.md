@@ -58,6 +58,8 @@ Use **Book** to enter a trip, review interpreted details, compare backend quotes
 
 ### Traffic-aware routing
 
+The pickup and destination menus include 22 Chennai locations, with separate airport terminal road points. The **Search any address or landmark** flow can find other places. The nearby road, route length, and drive estimate come from the routing provider for the selected endpoints.
+
 Without a Google Maps key, RIDE & SEEK routes through OSRM using OpenStreetMap road data and labels the drive estimate as excluding traffic. To use Google Maps for the route, time and distance, enable **Maps JavaScript API** and **Routes API** in a billing-enabled Google Cloud project. Add a browser key restricted to your web origins and those APIs as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` or your deployment's build environment, then rebuild. Public deployments using this option must also publish the site's terms of use and privacy policy. See the [Google Maps JavaScript API policies](https://developers.google.com/maps/documentation/javascript/policies).
 
 ## Test and inspect

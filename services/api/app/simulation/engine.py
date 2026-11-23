@@ -42,10 +42,31 @@ from app.simulation.providers import ADAPTERS, PROVIDERS
 
 BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=UTC)
 LOCATIONS = [
-    Location(label="VIT Chennai", lat=12.8406, lng=80.1534),
-    Location(label="Chennai Airport", lat=12.9941, lng=80.1709),
+    # Keep the first two labels and their order for saved links and simulator fixtures.
+    # OSM node 12108610361 (main gate) and way 550198336 (cab pickup area).
+    Location(label="VIT Chennai", lat=12.8405315, lng=80.1530341),
+    Location(label="Chennai Airport", lat=12.9825533, lng=80.167339),
+    # OSM 1552376846 is the mapped arrivals-level road for the terminals.
+    Location(label="Chennai Airport T1 (Domestic)", lat=12.983511, lng=80.1679605),
+    Location(label="Chennai Airport T2 (International)", lat=12.9820693, lng=80.1641102),
+    Location(label="Chennai Airport T4 (Domestic)", lat=12.9803903, lng=80.1595827),
+    Location(label="Chennai Central Railway Station", lat=13.0825901, lng=80.2763077),
+    Location(label="Chennai Egmore Railway Station", lat=13.0794001, lng=80.2627701),
+    Location(label="Tambaram Railway Station West Entrance", lat=12.9251092, lng=80.1164784),
+    Location(label="Koyambedu CMBT", lat=13.0665289, lng=80.2062855),
+    Location(label="Kilambakkam Bus Terminus", lat=12.8722905, lng=80.0821575),
+    Location(label="Madhavaram Bus Terminus", lat=13.1461042, lng=80.2216999),
     Location(label="Guindy", lat=13.0067, lng=80.2206),
     Location(label="T Nagar", lat=13.0418, lng=80.2341),
+    Location(label="Marina Beach Lighthouse", lat=13.039631, lng=80.2794168),
+    Location(label="Besant Nagar Beach Promenade", lat=13.0024519, lng=80.2719773),
+    Location(label="Kapaleeshwarar Temple, Mylapore", lat=13.0336756, lng=80.2698945),
+    Location(label="TIDEL Park, Taramani", lat=12.9893807, lng=80.2503328),
+    Location(label="DLF IT Park, Ramapuram", lat=13.0236252, lng=80.1759083),
+    Location(label="Phoenix Marketcity, Velachery", lat=12.9911279, lng=80.2159634),
+    Location(label="Express Avenue, Royapettah", lat=13.0586461, lng=80.2641867),
+    Location(label="Chennai Trade Centre, Nandambakkam", lat=13.0154329, lng=80.1912316),
+    Location(label="IIT Madras Research Park Gate", lat=12.9899354, lng=80.2415758),
 ]
 SCENARIOS = {
     "S01": "Healthy pickup",
