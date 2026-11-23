@@ -9,53 +9,67 @@ network participants, payments and callback handling.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any
 
-PROVIDERS = ("PROVIDER_A", "PROVIDER_B", "PROVIDER_C", "PROVIDER_D")
+from pydantic import BaseModel
+
+from app.schemas.domain import OperationResult, Quote, Ride
+from app.schemas.enums import OpStatus, Provider, RideState
+
+PROVIDERS = (Provider.PROVIDER_A, Provider.PROVIDER_B, Provider.PROVIDER_C, Provider.PROVIDER_D)
 BASE_OFFERS = {
-    "PROVIDER_A": (320, 300),
-    "PROVIDER_B": (285, 240),
-    "PROVIDER_C": (360, 360),
-    "PROVIDER_D": (395, 540),
+    Provider.PROVIDER_A: (320, 300),
+    Provider.PROVIDER_B: (285, 240),
+    Provider.PROVIDER_C: (360, 360),
+    Provider.PROVIDER_D: (395, 540),
 }
 
 
+class RideStatus(BaseModel):
+    state: RideState
+    ride_id: str
+
+
+class RideTracking(BaseModel):
+    distance_to_pickup_m: int
+    eta_sec: int
+
+
 class SimulatedMobilityAdapter:
-    def __init__(self, name: str):
+    def __init__(self, name: Provider):
         if name not in PROVIDERS:
             raise ValueError("Unknown simulator provider")
-        self.name = name
+        self.name = Provider(name)
 
     def search(
         self, journey_id: str, now: datetime, *, fare: int | None = None, eta: int | None = None
-    ) -> dict[str, Any]:
+    ) -> Quote:
         base_fare, base_eta = BASE_OFFERS[self.name]
-        return dict(
+        return Quote(
             quote_id=f"{journey_id}_{self.name.lower()}",
             provider=self.name,
             estimated_fare_inr=fare if fare is not None else base_fare,
             pickup_eta_sec=eta if eta is not None else base_eta,
-            expires_at=(now + timedelta(seconds=30)).isoformat(),
+            expires_at=now + timedelta(seconds=30),
             is_simulated=True,
         )
 
-    def select(self, quote: dict[str, Any], now: datetime) -> bool:
-        return now < datetime.fromisoformat(quote["expires_at"])
+    def select(self, quote: Quote, now: datetime) -> bool:
+        return now < quote.expires_at
 
-    def init(self, quote: dict[str, Any], now: datetime) -> bool:
+    def init(self, quote: Quote, now: datetime) -> bool:
         return self.select(quote, now)
 
-    def confirm(self, quote: dict[str, Any], now: datetime) -> bool:
+    def confirm(self, quote: Quote, now: datetime) -> bool:
         return self.init(quote, now)
 
-    def cancel(self, ride: dict[str, Any]) -> str:
-        return "CONFIRMED"
+    def cancel(self, ride: Ride) -> OperationResult:
+        return OperationResult(status=OpStatus.CONFIRMED)
 
-    def status(self, ride: dict[str, Any]) -> dict[str, Any]:
-        return {"state": ride["state"], "ride_id": ride["ride_id"]}
+    def status(self, ride: Ride) -> RideStatus:
+        return RideStatus(state=ride.state, ride_id=ride.ride_id)
 
-    def track(self, ride: dict[str, Any]) -> dict[str, Any]:
-        return {"distance_to_pickup_m": ride["distance_to_pickup_m"], "eta_sec": ride["eta_sec"]}
+    def track(self, ride: Ride) -> RideTracking:
+        return RideTracking(distance_to_pickup_m=ride.distance_to_pickup_m, eta_sec=ride.eta_sec)
 
 
 ADAPTERS = {name: SimulatedMobilityAdapter(name) for name in PROVIDERS}

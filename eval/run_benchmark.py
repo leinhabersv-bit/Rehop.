@@ -19,8 +19,8 @@ def run(seed:int):
         request=JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy)
         if scenario_id=='S16': request.need_by=BASE_TIME + timedelta(minutes=5)
         session=Session(request, scenario_id, seed)
-        primary=next(q for q in session.quotes if q['provider']=='PROVIDER_A')
-        try:session.book(primary['quote_id'],f'benchmark-{scenario_id}')
+        primary=next(q for q in session.quotes if q.provider=='PROVIDER_A')
+        try:session.book(primary.quote_id,f'benchmark-{scenario_id}')
         except SimulationError:pass
         if scenario_id=='S11':session.cancel('benchmark-stop')
         session.tick(25)
@@ -28,14 +28,14 @@ def run(seed:int):
             session.approve_switch(True,f'benchmark-switch-{scenario_id}')
         results.append({
             'scenario':scenario_id,'journey_state':session.state,
-            'risk_band':session.risk['band'] if session.risk else None,
+            'risk_band':session.risk.band if session.risk else None,
             'recovery_attempts':session.recovery_attempts,
-            'driver_cancelled_events':sum(e['type']=='DRIVER_CANCELLED' for e in session.events),
-            'driver_message_signal':(session.driver_chat_signal or {}).get('label'),
-            'deadline_decision':(session.decision or {}).get('recommendation'),
-            'quote_refresh_failed':any(e['type']=='QUOTE_REFRESH_FAILED' for e in session.events),
-            'post_cancel_quote_lost':any(e['type']=='REPLACEMENT_QUOTE_LOST' for e in session.events),
-            'active_ride_count':int(session.ride is not None and session.ride['state'] in {'CONFIRMED','DRIVER_EN_ROUTE','DRIVER_ARRIVED','IN_PROGRESS'}),
+            'driver_cancelled_events':sum(e.type=='DRIVER_CANCELLED' for e in session.events),
+            'driver_message_signal':session.driver_chat_signal.label if session.driver_chat_signal else None,
+            'deadline_decision':session.decision.recommendation if session.decision else None,
+            'quote_refresh_failed':any(e.type=='QUOTE_REFRESH_FAILED' for e in session.events),
+            'post_cancel_quote_lost':any(e.type=='REPLACEMENT_QUOTE_LOST' for e in session.events),
+            'active_ride_count':int(session.ride is not None and session.ride.state in {'CONFIRMED','DRIVER_EN_ROUTE','DRIVER_ARRIVED','IN_PROGRESS'}),
             'is_simulated':True,
         })
     return results

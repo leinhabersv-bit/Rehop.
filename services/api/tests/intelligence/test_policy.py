@@ -10,14 +10,14 @@ def test_stale_gps_is_unknown_not_high():
         gps_age_s=60,
         gps_quality="POOR",
     )
-    assert r["band"] == "UNKNOWN"
+    assert r.band == "UNKNOWN"
 
 
 def test_nearby_driver_not_flagged_stalled():
     r = assess(
         stationary_duration_s=300, eta_delta_s=500, distance_to_pickup_m=80, gps_age_s=0, gps_quality="GOOD"
     )
-    assert r["band"] == "LOW"
+    assert r.band == "LOW"
 
 
 def test_price_and_cancel_limits_are_absolute():

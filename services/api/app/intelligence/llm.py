@@ -13,8 +13,26 @@ import re
 from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
-LABELS = {"TRAFFIC_DELAY", "REQUEST_RIDER_CANCEL", "ARRIVING", "OTHER", "UNKNOWN"}
+from app.schemas.domain import ChatSignal
+from app.schemas.enums import ChatLabel
+from app.schemas.requests import Location
+
+LABELS = set(ChatLabel)
+
+
+class RideIntent(BaseModel):
+    pickup: str | None
+    dropoff: str | None
+    need_in_minutes: int | None
+    source: str
+    requires_confirmation: bool
+
+
+class VerifiedExplanation(BaseModel):
+    explanation: str
+    source: str
 
 
 def _llm_json(instruction: str, text: str) -> dict[str, Any] | None:
@@ -50,7 +68,7 @@ def _llm_json(instruction: str, text: str) -> dict[str, Any] | None:
         return None
 
 
-def classify_driver_message(text: str) -> dict[str, Any]:
+def classify_driver_message(text: str) -> ChatSignal:
     data = _llm_json(
         "Classify a driver's text message into exactly one label: "
         "TRAFFIC_DELAY, REQUEST_RIDER_CANCEL, ARRIVING, OTHER, UNKNOWN."
@@ -63,26 +81,26 @@ def classify_driver_message(text: str) -> dict[str, Any]:
         and isinstance(data.get("evidence"), str)
         and data["evidence"][:60] in text
     ):
-        return {
-            "label": data["label"],
-            "evidence": data["evidence"][:60],
-            "source": "llm",
-            "is_advisory": True,
-        }
+        return ChatSignal(
+            label=data["label"],
+            evidence=data["evidence"][:60],
+            source="llm",
+            is_advisory=True,
+        )
     low = text.lower()
     if any(q in low for q in ["cancel kar", "cancel karo", "cancel it", "you cancel", "please cancel"]):
-        label = "REQUEST_RIDER_CANCEL"
+        label = ChatLabel.REQUEST_RIDER_CANCEL
     elif any(q in low for q in ["traffic", "jam", "stuck", "10 min", "delay"]):
-        label = "TRAFFIC_DELAY"
+        label = ChatLabel.TRAFFIC_DELAY
     elif any(q in low for q in ["arriving", "coming", "almost there", "on my way"]):
-        label = "ARRIVING"
+        label = ChatLabel.ARRIVING
     else:
-        label = "OTHER"
-    return {"label": label, "evidence": text[:60], "source": "rule_fallback", "is_advisory": True}
+        label = ChatLabel.OTHER
+    return ChatSignal(label=label, evidence=text[:60], source="rule_fallback", is_advisory=True)
 
 
-def parse_ride_intent(text: str, locations: list[dict[str, Any]]) -> dict[str, Any]:
-    allowed = [loc["label"] for loc in locations]
+def parse_ride_intent(text: str, locations: list[Location]) -> RideIntent:
+    allowed = [loc.label for loc in locations]
     data = _llm_json(
         f"Extract a ride request from a message. Allowed locations: {allowed}. "
         "Return JSON fields pickup, dropoff, need_in_minutes (integer 5..120 or null). "
@@ -96,13 +114,13 @@ def parse_ride_intent(text: str, locations: list[dict[str, Any]]) -> dict[str, A
         mins = data.get("need_in_minutes")
         if not isinstance(mins, int) or not 5 <= mins <= 120:
             mins = None
-        return {
-            "pickup": pickup,
-            "dropoff": dropoff,
-            "need_in_minutes": mins,
-            "source": "llm",
-            "requires_confirmation": True,
-        }
+        return RideIntent(
+            pickup=pickup,
+            dropoff=dropoff,
+            need_in_minutes=mins,
+            source="llm",
+            requires_confirmation=True,
+        )
     found = [name for name in allowed if name.lower() in low]
     # An ambiguous phrase cannot silently become an authorized trip.
     pickup = found[0] if len(found) > 1 else None
@@ -113,16 +131,16 @@ def parse_ride_intent(text: str, locations: list[dict[str, Any]]) -> dict[str, A
         candidate = int(match.group(1))
         if 5 <= candidate <= 120:
             minutes = candidate
-    return {
-        "pickup": pickup,
-        "dropoff": dropoff,
-        "need_in_minutes": minutes,
-        "source": "rule_fallback",
-        "requires_confirmation": True,
-    }
+    return RideIntent(
+        pickup=pickup,
+        dropoff=dropoff,
+        need_in_minutes=minutes,
+        source="rule_fallback",
+        requires_confirmation=True,
+    )
 
 
-def explain_with_verified_numbers(template: str, numbers: list[int]) -> dict[str, str]:
+def explain_with_verified_numbers(template: str, numbers: list[int]) -> VerifiedExplanation:
     """LLM may rephrase prose but cannot introduce any new numeric claim."""
     data = _llm_json(
         "Rephrase the explanation in clear English. Do not introduce numbers, currencies, new claims, "
@@ -133,5 +151,5 @@ def explain_with_verified_numbers(template: str, numbers: list[int]) -> dict[str
         explanation = data["explanation"][:400]
         # Forbid new digits altogether: all numeric facts remain in the trusted UI.
         if not re.search(r"\d", explanation):
-            return {"explanation": explanation, "source": "llm_verified"}
-    return {"explanation": template, "source": "deterministic_template"}
+            return VerifiedExplanation(explanation=explanation, source="llm_verified")
+    return VerifiedExplanation(explanation=template, source="deterministic_template")
