@@ -57,29 +57,30 @@ export function BookingConfirmationModal({
     journey.quotes[0];
 
   const activeRide = journey.active_ride;
-  const providerKey = activeRide?.provider || (quote ? quote.provider : 'PROVIDER_A');
-  const providerLabel = providerName[providerKey] || providerKey;
-  const driverId = activeRide?.driver_id || 'Assigned';
-  const rideState = activeRide?.state ? activeRide.state.replaceAll('_', ' ') : 'DRIVER EN ROUTE';
-  const fareInr = quote ? quote.estimated_fare_inr : 890;
+  const providerKey = activeRide?.provider ?? quote?.provider;
+  const providerLabel = providerKey ? (providerName[providerKey] || providerKey) : '—';
+  const driverId = activeRide?.driver_id ?? 'Pending';
+  const rideState = activeRide?.state ? activeRide.state.replaceAll('_', ' ') : 'AWAITING CONFIRMATION';
+  const fareInr = quote?.estimated_fare_inr ?? null;
   const etaMinutes = activeRide
     ? Math.ceil(activeRide.eta_sec / 60)
-    : quote
+    : quote?.pickup_eta_sec
     ? Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))
-    : 4;
+    : null;
 
   // Format reference ID
   const rawId = journey.id.replace(/^sim-/, '').replace(/[^a-zA-Z0-9]/g, '');
-  const refCode = `RH-${rawId.slice(0, 6).toUpperCase() || '842913'}`;
+  const refCode = rawId ? `RH-${rawId.slice(0, 6).toUpperCase()}` : `RH-${journey.id.slice(0, 6).toUpperCase()}`;
 
   // Format deadline time
   const formatDeadline = (isoString?: string) => {
-    if (!isoString) return '7:00 PM';
+    if (!isoString) return '—';
     try {
       const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '—';
       return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     } catch {
-      return '7:00 PM';
+      return '—';
     }
   };
 
@@ -131,7 +132,7 @@ export function BookingConfirmationModal({
           </div>
 
           <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-[#B9FF45]">
-            DRIVER EN ROUTE
+            {rideState}
           </div>
 
           <h2
@@ -203,7 +204,7 @@ export function BookingConfirmationModal({
 
             <div className="text-right shrink-0">
               <div className="text-xl sm:text-2xl font-black text-white">
-                ₹{fareInr.toLocaleString('en-IN')}
+                {fareInr !== null ? `₹${fareInr.toLocaleString('en-IN')}` : '—'}
               </div>
               <div className="text-[11px] text-slate-400">estimated fare</div>
             </div>
@@ -224,7 +225,7 @@ export function BookingConfirmationModal({
               <div>
                 <div className="text-[10px] uppercase font-bold text-slate-500">Pickup ETA</div>
                 <div className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                  {etaMinutes} min
+                  {etaMinutes !== null ? `${etaMinutes} min` : '—'}
                 </div>
               </div>
               <div>
@@ -251,8 +252,8 @@ export function BookingConfirmationModal({
               ReHop Active Protection ON
             </div>
             <div className="text-slate-400 mt-1 leading-relaxed text-[11px] sm:text-xs">
-              We monitor driver trajectory every 5 seconds. If pickup stalls or the driver cancels,
-              we automatically recover your ride.
+              We monitor driver trajectory. If the driver cancels and you opted into auto-recovery,
+              ReHop will seek a backup within your budget. Preemptive switches always require your approval.
             </div>
           </div>
         </div>

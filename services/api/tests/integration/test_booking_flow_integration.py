@@ -1,10 +1,14 @@
-from datetime import datetime, timezone, timedelta
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
 
-BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=timezone.utc)
+BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=UTC)
 
 def test_full_booking_flow_and_safety_invariants():
     # 1. Locations check
