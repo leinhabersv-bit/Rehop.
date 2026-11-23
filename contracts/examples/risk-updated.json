@@ -1,0 +1,17 @@
+{
+  "event_id":"journey_demo_evt_0042",
+  "journey_id":"journey_demo",
+  "seq":42,
+  "timestamp":"2026-11-23T08:35:00+00:00",
+  "type":"RISK_UPDATED",
+  "ride_id":"ride_demo",
+  "payload": {
+    "score_0_100":85,
+    "band":"HIGH",
+    "model_version":"rules-v1",
+    "signals":["low_net_progress_90s","eta_increase_90s"],
+    "confidence":0.85,
+    "explanation":"The driver has made little progress while the pickup ETA has increased.",
+    "is_simulated":true
+  }
+}

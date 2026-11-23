@@ -1,0 +1,23 @@
+# JS/Next
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+# Local data
+*.db
+*.sqlite3
+.env
+.env.local
+.env.*.local
+# Development artifacts
+.DS_Store
+*.log
+# Eval output (not benchmark claims)
+eval/results/*.json

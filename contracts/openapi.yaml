@@ -1,0 +1,539 @@
+openapi: 3.1.0
+info:
+  title: RideRescue Simulation API
+  description: Synthetic cab-provider simulation for a hackathon. No real bookings.
+  version: 0.1.0
+paths:
+  /api/v1/locations:
+    get:
+      tags:
+      - RideRescue simulation
+      summary: Locations
+      operationId: locations_api_v1_locations_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/quotes:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Get Quotes
+      operationId: get_quotes_api_v1_quotes_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Create Journey
+      operationId: create_journey_api_v1_journeys_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JourneyCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}:
+    get:
+      tags:
+      - RideRescue simulation
+      summary: Get Journey
+      operationId: get_journey_api_v1_journeys__journey_id__get
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/book:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Book
+      operationId: book_api_v1_journeys__journey_id__book_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/events:
+    get:
+      tags:
+      - RideRescue simulation
+      summary: Events
+      operationId: events_api_v1_journeys__journey_id__events_get
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      - name: since_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Since Seq
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/rescue/approve:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Approve
+      operationId: approve_api_v1_journeys__journey_id__rescue_approve_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/cancel:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Cancel
+      operationId: cancel_api_v1_journeys__journey_id__cancel_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/pickup/confirm:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Confirm Pickup
+      operationId: confirm_pickup_api_v1_journeys__journey_id__pickup_confirm_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/tick:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Tick Journey
+      description: Development-only simulated clock advancement
+      operationId: tick_journey_api_v1_journeys__journey_id__tick_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TickRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/scenarios:
+    get:
+      tags:
+      - RideRescue simulation
+      summary: Scenarios
+      operationId: scenarios_api_v1_scenarios_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/scenarios/{scenario_id}/run:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Run Scenario
+      operationId: run_scenario_api_v1_scenarios__scenario_id__run_post
+      parameters:
+      - name: scenario_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scenario Id
+      - name: seed
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 2026
+          title: Seed
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/scenarios/{scenario_id}/tick:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Tick Scenario
+      operationId: tick_scenario_api_v1_scenarios__scenario_id__tick_post
+      parameters:
+      - name: scenario_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scenario Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TickRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    ActionRequest:
+      properties:
+        idempotency_key:
+          type: string
+          minLength: 3
+          title: Idempotency Key
+        expected_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expected Version
+      type: object
+      required:
+      - idempotency_key
+      title: ActionRequest
+    ApprovalRequest:
+      properties:
+        approved:
+          type: boolean
+          title: Approved
+        idempotency_key:
+          type: string
+          minLength: 3
+          title: Idempotency Key
+        expected_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expected Version
+      type: object
+      required:
+      - approved
+      - idempotency_key
+      title: ApprovalRequest
+    BookRequest:
+      properties:
+        quote_id:
+          type: string
+          title: Quote Id
+        idempotency_key:
+          type: string
+          minLength: 3
+          title: Idempotency Key
+        expected_version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expected Version
+      type: object
+      required:
+      - quote_id
+      - idempotency_key
+      title: BookRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    JourneyCreate:
+      properties:
+        pickup:
+          $ref: '#/components/schemas/Location'
+        dropoff:
+          $ref: '#/components/schemas/Location'
+        policy:
+          $ref: '#/components/schemas/RecoveryPolicy'
+      type: object
+      required:
+      - pickup
+      - dropoff
+      title: JourneyCreate
+    Location:
+      properties:
+        label:
+          type: string
+          minLength: 1
+          title: Label
+        lat:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Lat
+        lng:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Lng
+      type: object
+      required:
+      - label
+      - lat
+      - lng
+      title: Location
+    QuoteRequest:
+      properties:
+        pickup:
+          $ref: '#/components/schemas/Location'
+        dropoff:
+          $ref: '#/components/schemas/Location'
+      type: object
+      required:
+      - pickup
+      - dropoff
+      title: QuoteRequest
+    RecoveryPolicy:
+      properties:
+        auto_rebook_on_confirmed_driver_cancel:
+          type: boolean
+          title: Auto Rebook On Confirmed Driver Cancel
+          default: true
+        max_total_fare_inr:
+          type: integer
+          maximum: 100000.0
+          minimum: 1.0
+          title: Max Total Fare Inr
+          default: 650
+        max_recovery_attempts:
+          type: integer
+          maximum: 5.0
+          minimum: 0.0
+          title: Max Recovery Attempts
+          default: 2
+        preemptive_switch_requires_approval:
+          type: boolean
+          const: true
+          title: Preemptive Switch Requires Approval
+          default: true
+        allow_same_provider_retry:
+          type: boolean
+          title: Allow Same Provider Retry
+          default: true
+      type: object
+      title: RecoveryPolicy
+    TickRequest:
+      properties:
+        steps:
+          type: integer
+          maximum: 180.0
+          minimum: 1.0
+          title: Steps
+          default: 1
+      type: object
+      title: TickRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

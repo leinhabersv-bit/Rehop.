@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/riderescue/events.schema.json",
+  "title": "RideRescue Journey Event Envelope v1",
+  "description": "All providers and telemetry are simulated; sequence numbers are per journey.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "journey_id", "seq", "timestamp", "type", "ride_id", "payload"],
+  "properties": {
+    "event_id": {"type":"string", "minLength":1},
+    "journey_id": {"type":"string", "minLength":1},
+    "seq": {"type":"integer", "minimum":1},
+    "timestamp": {"type":"string", "format":"date-time"},
+    "ride_id": {"type":["string","null"]},
+    "type": {"enum": ["JOURNEY_CREATED","QUOTES_READY","BOOKING_REQUESTED","RIDE_CONFIRMED","TELEMETRY_UPDATED","RISK_UPDATED","BACKUP_FOUND","APPROVAL_REQUIRED","SWITCH_APPROVED","SWITCH_REJECTED","RIDE_CANCEL_REQUESTED","RIDE_CANCEL_CONFIRMED","DRIVER_CANCELLED","RECOVERY_STARTED","RECOVERY_SUCCEEDED","RECOVERY_BLOCKED","RECOVERY_EXHAUSTED","DRIVER_ARRIVED","PICKUP_CONFIRMED","USER_CANCELLED","ERROR"]},
+    "payload": {"type":"object"}
+  }
+}

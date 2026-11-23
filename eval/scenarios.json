@@ -1,0 +1,14 @@
+{
+  "S01":"Healthy pickup",
+  "S02":"Temporary traffic stop — no unnecessary cancellation",
+  "S03":"Driver stalls and ETA rises persistently",
+  "S04":"Sudden driver cancellation",
+  "S05":"Replacement driver also cancels",
+  "S06":"All backups unavailable",
+  "S07":"Backup exceeds fare cap",
+  "S08":"Stale GPS — abstain",
+  "S09":"Driver stopped near pickup — no false switch",
+  "S10":"Arrival/cancellation race",
+  "S11":"User cancels during recovery",
+  "S12":"Booking API times out — status unknown"
+}
