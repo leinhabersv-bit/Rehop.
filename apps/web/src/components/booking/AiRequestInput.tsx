@@ -91,7 +91,7 @@ export function AiRequestInput({
             <Sparkles className="h-4 w-4" />
           </div>
           <span className="text-xs font-extrabold tracking-wider uppercase text-[#5135ab]">
-            Ask ReHop AI
+            Get trip details
           </span>
           <span className="text-[11px] font-semibold text-[#475673]/80 hidden sm:inline">
             · Natural language ride booking

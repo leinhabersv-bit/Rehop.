@@ -4,10 +4,12 @@ import type { Journey } from '../src/types';
 const web = process.env.REHOP_TEST_WEB ?? 'http://localhost:3000';
 const api = process.env.REHOP_TEST_API ?? 'http://localhost:8000';
 
-for (const width of [390, 1366]) {
+for (const width of [320, 390, 1366]) {
   test(`rider homepage fits at ${width}px and opens ride history`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(web);
+    await expect(page.getByRole('link', { name: 'RIDE & SEEK home' })).toBeVisible();
+    await expect(page).toHaveTitle(/RIDE & SEEK/);
     await expect(page.getByRole('heading', { name: 'Where to?' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Review trip details' })).toBeInViewport();
     await expect(page.getByRole('link', { name: /demo/i })).toHaveCount(0);
@@ -25,12 +27,12 @@ test('a rider can set a five-minute maximum and confirm the recommended ride', a
   await wait.selectOption('5');
   await page.getByRole('button', { name: 'Review trip details' }).click();
   await expect(page.getByRole('slider', { name: 'Maximum pickup wait' })).toHaveValue('5');
-  const getRecommendation = page.getByRole('button', { name: 'Get ReHop’s recommendation' });
+  const getRecommendation = page.getByRole('button', { name: 'Find my ride' });
   await expect(getRecommendation).toBeInViewport({ ratio: 0.9 });
   await getRecommendation.click();
 
   const recommendation = page.getByRole('region', { name: 'Provider B' });
-  await expect(recommendation.getByText('ReHop recommends')).toBeVisible();
+  await expect(recommendation.getByText('RIDE & SEEK recommends')).toBeVisible();
   await expect(recommendation.getByText('4 min', { exact: true })).toBeVisible();
   await expect(page.getByRole('radiogroup')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);

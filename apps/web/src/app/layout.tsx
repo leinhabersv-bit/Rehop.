@@ -4,7 +4,7 @@ import Providers from './providers';
 import { Navbar, Footer } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'ReHop | Your ride. No interruptions.',
+  title: 'RIDE & SEEK | Rides with a backup plan',
   description: 'Simulation-first AI ride recovery companion.',
 };
 

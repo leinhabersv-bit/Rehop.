@@ -212,6 +212,24 @@ def test_default_recovery_requires_approval_and_declining_closes_unbooked_journe
     assert rejected.pending_backup is None
 
 
+def test_driver_cancellation_tries_next_ranked_quote_when_fastest_is_unavailable(monkeypatch):
+    session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True)
+    original = session.book(session.quotes[0].quote_id, "book").active_ride_id
+    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_B], "init", lambda quote, now: False)
+
+    result = session.tick(8)
+
+    assert result.state is JourneyState.MONITORING
+    assert result.last_ride.ride_id == original
+    assert result.last_ride.state is RideState.DRIVER_CANCELLED
+    assert result.active_ride.provider is Provider.PROVIDER_C
+    assert result.recovery_attempts == 1
+    types = [event.type for event in session.events]
+    assert EventType.APPROVAL_REQUIRED not in types
+    assert types.index(EventType.DRIVER_CANCELLED) < types.index(EventType.QUOTE_REFRESH_FAILED)
+    assert types.index(EventType.QUOTE_REFRESH_FAILED) < types.index(EventType.RECOVERY_SUCCEEDED)
+
+
 def test_direct_cancel_requires_provider_confirmation_and_replays_uncertainty(monkeypatch):
     session = make_session()
     original = session.book(session.quotes[0].quote_id, "book").active_ride_id

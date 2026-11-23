@@ -25,7 +25,7 @@ function BookingContent() {
         </Link>
         <h1 className="text-3xl font-black tracking-tight sm:text-5xl">Set up your trip</h1>
         <p className="text-sm leading-relaxed text-[#475673] sm:text-base">
-          Tell ReHop where you’re going and how long you can wait. Review its recommendation before booking.
+          Tell us where you’re going and how long you can wait. Review your recommended ride before booking.
         </p>
       </header>
       <BookingForm

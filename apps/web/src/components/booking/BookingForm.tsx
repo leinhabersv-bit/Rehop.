@@ -59,7 +59,6 @@ export function BookingForm({
   const [needInMinutes, setNeedInMinutes] = useState(initialNeedIn);
 
   // Safety limits states
-  const [autoRebook, setAutoRebook] = useState(false);
   const [maxAttempts, setAttempts] = useState(2);
   const [maxFee, setMaxFee] = useState(100);
 
@@ -139,7 +138,7 @@ export function BookingForm({
     setBusy(true);
 
     const policy: RecoveryPolicy = {
-      auto_rebook_on_confirmed_driver_cancel: autoRebook,
+      auto_rebook_on_confirmed_driver_cancel: true,
       max_total_fare_inr: actualBudget,
       max_recovery_attempts: maxAttempts,
       preemptive_switch_requires_approval: true,
@@ -233,10 +232,7 @@ export function BookingForm({
 
         <section aria-labelledby="pickup-protection" className="rounded-2xl border border-[#dce1ed] p-4">
           <h2 id="pickup-protection" className="mb-2 flex items-center gap-2 text-base font-extrabold"><ShieldCheck size={19} className="text-[#173ed7]" aria-hidden="true" /> Pickup protection</h2>
-          <label className="!flex cursor-pointer items-start gap-2 !text-[#171b37]">
-            <input type="checkbox" checked={autoRebook} onChange={(event) => setAutoRebook(event.target.checked)} className="mt-0.5 shrink-0" />
-            <span>Automatically rebook if my driver cancels<span className="block text-xs font-normal text-[#475673]">Applies after confirmed cancellation, within your fare and retry limits.</span></span>
-          </label>
+          <p className="text-sm text-[#475673]">Driver stalled? You approve any switch. Driver cancelled? We rebook automatically within your fare and retry limits.</p>
           <details className="mt-3 border-t border-[#e2e6ef] pt-2">
             <summary className="cursor-pointer py-1 text-sm font-bold text-[#173ed7]">Recovery limits</summary>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -257,7 +253,7 @@ export function BookingForm({
         <div className="sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 backdrop-blur">
           {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
           <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
-            Get ReHop’s recommendation
+            Find my ride
           </Button>
         </div>
       </form>

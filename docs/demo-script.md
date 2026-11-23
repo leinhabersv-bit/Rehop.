@@ -1,8 +1,8 @@
-# ReHop rider walkthrough
+# RIDE & SEEK rider walkthrough
 
 1. Set pickup, destination, and maximum pickup wait from the homepage.
-2. Review the route and fare cap. Choose **Automatically rebook if my driver cancels** to authorize an eligible replacement after confirmed driver cancellation. Rider approval is still required before switching away from an active ride.
-3. Get ReHop’s recommendation and review the estimated pickup and fare. Confirm the booking.
+2. Review the route, fare cap, and recovery limits. A stalled ride can only be switched with rider approval.
+3. Select **Find my ride** and review the recommended pickup time and fare. Booking authorizes automatic replacement after a confirmed driver cancellation.
 4. Open **Track your ride**. A standard pickup updates automatically from the simulator API. Select **Confirm boarding** once the driver arrives, or use **Cancel ride** to cancel.
 5. Open **Your rides** to revisit recent bookings on this device. The API supplies the current status each time.
 

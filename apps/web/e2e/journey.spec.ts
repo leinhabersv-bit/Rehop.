@@ -25,7 +25,7 @@ async function openScenario(page: Page, request: APIRequestContext, scenario: st
 
 async function reachQuotes(page: Page) {
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
-  await expect(page.getByText('ReHop recommends', { exact: true })).toBeVisible();
+  await expect(page.getByText('RIDE & SEEK recommends', { exact: true })).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   if (!id) throw new Error('Comparison URL is missing the backend journey ID');
   return id;
@@ -50,12 +50,16 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
     pickup: 'VIT Chennai', dropoff: 'Chennai Airport', need_in_minutes: 15, requires_confirmation: true,
   });
   await page.getByRole('button', { name: 'Use these trip details' }).click();
-  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
+  await page.getByRole('button', { name: 'Find my ride' }).click();
   const id = await reachQuotes(page);
   const quoted = await getJourney(request, id);
-  expect(quoted).toMatchObject({ scenario: 'S03', state: 'WAITING_FOR_RIDE', policy: { max_total_fare_inr: 650 } });
+  expect(quoted).toMatchObject({
+    scenario: 'S03', state: 'WAITING_FOR_RIDE',
+    policy: { max_total_fare_inr: 650, auto_rebook_on_confirmed_driver_cancel: true },
+  });
   expect(quoted.quotes).toHaveLength(4);
   expect(Date.parse(quoted.need_by) - Date.parse(quoted.simulated_time)).toBe(15 * 60_000);
+  await expect(page.getByText(/By booking, you allow automatic rebooking/)).toBeVisible();
 
   await bookWithProviderA(page);
   const confirmation = page.getByRole('dialog');
@@ -70,7 +74,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   await expect(approval.getByRole('button', { name: 'Go back' })).toBeFocused();
   const awaiting = await getJourney(request, id);
   expect(awaiting).toMatchObject({
-    state: 'AWAITING_APPROVAL', active_ride_id: original.active_ride_id, pending_backup: { provider: 'PROVIDER_B' },
+    state: 'AWAITING_APPROVAL', active_ride_id: original.active_ride_id, pending_backup: { provider: 'PROVIDER_B' }, recovery_attempts: 0,
     cancellation_fee_notice: { fee_confirmed: false, actual_fee_inr: null },
   });
   await approval.getByRole('button', { name: 'Approve switch' }).click();
@@ -98,7 +102,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
 
 async function prepareManualBooking(page: Page) {
   await page.goto(`${web}/book`);
-  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
+  await page.getByRole('button', { name: 'Find my ride' }).click();
   return reachQuotes(page);
 }
 
@@ -112,7 +116,7 @@ test('keeps invalid setup input out of the journey API', async ({ page }) => {
     }
   });
   await page.getByRole('textbox', { name: 'Pickup location' }).fill('Unlisted pickup');
-  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
+  await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.locator('form').getByRole('alert')).toHaveText('Search for your pickup and destination, then choose a result for each.');
   await expect(page).toHaveURL(`${web}/book?needIn=Infinity`);
   expect(createRequests).toBe(0);
@@ -197,6 +201,10 @@ test('tracking shows an automatically booked replacement after confirmed driver 
   expect(cancellation).toBeGreaterThan(-1);
   expect(refresh).toBeGreaterThan(cancellation);
   expect(types.lastIndexOf('RIDE_CONFIRMED')).toBeGreaterThan(refresh);
+
+  await expect.poll(async () => (await getJourney(request, id)).active_ride?.distance_to_pickup_m, {
+    timeout: 12_000,
+  }).toBeLessThan(recovered.active_ride!.distance_to_pickup_m);
 
   await tick(request, id, 24);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();

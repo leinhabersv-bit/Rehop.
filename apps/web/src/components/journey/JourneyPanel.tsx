@@ -36,6 +36,7 @@ const connectionLabels: Record<Connection, string> = {
 };
 const eventLabels: Record<string, string> = {
   RIDE_CONFIRMED: 'Provider confirmed booking',
+  DRIVER_CANCELLED: 'Driver cancelled the ride',
   DRIVER_ARRIVED: 'Driver arrived at pickup',
   PICKUP_CONFIRMED: 'Passenger confirmed boarding',
   BACKUP_FOUND: 'Backup quote found',
@@ -68,10 +69,10 @@ function recoveryStatus(journey: Journey, event?: Event): string | null {
   if (journey.state === 'PICKUP_CONFIRMED') return 'Passenger boarded. Recovery has stopped.';
   if (journey.state === 'USER_CANCELLED') return 'Journey stopped. No further recovery actions will run.';
   if (journey.booking_uncertain) {
-    return 'Booking status is unknown. ReHop will block another booking until the provider status is verified.';
+    return 'Booking status is unknown. Another booking is blocked until the provider status is verified.';
   }
   if (journey.state === 'RECONCILING') {
-    return 'Original cancellation status is unknown. ReHop will block a replacement until cancellation is verified.';
+    return 'Original cancellation status is unknown. A replacement is blocked until cancellation is verified.';
   }
   if (journey.state === 'EXHAUSTED') {
     if (event?.type === 'REPLACEMENT_QUOTE_LOST') {
@@ -131,11 +132,11 @@ export default function JourneyPanel({ id }: { id: string }) {
       if (failure instanceof ApiError && failure.code === 'STALE_JOURNEY_VERSION') {
         setError('The journey changed. Review the latest ride details before taking an action.');
       } else if (result.isError) {
-        setError(`${detail} ReHop could not verify the current journey status. Refresh status before taking another action.`);
+        setError(`${detail} RIDE & SEEK could not verify the current journey status. Refresh status before taking another action.`);
       } else if (failure instanceof ApiError && (
         ['NETWORK_ERROR', 'TIMEOUT', 'PARSE_ERROR'].includes(failure.code) || failure.code.startsWith('HTTP_5')
       )) {
-        setError('The action response was interrupted. The journey below reflects the latest status ReHop could verify.');
+        setError('The action response was interrupted. The latest verified status is shown below.');
       } else {
         setError(detail);
       }
@@ -256,6 +257,7 @@ export default function JourneyPanel({ id }: { id: string }) {
             {(!risk || risk.band === 'LOW') && !status && <p className="muted">{ride ? 'Watching for pickup delays and driver cancellations.' : 'Pickup monitoring begins when a provider confirms a ride.'}</p>}
             {backup && (
               <div className={`stack ${styles.backup}`}>
+                {ride && <p className="helper">Your current ride stays active until you approve a switch and the provider confirms cancellation.</p>}
                 <dl className={styles.options}>
                   {ride && <div>
                     <dt>Current · {providerName[ride.provider]}</dt>

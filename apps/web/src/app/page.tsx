@@ -86,7 +86,7 @@ export default function HomePage() {
           <div className="relative bg-gradient-to-t from-[#10257c]/95 via-[#10257c]/80 to-transparent px-6 pb-6 pt-24 sm:px-8 sm:pb-8">
             <ShieldCheck size={24} className="mb-2 text-[#ffb27d]" aria-hidden="true" />
             <h2 className="text-2xl font-black tracking-tight !text-white">Pickup protection</h2>
-            <p className="mt-1 max-w-sm text-sm leading-relaxed text-white">Opt in during booking to let ReHop find an eligible replacement after a confirmed driver cancellation.</p>
+            <p className="mt-1 max-w-sm text-sm leading-relaxed text-white">If your ride stalls, you decide whether to switch. If your driver cancels, RIDE &amp; SEEK books the best available backup within your limits and tracks it for you.</p>
             <Link href="/trips" className="mt-3 inline-flex items-center gap-2 rounded-lg font-bold text-[#ffcfaa]">Your rides <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
         </aside>

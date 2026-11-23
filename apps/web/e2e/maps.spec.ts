@@ -47,7 +47,7 @@ test('a rider can use a searched location and review the road duration separatel
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Hide map' }).click();
 
-  await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
+  await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
   await expect(page.getByText('Driver to pickup (simulated)', { exact: true })).toBeVisible();
   await expect(page.getByText('16 min drive')).toBeVisible();

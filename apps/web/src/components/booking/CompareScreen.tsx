@@ -230,7 +230,7 @@ export function CompareScreen() {
           {canBook && selectedQuote ? (
             <>
               <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-[#475673]">
-                <Sparkles size={17} aria-hidden="true" /> {chosenRecommendation ? 'ReHop recommends' : 'Your selection'}
+                <Sparkles size={17} aria-hidden="true" /> {chosenRecommendation ? 'RIDE & SEEK recommends' : 'Your selection'}
               </p>
               <h2 id="ride-choice" className="text-2xl font-black tracking-tight sm:text-4xl">{selectedProviderName}</h2>
               <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3">
@@ -260,6 +260,11 @@ export function CompareScreen() {
             </div>
           )}
 
+          {canBook && selectedQuote && journey.policy.auto_rebook_on_confirmed_driver_cancel && journey.policy.max_recovery_attempts > 0 && (
+            <p className="mb-3 text-sm text-[#475673]">
+              By booking, you allow automatic rebooking after a confirmed driver cancellation, within your fare and retry limits.
+            </p>
+          )}
           {bookingError && <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]"><AlertCircle size={17} className="shrink-0" aria-hidden="true" />{bookingError}</p>}
 
           <Button

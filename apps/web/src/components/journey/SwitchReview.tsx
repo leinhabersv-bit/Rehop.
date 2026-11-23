@@ -67,17 +67,17 @@ export default function SwitchReview({
                 <strong>Possible cancellation fee up to ₹{fee.potential_fee_upper_bound_inr}</strong>
                 <p>{fee.caution}</p>
                 <p>Your cancellation fee limit is ₹{reviewed.policy.max_cancellation_fee_inr}.</p>
-                {exceedsFeeLimit && <p className="error">The possible fee exceeds your limit. ReHop will keep the current ride.</p>}
+                {exceedsFeeLimit && <p className="error">The possible fee exceeds your limit. Your current ride stays active.</p>}
               </>
             ) : <p>The fee estimate is unavailable. Review the offer again before switching.</p>}
           </div>
         )}
         <p>
-          ReHop checks the backup again{original ? ' before asking the original provider to cancel' : ''}.
+          RIDE &amp; SEEK checks the backup again{original ? ' before asking the original provider to cancel' : ''}.
           The provider can withdraw the quote before booking is confirmed.
         </p>
         {changed && <p role="status" className="error">The journey changed. Go back and review the latest offer.</p>}
-        {!changed && !available && <p role="status" className="error">Approval is unavailable until ReHop verifies the current journey status.</p>}
+        {!changed && !available && <p role="status" className="error">Approval is unavailable until the current journey status is verified.</p>}
         <div className="button-row">
           <button className="btn" disabled={!canApprove} onClick={onApprove}>
             {original ? 'Approve switch' : 'Approve replacement'}

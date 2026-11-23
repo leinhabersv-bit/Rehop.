@@ -414,7 +414,11 @@ class Session:
                 {"reason": "No eligible backup under fare and availability rules"},
             )
             return
-        candidate = self._refresh_backup(candidates[0])
+        candidate = None
+        for ranked in candidates:
+            candidate = self._refresh_backup(ranked)
+            if candidate is not None:
+                break
         if not candidate:
             self._transition_journey(
                 JourneyState.EXHAUSTED, reason="No fresh backup after driver cancellation."

@@ -1,8 +1,8 @@
-# ReHop
+# RIDE & SEEK
 
 **Your ride. No interruptions.**
 
-A **simulation-first AI ride-recovery hackathon project**. ReHop monitors simulated pickup progress, explains delay risks, and helps riders recover within the limits they set. Some internal modules and published contracts retain the original RideRescue name.
+A **simulation-first AI ride-recovery hackathon project**. RIDE & SEEK monitors pickup progress, asks before switching an active ride, and automatically books the best available replacement after a confirmed driver cancellation within the rider’s limits. It then monitors the replacement. Some internal modules and published contracts retain the original RideRescue name.
 
 > **All providers, rides, fares, locations and telemetry are simulated.** Provider A–D are synthetic adapters. All bookings, cancellations, and fees stay inside the simulator.
 
@@ -52,13 +52,13 @@ npm ci
 npm run dev
 ```
 
-Open [ReHop](http://localhost:3000) using `localhost`, which matches the API's default allowed browser origin. The frontend defaults to `http://localhost:8000`. To change it, copy `apps/web/.env.example` to `apps/web/.env.local` and change `NEXT_PUBLIC_API_BASE_URL`. If the web origin changes, set `CORS_ORIGINS` in the API process and restart both apps.
+Open [RIDE & SEEK](http://localhost:3000) using `localhost`, which matches the API's default allowed browser origin. The frontend defaults to `http://localhost:8000`. To change it, copy `apps/web/.env.example` to `apps/web/.env.local` and change `NEXT_PUBLIC_API_BASE_URL`. If the web origin changes, set `CORS_ORIGINS` in the API process and restart both apps.
 
 Use **Book** to enter a trip, review interpreted details, compare backend quotes, and start tracking. Standard pickups progress automatically on the API clock. **Your rides** stores recent ride references on the current device and reads their statuses from the API. See the [rider walkthrough](docs/demo-script.md).
 
 ### Traffic-aware routing
 
-Without a Google Maps key, ReHop routes through OSRM using OpenStreetMap road data and labels the drive estimate as excluding traffic. To use Google Maps for the route, time and distance, enable **Maps JavaScript API** and **Routes API** in a billing-enabled Google Cloud project. Add a browser key restricted to your web origins and those APIs as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` or your deployment's build environment, then rebuild. Public deployments using this option must also publish the site's terms of use and privacy policy. See the [Google Maps JavaScript API policies](https://developers.google.com/maps/documentation/javascript/policies).
+Without a Google Maps key, RIDE & SEEK routes through OSRM using OpenStreetMap road data and labels the drive estimate as excluding traffic. To use Google Maps for the route, time and distance, enable **Maps JavaScript API** and **Routes API** in a billing-enabled Google Cloud project. Add a browser key restricted to your web origins and those APIs as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` or your deployment's build environment, then rebuild. Public deployments using this option must also publish the site's terms of use and privacy policy. See the [Google Maps JavaScript API policies](https://developers.google.com/maps/documentation/javascript/policies).
 
 ## Test and inspect
 

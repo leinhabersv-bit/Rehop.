@@ -20,7 +20,7 @@ def advance_rider_pickups() -> None:
     with store.lock:
         for journey in store.sessions.values():
             if (
-                journey.scenario == "S01"
+                (journey.scenario == "S01" or journey.recovery_attempts > 0)
                 and journey.state == JourneyState.MONITORING
                 and journey.ride is not None
                 and journey.ride.state == RideState.DRIVER_EN_ROUTE
