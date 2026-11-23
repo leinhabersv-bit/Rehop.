@@ -35,7 +35,7 @@ test('popular Chennai locations route to the selected airport terminal', async (
 });
 
 test('a rider can search, copy the map timing report and review the pickup ETA separately', async ({ page, request, context }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 690 });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const pickup = { label: 'Guindy National Park, Chennai', lat: 13.000005, lng: 80.2280448 };
 
@@ -62,6 +62,7 @@ test('a rider can search, copy the map timing report and review the pickup ETA s
   const pickupInput = page.getByRole('textbox', { name: 'Pickup location' });
   await expect(pickupInput).toBeEmpty();
   await pickupInput.fill('Guindy National Park');
+  await expect(page.locator('.ride-planner-actions')).toHaveCSS('position', 'static');
   await pickupInput.press('Enter');
   await page.getByRole('button', { name: pickup.label }).click();
   const destination = page.getByRole('textbox', { name: 'Destination' });
@@ -90,13 +91,16 @@ test('a rider can search, copy the map timing report and review the pickup ETA s
   const directions = new URL((await google.getAttribute('href'))!);
   expect(directions.searchParams.get('origin')).toBe('13.000005,80.2280448');
   expect(directions.searchParams.get('destination')).toBe('12.9825533,80.167339');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.getByRole('button', { name: 'Hide map' }).click();
 
   await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
   await expect(page.getByText('Driver to pickup (simulated)', { exact: true })).toBeVisible();
   await expect(report.getByText('16 min', { exact: true })).toBeVisible();
+  await expect(map).toHaveCount(0);
+  await report.getByRole('button', { name: 'Show map' }).click();
+  await expect(map.locator('svg path').first()).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   expect(id).toBeTruthy();
   const journey = await request.get(`${api}/api/v1/journeys/${id}`);

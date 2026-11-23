@@ -60,8 +60,8 @@ test('shared controls navigate home and traverse the current app history', async
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
 
-test('a rider can set a five-minute maximum and confirm the recommended ride', async ({ page, request }) => {
-  await page.setViewportSize({ width: 390, height: 850 });
+test('a rider can book and track a ride on a compact phone', async ({ page, request }) => {
+  await page.setViewportSize({ width: 320, height: 690 });
   await page.goto(web);
   const wait = page.getByRole('combobox', { name: 'Maximum pickup wait' });
   await expect(wait).toHaveValue('10');
@@ -80,7 +80,13 @@ test('a rider can set a five-minute maximum and confirm the recommended ride', a
   await recommendation.getByRole('button', { name: 'Book with Provider B' }).click();
   const confirmation = page.getByRole('dialog');
   await expect(confirmation.getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
-  await confirmation.getByRole('button', { name: 'Track your ride' }).click();
+  const track = confirmation.getByRole('button', { name: 'Track your ride' });
+  await expect(track).toBeInViewport({ ratio: 1 });
+  const sheet = (await confirmation.boundingBox())!;
+  expect(sheet.x).toBe(0);
+  expect(sheet.width).toBe(320);
+  expect(sheet.y + sheet.height).toBe(690);
+  await track.click();
   await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   const first: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpDown, MapPin, Navigation, Search } from 'lucide-react';
 import { retryMapRequest, searchPlaces } from '@/lib/maps';
@@ -26,6 +26,7 @@ interface PlaceFieldProps {
 
 function PlaceField({ label, value, locations, onChange, onSelect, pickup }: PlaceFieldProps) {
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [requested, setRequested] = useState('');
   const query = value.trim();
@@ -65,16 +66,19 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
       onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
     >
       <div className="flex items-center gap-2 rounded-xl border border-[#d9dbe7] bg-white px-2.5 py-1.5 focus-within:border-[#173ed7] sm:gap-3 sm:px-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#edf1ff] text-[#173ed7]">
+        <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-[#edf1ff] text-[#173ed7] sm:grid">
           <Icon size={16} aria-hidden="true" />
         </span>
         <label htmlFor={id} className="min-w-0 flex-1">
           <span className="block text-xs font-bold text-[#475673]">{label}</span>
           <input
             id={id}
+            ref={input}
+            type="text"
             value={value}
             maxLength={160}
             autoComplete="off"
+            enterKeyHint="search"
             placeholder={pickup ? 'Address or landmark' : 'Where are you going?'}
             onChange={(event) => {
               onChange(event.target.value);
@@ -95,13 +99,13 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
           aria-label={`Search for ${label.toLowerCase()}`}
           disabled={query.length < 3}
           onClick={submitSearch}
-          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-bold text-[#173ed7] hover:bg-[#edf1ff] disabled:opacity-40"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg text-sm font-bold text-[#173ed7] hover:bg-[#edf1ff] disabled:opacity-40 sm:min-h-9 sm:px-2"
         >
           <Search size={16} aria-hidden="true" /><span className="hidden sm:inline">Search</span>
         </button>
       </div>
       {open && (places.length > 0 || submitted || query.length >= 3) && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#d9dbe7] bg-[#fffdf8] p-1 shadow-lg">
+        <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-xl border border-[#d9dbe7] bg-[#fffdf8] p-1 shadow-lg">
           {submitted && search.isFetching && <p role="status" className="p-2 text-sm text-[#475673]">Searching the map…</p>}
           {submitted && search.isError && <p role="alert" className="p-2 text-sm text-[#a42644]">{search.error.message}</p>}
           {submitted && search.isSuccess && !places.length && <p role="status" className="p-2 text-sm text-[#475673]">No places found. Add a city or nearby landmark.</p>}
@@ -110,7 +114,7 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
               type="button"
               onPointerDown={(event) => event.preventDefault()}
               onClick={submitSearch}
-              className="flex w-full items-start gap-2 rounded-lg p-2 text-left text-sm font-semibold text-[#173ed7] hover:bg-[#edf1ff]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg p-2 text-left text-sm font-semibold text-[#173ed7] hover:bg-[#edf1ff]"
             >
               <Search size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span className="break-words">Search the map for “{query}”</span>
@@ -125,8 +129,9 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
                 onSelect(place);
                 setRequested('');
                 setOpen(false);
+                if (matchMedia('(pointer: coarse)').matches) input.current?.blur();
               }}
-              className="flex w-full items-start gap-2 rounded-lg p-2 text-left text-sm font-semibold text-[#171b37] hover:bg-[#edf1ff] focus-visible:bg-[#edf1ff]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg p-2 text-left text-sm font-semibold text-[#171b37] hover:bg-[#edf1ff] focus-visible:bg-[#edf1ff]"
             >
               <MapPin size={16} className="mt-0.5 shrink-0 text-[#173ed7]" aria-hidden="true" />
               <span>{place.label}</span>
@@ -155,7 +160,7 @@ export function LocationInput({
   availableLocations = DEFAULT_LOCATIONS,
 }: LocationInputProps) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-[#d9dbe7] bg-[#edf1ff] p-2 sm:gap-3 sm:p-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 sm:gap-3 sm:rounded-2xl sm:border sm:border-[#d9dbe7] sm:bg-[#edf1ff] sm:p-3">
       <div className="grid min-w-0 gap-2">
         <PlaceField pickup label="Pickup location" value={pickup} locations={availableLocations} onChange={onPickupChange} onSelect={onPickupSelect} />
         <PlaceField label="Destination" value={dropoff} locations={availableLocations} onChange={onDropoffChange} onSelect={onDropoffSelect} />
@@ -164,7 +169,7 @@ export function LocationInput({
         type="button"
         onClick={onSwap}
         aria-label="Swap pickup and destination"
-        className="grid size-9 place-items-center rounded-xl border border-[#d9dbe7] bg-white text-[#173ed7] hover:border-[#173ed7] sm:size-10"
+        className="grid size-11 place-items-center rounded-xl border border-[#d9dbe7] bg-[#edf1ff] text-[#173ed7] hover:border-[#173ed7] sm:size-10 sm:bg-white"
       >
         <ArrowUpDown size={17} aria-hidden="true" />
       </button>

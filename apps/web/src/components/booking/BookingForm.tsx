@@ -187,8 +187,8 @@ export function BookingForm({
         />
       )}
 
-      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="grid gap-4 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-4 sm:p-6">
-        <section aria-labelledby="trip-route" className="grid gap-2">
+      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="ride-planner grid min-w-0 gap-3 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-3 sm:gap-4 sm:p-6">
+        <section aria-labelledby="trip-route" className="grid min-w-0 gap-2">
           <h2 id="trip-route" className="text-lg font-extrabold">Trip route</h2>
           {loadingLocations && <p role="status" className="text-sm text-[#475673]">Loading pickup points…</p>}
           {locationError && <p role="alert" className="text-sm text-[#a42644]">Pickup points unavailable. <button type="button" className="underline" onClick={() => void reloadLocations()}>Try again</button></p>}
@@ -212,20 +212,20 @@ export function BookingForm({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <section className="rounded-2xl border border-[#dce1ed] bg-[#f2f5ff] p-4">
-            <label htmlFor="pickup-deadline" className="!flex items-center justify-between !text-[#171b37]">
+            <label htmlFor="pickup-deadline" className="!flex items-center justify-between gap-2 !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-[#173ed7]" aria-hidden="true" /> Maximum pickup wait</span>
-              <strong>{needInMinutes} min</strong>
+              <strong className="shrink-0">{needInMinutes} min</strong>
             </label>
-            <div className="my-3 flex flex-wrap gap-1.5">
-              {PICKUP_WAIT_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setNeedInMinutes(preset)} aria-pressed={needInMinutes === preset} className={`min-h-8 rounded-lg px-2.5 text-xs font-bold ${needInMinutes === preset ? 'bg-[#173ed7] text-white' : 'bg-white text-[#354366]'}`}>{preset} min</button>)}
+            <div className="my-3 grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap">
+              {PICKUP_WAIT_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setNeedInMinutes(preset)} aria-pressed={needInMinutes === preset} className={`min-h-11 rounded-lg px-2.5 text-xs font-bold sm:min-h-8 ${needInMinutes === preset ? 'bg-[#173ed7] text-white' : 'bg-white text-[#354366]'}`}>{preset} min</button>)}
             </div>
             <input id="pickup-deadline" type="range" min={5} max={120} step={1} value={needInMinutes} onChange={(event) => setNeedInMinutes(Number(event.target.value))} className="!m-0 accent-[#173ed7]" />
           </section>
           <section className="rounded-2xl border border-[#e9daca] bg-[#fff2e6] p-4">
             <label htmlFor="max-fare" className="!text-[#171b37]">Fare cap (₹)</label>
-            <input id="max-fare" value={budget || ''} onChange={(event) => setBudget(Number(event.target.value))} type="number" min={100} max={10000} required className="!mt-2 !bg-white" />
+            <input id="max-fare" value={budget || ''} onChange={(event) => setBudget(Number(event.target.value))} type="number" min={100} max={10000} inputMode="numeric" required className="!mt-2 !bg-white !text-base sm:!text-sm" />
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {BUDGET_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setBudget(preset)} aria-pressed={budget === preset} className={`min-h-8 rounded-lg px-2.5 text-xs font-bold ${budget === preset ? 'bg-[#ffbc90] text-[#3f261f]' : 'bg-white text-[#594333]'}`}>₹{preset}</button>)}
+              {BUDGET_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setBudget(preset)} aria-pressed={budget === preset} className={`min-h-11 rounded-lg px-2.5 text-xs font-bold sm:min-h-8 ${budget === preset ? 'bg-[#ffbc90] text-[#3f261f]' : 'bg-white text-[#594333]'}`}>₹{preset}</button>)}
             </div>
           </section>
         </div>
@@ -250,7 +250,7 @@ export function BookingForm({
           </details>
         </section>
 
-        <div className="sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 backdrop-blur">
+        <div className="ride-planner-actions sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_#171b3710] backdrop-blur sm:shadow-none">
           {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
           <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
             Find my ride

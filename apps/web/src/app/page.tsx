@@ -15,7 +15,7 @@ const sampleRoutes = [
   ['Chennai Egmore Railway Station', 'Government Museum, Egmore'],
 ];
 
-const field = 'mt-1 w-full min-w-0 !rounded-xl !border-[#d9dbe7] !bg-white text-sm font-semibold !text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#173ed7]';
+const field = 'mt-1 min-h-12 w-full min-w-0 !rounded-xl !border-[#d9dbe7] !bg-white !text-base font-semibold !text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#173ed7] sm:!text-sm';
 const categories = [
   ['Airport, rail & bus', /airport|railway station|bus terminus|cmbt/i],
   ['Hospitals', /hospital|medical college|miot/i],

@@ -56,6 +56,16 @@ a {
   }
 }
 
+@media (max-width: 639px) {
+  .ride-planner :is(input, select, button, a, summary) {
+    scroll-margin-block: 7rem 5rem;
+  }
+
+  .ride-planner:has(input:is([type="text"], [type="number"]):focus) .ride-planner-actions {
+    position: static;
+  }
+}
+
 button, select, input, textarea {
   font: inherit;
 }

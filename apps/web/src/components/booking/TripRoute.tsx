@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useId, useState } from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Clipboard, ExternalLink, Route } from 'lucide-react';
 import { formatDrivingDistance, formatDrivingDuration, getDrivingRoute, retryMapRequest } from '@/lib/maps';
@@ -16,13 +16,23 @@ const GoogleDrivingMap = dynamic(() => import('./GoogleDrivingMap'), {
   loading: () => <div className="h-56 bg-[#e8edf8] sm:h-72" />,
 });
 const googleRoutingEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim());
+const wideMapViewport = '(min-width: 640px)';
+
+function subscribeToMapViewport(update: () => void) {
+  const viewport = window.matchMedia(wideMapViewport);
+  viewport.addEventListener('change', update);
+  return () => viewport.removeEventListener('change', update);
+}
 
 const point = (location: Location) => `${location.lng.toFixed(6)},${location.lat.toFixed(6)}`;
 
 export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Location; dropoff: Location; collapsed?: boolean }) {
   const titleId = useId();
   const mapId = useId();
-  const [expanded, setExpanded] = useState(!collapsed);
+  const [mapChoice, setMapChoice] = useState<boolean>();
+  const wide = useSyncExternalStore(subscribeToMapViewport, () => window.matchMedia(wideMapViewport).matches, () => false);
+  const canToggleMap = collapsed || !wide;
+  const expanded = canToggleMap ? (mapChoice ?? false) : true;
   const [copyStatus, setCopyStatus] = useState<{ report: string; message: string } | null>(null);
   const from = point(pickup);
   const to = point(dropoff);
@@ -123,21 +133,21 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
           </p>}
         </div>
         <div className="-my-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold text-[#173ed7]">
-          <a href={directions.href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+          <a href={directions.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white sm:min-h-9">
             {externalLabel} <ExternalLink size={14} aria-hidden="true" />
           </a>
-          {collapsed && result && (
-            <button type="button" aria-controls={mapId} aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="min-h-9 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+          {canToggleMap && result && (
+            <button type="button" aria-controls={mapId} aria-expanded={expanded} onClick={() => setMapChoice(!expanded)} className="min-h-11 rounded-lg px-2 motion-safe:transition-colors hover:bg-white sm:min-h-9">
               {expanded ? 'Hide map' : 'Show map'}
             </button>
           )}
           {result && !isGoogle && (
-            <button type="button" onClick={() => void copyReport()} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+            <button type="button" onClick={() => void copyReport()} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white sm:min-h-9">
               <Clipboard size={14} aria-hidden="true" /> Copy timing report
             </button>
           )}
           {isGoogle && result.trafficAware && (
-            <button type="button" onClick={() => void route.refetch()} disabled={route.isFetching} className="min-h-9 rounded-lg px-2 hover:bg-white disabled:opacity-60">
+            <button type="button" onClick={() => void route.refetch()} disabled={route.isFetching} className="min-h-11 rounded-lg px-2 hover:bg-white disabled:opacity-60 sm:min-h-9">
               {route.isFetching ? 'Updating traffic…' : 'Refresh traffic estimate'}
             </button>
           )}

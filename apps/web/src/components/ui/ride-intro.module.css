@@ -104,8 +104,27 @@
 }
 
 @media (max-width: 650px) {
+  .scene {
+    min-height: clamp(19rem, 48svh, 25rem);
+  }
+
+  .content {
+    padding-bottom: 1.5rem;
+  }
+
   .title .secondLine {
     display: block;
+  }
+
+  .playback {
+    width: 44px;
+    padding: 0;
+    right: 1.25rem;
+    bottom: 1.5rem;
+  }
+
+  .playback span {
+    display: none;
   }
 }
 

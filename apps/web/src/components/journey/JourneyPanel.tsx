@@ -240,8 +240,6 @@ export default function JourneyPanel({ id }: { id: string }) {
             </div>}
           </section>
 
-          <TripRoute pickup={data.pickup} dropoff={data.dropoff} />
-
           <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
             <div className={styles.cardHeading}>
               <h2 ref={recoveryHeading} id="recovery-title" tabIndex={-1}>Pickup protection</h2>
@@ -294,6 +292,8 @@ export default function JourneyPanel({ id }: { id: string }) {
               </> : <button type="button" className="btn ghost" onClick={() => setReviewCancel(true)}>Cancel ride</button>}
             </section>
           )}
+
+          <TripRoute pickup={data.pickup} dropoff={data.dropoff} />
         </div>
 
         <aside className={`panel stack ${styles.card} ${styles.timelinePanel}`}>
