@@ -11,7 +11,10 @@ function BookingContent() {
   const searchParams = useSearchParams();
   const initialPickup = searchParams.get('pickup') || 'VIT Chennai';
   const initialDropoff = searchParams.get('dropoff') || 'Chennai Airport';
-  const initialNeedIn = Number(searchParams.get('needIn')) || 20;
+  const requestedMinutes = Number(searchParams.get('needIn'));
+  const initialNeedIn = Number.isInteger(requestedMinutes) && requestedMinutes >= 5 && requestedMinutes <= 120
+    ? requestedMinutes
+    : 20;
 
   return (
     <div className="flex flex-col gap-8 pb-16">

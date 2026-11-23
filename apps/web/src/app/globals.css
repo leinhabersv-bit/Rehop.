@@ -198,14 +198,7 @@ p {
   text-transform: uppercase;
 }
 
-/* Grids & Panels */
-.grid {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 22px;
-  margin-top: 29px;
-}
-
+/* Panels */
 .panel {
   border: 1px solid var(--line);
   background: var(--surface);
@@ -579,9 +572,6 @@ textarea {
 
 /* Responsive tweaks */
 @media(max-width: 800px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
   .form-row {
     grid-template-columns: 1fr;
   }

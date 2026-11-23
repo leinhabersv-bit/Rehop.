@@ -1,18 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Check,
-  ShieldCheck,
-  ArrowRight,
-  Car,
-  MapPin,
-  X,
-} from 'lucide-react';
-import { Button, Badge } from '@/components/ui';
-import type { Journey } from '@/types';
-import { providerName } from '@/types';
+import { ArrowRight, Car, Check, MapPin, X } from 'lucide-react';
+import { Button } from '@/components/ui';
+import { providerName, type Journey } from '@/types';
 
 export interface BookingConfirmationModalProps {
   isOpen: boolean;
@@ -30,62 +22,34 @@ export function hasConfirmedRide(journey: Journey, quoteId?: string): boolean {
     ['CONFIRMED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.state);
 }
 
-export function BookingConfirmationModal({
-  isOpen,
-  onClose,
-  journey,
-  onTrackRide,
-}: BookingConfirmationModalProps) {
-  const router = useRouter();
+const simulatorTime = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+});
 
+export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide }: BookingConfirmationModalProps) {
+  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
-  const activeRide = hasConfirmedRide(journey) ? journey.active_ride : null;
+  const ride = hasConfirmedRide(journey) ? journey.active_ride : null;
+  const rideId = ride?.ride_id;
+
   useEffect(() => {
     const node = dialog.current;
-    if (!node || !isOpen) return;
+    if (!node || !isOpen || !rideId) return;
     node.showModal();
     return () => node.close();
-  }, [isOpen, activeRide]);
+  }, [isOpen, rideId]);
 
-  if (!isOpen || !activeRide) return null;
+  if (!isOpen || !ride) return null;
+
   const quote = journey.quotes.find((item) =>
-    item.quote_id === activeRide.quote_id && item.provider === activeRide.provider);
-  const providerLabel = providerName[activeRide.provider];
-  const driverId = activeRide.driver_id;
-  const rideState = activeRide.state.replaceAll('_', ' ');
-  const fareInr = quote?.estimated_fare_inr ?? null;
-  const etaMinutes = Math.ceil(activeRide.eta_sec / 60);
-
-  // Format reference ID
-  const rawId = journey.id.replace(/^sim-/, '').replace(/[^a-zA-Z0-9]/g, '');
-  const refCode = rawId ? `RH-${rawId.slice(0, 6).toUpperCase()}` : `RH-${journey.id.slice(0, 6).toUpperCase()}`;
-
-  // Format deadline time
-  const formatDeadline = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return '—';
-      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch {
-      return '—';
-    }
-  };
-
-  const handleTrackRide = () => {
-    if (onTrackRide) {
-      onTrackRide(journey.id);
-    } else {
-      router.push(`/journey/${journey.id}`);
-    }
-  };
-
-  const handleBackHome = () => {
-    if (onClose) {
-      onClose();
-    }
-    router.push('/book');
-  };
+    item.quote_id === ride.quote_id && item.provider === ride.provider);
+  const deadline = Date.parse(journey.need_by);
+  const rideState = {
+    CONFIRMED: 'Booking accepted',
+    DRIVER_EN_ROUTE: 'Driver approaching',
+    DRIVER_ARRIVED: 'Driver at pickup',
+    IN_PROGRESS: 'Passenger boarded',
+  }[ride.state] ?? 'Status unavailable';
 
   return (
     <dialog
@@ -93,166 +57,87 @@ export function BookingConfirmationModal({
       onCancel={onClose}
       aria-labelledby="confirmation-modal-title"
       aria-describedby="confirmation-modal-desc"
-      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-transparent p-0 backdrop:bg-[#070A0F]/85 backdrop:backdrop-blur-md"
+      className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-3xl border border-[#233550] bg-[#0F1726] p-0 text-[#F6F8FC] shadow-2xl backdrop:bg-[#070A0F]/85 backdrop:backdrop-blur-md"
     >
-      <div className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#0F1726] to-[#0B111D] p-6 sm:p-8 text-[#F6F8FC] border border-[#233550] shadow-[0_20px_60px_rgba(0,0,0,0.8)] ">
-        {/* Top Header / Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+      <div className="flex max-h-[calc(100dvh-2rem-2px)] flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-3 sm:px-7">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#98A5BC]">Simulated ride</span>
           <button
             type="button"
-            onClick={onClose || handleBackHome}
+            onClick={onClose ?? (() => dialog.current?.close())}
             aria-label="Close dialog"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800/60 border border-white/10 text-slate-400 hover:text-white transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-800/60 text-slate-300 hover:text-white focus-visible:outline focus-visible:outline-[#B9FF45]"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#132D21] px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#B9FF45] border border-[#1F4A35]">
-            <Check className="h-3 w-3 stroke-[3]" />
-            BOOKING CONFIRMED
-          </span>
         </div>
 
-        {/* Hero Graphic & Heading */}
-        <div className="text-center mt-6">
-          <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#B9FF45] shadow-[0_0_60px_rgba(185,255,69,0.3)]">
-            <Check className="h-10 w-10 text-[#090F1D] stroke-[3.5]" />
-          </div>
-
-          <div className="mt-4 text-[11px] font-black uppercase tracking-widest text-[#B9FF45]">
-            {rideState}
-          </div>
-
-          <h2
-            id="confirmation-modal-title"
-            className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white"
-          >
-            Booking Confirmed<span className="text-[#B9FF45]">.</span>
-          </h2>
-
-          <p
-            id="confirmation-modal-desc"
-            className="mx-auto mt-2 max-w-sm text-xs sm:text-sm text-[#98A5BC] leading-relaxed"
-          >
-            Success means pickup confirmed after boarding. ReHop is now monitoring driver telemetry.
-          </p>
-        </div>
-
-        {/* Card 1: Confirmed Details Card */}
-        <div className="mt-6 rounded-2xl bg-[#0E1624] border border-slate-800 p-4 sm:p-5 space-y-4">
-          {/* Row 1: Booking Reference & Status */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[11px] font-semibold text-slate-400">Booking reference</div>
-              <div className="text-base sm:text-lg font-extrabold text-white tracking-wide mt-0.5">
-                {refCode}
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0C2A20] px-3 py-1 text-xs font-semibold text-[#2ED389] border border-[#1B5037]">
-              <Check className="h-3 w-3 stroke-[3]" />
-              Confirmed
+        <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+          <div className="text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#B9FF45] text-[#090F1D] shadow-[0_0_32px_rgba(185,255,69,0.25)]">
+              <Check className="h-7 w-7" aria-hidden="true" strokeWidth={3} />
             </span>
+            <h2 id="confirmation-modal-title" className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
+              Booking confirmed<span className="text-[#B9FF45]">.</span>
+            </h2>
+            <p id="confirmation-modal-desc" className="mt-2 text-sm text-[#98A5BC]">
+              Confirm boarding after your driver reaches the pickup point.
+            </p>
           </div>
 
-          <div className="border-t border-slate-800/80" />
-
-          {/* Row 2: Selected Provider & Driver Details */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#132D21] text-[#B9FF45] border border-[#1F4A35]">
-                <Car className="h-5 w-5" />
+          <div className="mt-5 space-y-4 rounded-2xl border border-slate-800 bg-[#151F32] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#132D21] text-[#B9FF45]">
+                  <Car className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-bold">{providerName[ride.provider]}</p>
+                  <p className="break-words text-xs text-[#98A5BC]">Driver {ride.driver_id}</p>
+                </div>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white text-sm sm:text-base">
-                    {providerLabel}
-                  </span>
-                  <Badge variant="simulation" size="sm">
-                    Simulated
-                  </Badge>
-                </div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  Driver: <strong className="text-slate-200">{driverId}</strong> · {rideState} (Simulated)
-                </div>
+              <div className="shrink-0 text-right">
+                <p className="text-xl font-black">
+                  {quote ? '₹' + quote.estimated_fare_inr.toLocaleString('en-IN') : '—'}
+                </p>
+                <p className="text-xs text-[#98A5BC]">Estimated fare</p>
               </div>
             </div>
 
-            <div className="text-right shrink-0">
-              <div className="text-xl sm:text-2xl font-black text-white">
-                {fareInr !== null ? `₹${fareInr.toLocaleString('en-IN')}` : '—'}
-              </div>
-              <div className="text-[11px] text-slate-400">estimated fare</div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-800/80" />
-
-          {/* Row 3: Route & Metrics */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-slate-300">
-              <MapPin className="h-3.5 w-3.5 text-[#B9FF45] shrink-0" />
-              <span className="font-medium truncate">{journey.pickup.label}</span>
-              <span className="text-slate-600">→</span>
-              <span className="font-medium truncate">{journey.dropoff.label}</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/60">
+            <p className="flex items-start gap-2 border-t border-slate-800 pt-3 text-sm">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#B9FF45]" aria-hidden="true" />
+              <span>{journey.pickup.label} → {journey.dropoff.label}</span>
+            </p>
+            <dl className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-500">Pickup ETA</div>
-                <div className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                  {etaMinutes !== null ? `${etaMinutes} min` : '—'}
-                </div>
+                <dt className="text-xs text-[#98A5BC]">Pickup ETA</dt>
+                <dd className="font-bold">{Math.ceil(ride.eta_sec / 60)} min</dd>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-500">Need by</div>
-                <div className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                  {formatDeadline(journey.need_by)}
-                </div>
+                <dt className="text-xs text-[#98A5BC]">Pickup deadline</dt>
+                <dd className="font-bold">{Number.isFinite(deadline) ? simulatorTime.format(deadline) + ' UTC' : '—'}</dd>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-500">State</div>
-                <div className="text-xs sm:text-sm font-extrabold text-[#2ED389] mt-0.5 uppercase truncate">
-                  {rideState}
-                </div>
+                <dt className="text-xs text-[#98A5BC]">Driver status</dt>
+                <dd className="font-bold text-[#2ED389]">{rideState}</dd>
               </div>
-            </div>
+            </dl>
+            <p className="break-all border-t border-slate-800 pt-3 text-xs text-[#98A5BC]">
+              Ride ID <span className="font-mono text-[#F6F8FC]">{ride.ride_id}</span>
+            </p>
           </div>
         </div>
 
-        {/* Card 2: ReHop Active Protection Banner */}
-        <div className="mt-3 flex items-start gap-3 rounded-2xl bg-[#0B1916] border border-[#184833] p-4 text-xs">
-          <ShieldCheck className="h-5 w-5 text-[#B9FF45] shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-white text-xs sm:text-sm">
-              ReHop Active Protection ON
-            </div>
-            <div className="text-slate-400 mt-1 leading-relaxed text-[11px] sm:text-xs">
-              We monitor driver trajectory. If the driver cancels and you opted into auto-recovery,
-              ReHop will seek a backup within your budget. Preemptive switches always require your approval.
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-6 space-y-2.5">
+        <div className="shrink-0 border-t border-slate-800 px-5 py-4 sm:px-7">
           <Button
             variant="primary"
             size="lg"
             fullWidth
-            onClick={handleTrackRide}
-            rightIcon={<ArrowRight className="h-4 w-4" />}
-            className="!rounded-2xl shadow-[0_0_24px_rgba(185,255,69,0.3)] hover:brightness-105"
+            onClick={() => onTrackRide ? onTrackRide(journey.id) : router.push('/journey/' + journey.id)}
+            rightIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
           >
             Track your ride
           </Button>
-
-          <button
-            type="button"
-            onClick={handleBackHome}
-            className="w-full text-center text-xs font-semibold text-slate-400 hover:text-white transition-colors py-2"
-          >
-            Back to Home
-          </button>
         </div>
       </div>
     </dialog>
