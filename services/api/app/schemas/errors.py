@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.domain.errors import SimulationError as SimulationError
+
 
 class ErrorPayload(BaseModel):
     code: str
@@ -9,9 +11,3 @@ class ErrorPayload(BaseModel):
 
 class ErrorEnvelope(BaseModel):
     error: ErrorPayload
-
-
-class SimulationError(Exception):
-    def __init__(self, code: str, message: str, *, retryable: bool = False, status: int = 409):
-        super().__init__(message)
-        self.code, self.retryable, self.status = code, retryable, status
