@@ -2,32 +2,51 @@ import { expect, test } from '@playwright/test';
 
 const web = process.env.REHOP_TEST_WEB ?? 'http://localhost:3000';
 
-for (const width of [390, 1366]) {
-  test(`pickup preview loads and fits at ${width}px`, async ({ page }) => {
-    const reducedMotion = width === 390 ? 'reduce' : 'no-preference';
-    await page.setViewportSize({ width, height: 850 });
-    await page.emulateMedia({ reducedMotion });
-    await page.goto(web);
+test('the cinematic hero can pause, resume and switch to a different clip', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  // Select the first available clip at each transition.
+  await page.addInitScript(() => { Math.random = () => 0; });
+  await page.goto(web);
+  const hero = page.getByRole('region', { name: 'Your ride. No interruptions.' });
+  const film = hero.locator('video');
+  const pause = page.getByRole('button', { name: 'Pause background video' });
 
-    const preview = page.getByRole('figure', { name: 'Simulated pickup preview' });
-    const photo = preview.getByRole('img');
-    await expect(preview).toBeVisible();
-    await expect(preview.getByText('Simulated pickup', { exact: true })).toBeVisible();
-    await expect(preview.getByText('Backup quote', { exact: true })).toBeVisible();
-    expect(await photo.evaluate(async (image: HTMLImageElement) => {
-      await image.decode();
-      return image.naturalWidth > 0;
-    })).toBe(true);
+  await expect(pause).toBeVisible();
+  await expect(film).toHaveAttribute('src', '/hero/roundabout.mp4');
+  await expect.poll(() => film.evaluate((video: HTMLVideoElement) => video.currentTime)).toBeGreaterThan(0);
+  await pause.click();
+  await expect.poll(() => film.evaluate((video: HTMLVideoElement) => video.paused)).toBe(true);
+  await page.getByRole('button', { name: 'Play background video' }).click();
+  await expect(pause).toBeVisible();
 
-    const bounds = await preview.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(850);
-    const motion = await photo.evaluate((image) => getComputedStyle(image).animationName);
-    expect(motion === 'none').toBe(reducedMotion === 'reduce');
+  await film.evaluate((video: HTMLVideoElement) => { video.currentTime = video.duration - 0.1; });
+  await expect(film).toHaveAttribute('src', '/hero/night-street.mp4');
+  await expect(pause).toBeVisible();
+  await expect(hero.getByRole('link', { name: 'Find a ride' })).toBeInViewport();
+  await expect(hero.getByRole('link', { name: 'Try recovery demo' })).toBeInViewport();
+});
+
+test('mobile reduced motion shows the poster without fetching a clip', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => { Math.random = () => 0.9; });
+  const clips: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('.mp4')) clips.push(request.url());
   });
-}
+  await page.goto(web);
+  const hero = page.getByRole('region', { name: 'Your ride. No interruptions.' });
+  const film = hero.locator('video');
+  await expect(hero.getByRole('link', { name: 'Find a ride' })).toBeInViewport();
+  await expect(hero.getByRole('link', { name: 'Try recovery demo' })).toBeInViewport();
+  await expect(film).toHaveCount(0);
+  expect(clips).toHaveLength(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+
+  await page.getByRole('button', { name: 'Play background video' }).click();
+  await expect(film).toHaveAttribute('src', '/hero/city-crossing.mp4');
+  await expect(page.getByRole('button', { name: 'Pause background video' })).toBeVisible();
+});
 
 test('a rider can set a five-minute maximum and confirm the recommended ride', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 850 });
