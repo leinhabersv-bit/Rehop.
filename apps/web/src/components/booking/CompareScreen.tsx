@@ -235,7 +235,7 @@ export function CompareScreen() {
               <h2 id="ride-choice" className="text-2xl font-black tracking-tight sm:text-4xl">{selectedProviderName}</h2>
               <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3">
                 <div>
-                  <dt className="text-sm text-[#475673]">Estimated pickup</dt>
+                  <dt className="text-sm text-[#475673]">Driver to pickup (simulated)</dt>
                   <dd className="text-2xl font-black">{Math.ceil(selectedQuote.pickup_eta_sec / 60)} min</dd>
                 </div>
                 <div className="pl-4">

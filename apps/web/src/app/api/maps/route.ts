@@ -59,8 +59,10 @@ async function fetchMapData(url: URL, kind: keyof typeof lastRequest): Promise<M
       coordinates.every(validPoint) && Number.isFinite(route.distance) && route.distance >= 0 &&
       Number.isFinite(route.duration) && route.duration >= 0
     ) {
+      const access = data.waypoints?.map((waypoint: { distance?: number }) => waypoint.distance);
+      const roadAccessMeters = access?.length === 2 && access.every(Number.isFinite) ? access : undefined;
       return {
-        data: { coordinates, distanceMeters: route.distance, durationSeconds: route.duration },
+        data: { coordinates, distanceMeters: route.distance, durationSeconds: route.duration, roadAccessMeters },
         status: 200,
       };
     }

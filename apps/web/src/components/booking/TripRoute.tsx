@@ -4,13 +4,18 @@ import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, Route } from 'lucide-react';
-import { getDrivingRoute, retryMapRequest } from '@/lib/maps';
+import { formatDrivingDistance, formatDrivingDuration, getDrivingRoute, retryMapRequest } from '@/lib/maps';
 import type { Location } from '@/types';
 
 const DrivingMap = dynamic(() => import('./DrivingMap'), {
   ssr: false,
   loading: () => <div className="h-56 bg-[#e8edf8] sm:h-72" />,
 });
+const GoogleDrivingMap = dynamic(() => import('./GoogleDrivingMap'), {
+  ssr: false,
+  loading: () => <div className="h-56 bg-[#e8edf8] sm:h-72" />,
+});
+const googleRoutingEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim());
 
 const point = (location: Location) => `${location.lng.toFixed(6)},${location.lat.toFixed(6)}`;
 
@@ -19,10 +24,15 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
   const from = point(pickup);
   const to = point(dropoff);
   const route = useQuery({
-    queryKey: ['driving-route', from, to],
-    queryFn: ({ signal }) => getDrivingRoute(from, to, signal),
+    queryKey: ['driving-route', googleRoutingEnabled ? 'google' : 'osrm', from, to],
+    queryFn: async ({ signal }) => {
+      if (!googleRoutingEnabled) return getDrivingRoute(from, to, signal);
+      const { getGoogleDrivingRoute } = await import('@/lib/google-maps');
+      return getGoogleDrivingRoute(pickup, dropoff);
+    },
     enabled: from !== to,
-    staleTime: 15 * 60_000,
+    staleTime: googleRoutingEnabled ? 0 : 15 * 60_000,
+    gcTime: googleRoutingEnabled ? 0 : undefined,
     retry: retryMapRequest,
   });
   if (from === to) return null;
@@ -34,6 +44,13 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
     destination: `${dropoff.lat},${dropoff.lng}`,
     travelmode: 'driving',
   }).toString();
+  const result = route.data;
+  const isGoogle = result?.provider === 'google';
+  const Map = isGoogle ? GoogleDrivingMap : DrivingMap;
+  const externalLabel = googleRoutingEnabled ? 'Open in Google Maps' : 'Check traffic in Google Maps';
+  const driveDuration = result && (result.durationText || formatDrivingDuration(result.durationSeconds));
+  const driveDistance = result && (result.distanceText || formatDrivingDistance(result.distanceMeters));
+  const roadAccess = result?.roadAccessMeters;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#d9dbe7] bg-white" aria-label="Trip drive estimate">
@@ -43,10 +60,11 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
             <Route size={17} aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="font-extrabold text-[#171b37]">Driving route</p>
-            {route.data && <p className="text-sm text-[#475673]">
-              <strong className="text-[#173ed7]">{Math.max(1, Math.ceil(route.data.durationSeconds / 60))} min drive</strong>
-              {' · '}{(route.data.distanceMeters / 1000).toFixed(1)} km · Traffic excluded
+            <p className="font-extrabold text-[#171b37]">Drive from pickup to destination</p>
+            {result && <p className="text-sm text-[#475673]">
+              <strong className="text-[#173ed7]">{driveDuration} drive</strong>
+              {' · '}{driveDistance}{' · '}{result.trafficAware ? 'Current traffic estimate' : 'Traffic excluded'}
+              {isGoogle && <> · <span translate="no" className="whitespace-nowrap font-normal text-[#5e5e5e]">Google Maps</span></>}
             </p>}
             {route.isPending && <p role="status" className="text-sm text-[#475673]">Calculating drive time…</p>}
             {route.isError && <p role="status" className="text-sm text-[#a42644]">{route.error.message}{' '}
@@ -60,18 +78,30 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
           </button>
         ) : (
           <a href={directions.href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-bold text-[#173ed7] hover:bg-[#edf1ff]">
-            Open in Google Maps <ExternalLink size={14} aria-hidden="true" />
+              {externalLabel} <ExternalLink size={14} aria-hidden="true" />
           </a>
         )}
       </div>
-      {route.data && (
+      {result && (
         <>
-          {expanded && <DrivingMap coordinates={route.data.coordinates} pickup={pickup} dropoff={dropoff} />}
+          {expanded && <Map coordinates={result.coordinates} pickup={pickup} dropoff={dropoff} />}
+          {roadAccess && (roadAccess[0] > 100 || roadAccess[1] > 100) && (
+            <p className="px-3 pt-2 text-xs text-[#475673]">
+              Road access is {roadAccess[0] > 100 && `${formatDrivingDistance(roadAccess[0])} from pickup`}
+              {roadAccess[0] > 100 && roadAccess[1] > 100 && ' and '}
+              {roadAccess[1] > 100 && `${formatDrivingDistance(roadAccess[1])} from the destination`}.
+            </p>
+          )}
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 text-xs text-[#475673]">
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">© OpenStreetMap contributors</a>
-            <a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer" className="underline">Routing by FOSSGIS / OSRM</a>
-            <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer" className="underline">Report a map issue</a>
-            {collapsed && expanded && <a href={directions.href} target="_blank" rel="noreferrer" className="font-bold text-[#173ed7] underline">Open in Google Maps</a>}
+            {isGoogle ? <>
+              <a href="https://www.google.com/intl/en_us/help/terms_maps/" target="_blank" rel="noreferrer" className="underline">Google Maps terms</a>
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline">Google privacy policy</a>
+            </> : <>
+              <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">© OpenStreetMap contributors</a>
+              <a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer" className="underline">Routing by FOSSGIS / OSRM</a>
+              <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer" className="underline">Report a map issue</a>
+            </>}
+            {collapsed && expanded && <a href={directions.href} target="_blank" rel="noreferrer" className="font-bold text-[#173ed7] underline">{externalLabel}</a>}
           </div>
         </>
       )}

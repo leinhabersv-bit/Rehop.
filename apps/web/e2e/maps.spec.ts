@@ -16,6 +16,7 @@ test('a rider can use a searched location and review the road duration separatel
         coordinates: [[80.228045, 13.000005], [80.2, 13.004], [80.1709, 12.9941]],
         distanceMeters: 8550,
         durationSeconds: 955,
+        roadAccessMeters: [190, 20],
       } });
     } else {
       await route.fulfill({ status: 404, json: { error: 'No driving route found.' } });
@@ -35,15 +36,20 @@ test('a rider can use a searched location and review the road duration separatel
 
   await expect(page.getByText('16 min drive')).toBeVisible();
   await expect(page.getByText(/8\.6 km · Traffic excluded/)).toBeVisible();
+  await expect(page.getByText('Road access is 190 m from pickup.')).toBeVisible();
   await page.getByRole('button', { name: 'Show map' }).click();
   const map = page.getByRole('region', { name: 'Driving route map' });
   await expect(map.locator('svg path').first()).toBeVisible();
+  const google = page.getByRole('link', { name: 'Check traffic in Google Maps' });
+  const directions = new URL((await google.getAttribute('href'))!);
+  expect(directions.searchParams.get('origin')).toBe('13.000005,80.2280448');
+  expect(directions.searchParams.get('destination')).toBe('12.9941,80.1709');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Hide map' }).click();
 
   await page.getByRole('button', { name: 'Get ReHop’s recommendation' }).click();
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
-  await expect(page.getByText('Estimated pickup', { exact: true })).toBeVisible();
+  await expect(page.getByText('Driver to pickup (simulated)', { exact: true })).toBeVisible();
   await expect(page.getByText('16 min drive')).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   expect(id).toBeTruthy();

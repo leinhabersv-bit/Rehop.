@@ -110,7 +110,7 @@ export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide
             </p>
             <dl className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
               <div>
-                <dt className="text-xs text-[#475673]">Pickup ETA</dt>
+                <dt className="text-xs text-[#475673]">Driver to pickup (simulated)</dt>
                 <dd className="font-bold">{Math.ceil(ride.eta_sec / 60)} min</dd>
               </div>
               <div>

@@ -56,6 +56,10 @@ Open [ReHop](http://localhost:3000) using `localhost`, which matches the API's d
 
 Use **Book** to enter a trip, review interpreted details, compare backend quotes, and start tracking. Standard pickups progress automatically on the API clock. **Your rides** stores recent ride references on the current device and reads their statuses from the API. See the [rider walkthrough](docs/demo-script.md).
 
+### Traffic-aware routing
+
+Without a Google Maps key, ReHop routes through OSRM using OpenStreetMap road data and labels the drive estimate as excluding traffic. To use Google Maps for the route, time and distance, enable **Maps JavaScript API** and **Routes API** in a billing-enabled Google Cloud project. Add a browser key restricted to your web origins and those APIs as `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in `apps/web/.env.local` or your deployment's build environment, then rebuild. Public deployments using this option must also publish the site's terms of use and privacy policy. See the [Google Maps JavaScript API policies](https://developers.google.com/maps/documentation/javascript/policies).
+
 ## Test and inspect
 
 Run the frontend checks from `apps/web` after `npm ci`.

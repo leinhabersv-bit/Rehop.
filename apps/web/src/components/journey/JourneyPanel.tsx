@@ -221,8 +221,12 @@ export default function JourneyPanel({ id }: { id: string }) {
               <span className="muted">Driver {ride.driver_id}</span>
             </div>}
             <dl className={styles.stats}>
-              <div className="stat"><dt>Pickup ETA</dt><dd>{ride ? ride.state === 'DRIVER_EN_ROUTE' ? `${minutes(ride.eta_sec)} min` : 'At pickup' : '—'}</dd></div>
-              <div className="stat"><dt>Distance</dt><dd>{ride ? `${(ride.distance_to_pickup_m / 1000).toFixed(1)} km` : '—'}</dd></div>
+              <div className="stat"><dt>Driver to pickup</dt><dd>{
+                ride?.state === 'DRIVER_ARRIVED' ? 'At pickup' :
+                ride?.state === 'IN_PROGRESS' ? 'Boarded' :
+                ride?.state === 'DRIVER_EN_ROUTE' || ride?.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
+              }</dd></div>
+              <div className="stat"><dt>Distance to pickup</dt><dd>{ride ? `${(ride.distance_to_pickup_m / 1000).toFixed(1)} km` : '—'}</dd></div>
               <div className="stat"><dt>Recovery attempts</dt><dd>{data.recovery_attempts}/{data.policy.max_recovery_attempts}</dd></div>
             </dl>
             <p className="helper">Driver position and pickup time are simulated.</p>
