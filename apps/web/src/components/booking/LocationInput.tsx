@@ -37,7 +37,11 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
     staleTime: 15 * 60_000,
     retry: retryMapRequest,
   });
-  const suggestions = locations.filter((place) => place.label.toLowerCase().includes(query.toLowerCase()));
+  const searchWords = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const suggestions = locations.filter((place) => {
+    const label = place.label.toLowerCase();
+    return searchWords.every((word) => label.includes(word));
+  });
   const mapResults = search.data?.places ?? [];
   const places = submitted ? [
     ...suggestions,
@@ -96,11 +100,22 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
           <Search size={16} aria-hidden="true" /><span className="hidden sm:inline">Search</span>
         </button>
       </div>
-      {open && (places.length > 0 || submitted) && (
+      {open && (places.length > 0 || submitted || query.length >= 3) && (
         <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#d9dbe7] bg-[#fffdf8] p-1 shadow-lg">
           {submitted && search.isFetching && <p role="status" className="p-2 text-sm text-[#475673]">Searching the map…</p>}
           {submitted && search.isError && <p role="alert" className="p-2 text-sm text-[#a42644]">{search.error.message}</p>}
           {submitted && search.isSuccess && !places.length && <p role="status" className="p-2 text-sm text-[#475673]">No places found. Add a city or nearby landmark.</p>}
+          {!submitted && !places.length && (
+            <button
+              type="button"
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={submitSearch}
+              className="flex w-full items-start gap-2 rounded-lg p-2 text-left text-sm font-semibold text-[#173ed7] hover:bg-[#edf1ff]"
+            >
+              <Search size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span className="break-words">Search the map for “{query}”</span>
+            </button>
+          )}
           {places.map((place) => (
             <button
               key={`${place.lat},${place.lng}`}

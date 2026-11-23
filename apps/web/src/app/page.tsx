@@ -12,9 +12,31 @@ import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 const sampleRoutes = [
   ['VIT Chennai', 'Chennai Airport'],
   ['Chennai Central Railway Station', 'Chennai Airport T2 (International)'],
+  ['Chennai Egmore Railway Station', 'Government Museum, Egmore'],
 ];
 
 const field = 'mt-1 w-full min-w-0 !rounded-xl !border-[#d9dbe7] !bg-white text-sm font-semibold !text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#173ed7]';
+const categories = [
+  ['Airport, rail & bus', /airport|railway station|bus terminus|cmbt/i],
+  ['Hospitals', /hospital|medical college|miot/i],
+  ['Work & shopping', /it park|tidel|research park|marketcity|trade centre|express avenue/i],
+  ['Parks, beaches & landmarks', /beach|park|temple|museum|lighthouse|boat house|zoo/i],
+] as const;
+
+function PlaceOptions({ places, blocked }: { places: string[]; blocked: string }) {
+  const grouped = new Map<string, string[]>();
+  for (const [category] of categories) grouped.set(category, []);
+  grouped.set('Neighborhoods & campuses', []);
+  for (const place of places) {
+    const category = categories.find(([, pattern]) => pattern.test(place))?.[0] ?? 'Neighborhoods & campuses';
+    grouped.get(category)?.push(place);
+  }
+  return [...grouped].filter(([, entries]) => entries.length > 0).map(([category, entries]) => (
+    <optgroup key={category} label={category}>
+      {entries.map((place) => <option key={place} disabled={place === blocked}>{place}</option>)}
+    </optgroup>
+  ));
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -41,21 +63,21 @@ export default function HomePage() {
           <h1 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
             Where to<span className="text-[#173ed7]">?</span>
           </h1>
-          <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] sm:text-base">Book a ride, follow your pickup, and get help finding a backup if your driver cancels.</p>
+          <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] sm:text-base">Check the route and drive time before booking. Get pickup updates and a backup if your driver cancels.</p>
           <form onSubmit={continueTrip} className="space-y-3">
             <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
             <label htmlFor="quick-pickup" className="block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><Navigation size={16} className="text-[#173ed7]" aria-hidden="true" /> Pickup point</span>
               <select id="quick-pickup" value={pickup} disabled={!labels.length || locations.isError} onChange={(event) => setPickup(event.target.value)} className={field}>
                 {!labels.length && <option value="">Select pickup</option>}
-                {labels.map((label) => <option key={label} disabled={label === dropoff}>{label}</option>)}
+                <PlaceOptions places={labels} blocked={dropoff} />
               </select>
             </label>
             <label htmlFor="quick-destination" className="block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><MapPin size={16} className="text-[#173ed7]" aria-hidden="true" /> Destination</span>
               <select id="quick-destination" value={dropoff} disabled={!labels.length || locations.isError} onChange={(event) => setDropoff(event.target.value)} className={field}>
                 {!labels.length && <option value="">Select destination</option>}
-                {labels.map((label) => <option key={label} disabled={label === pickup}>{label}</option>)}
+                <PlaceOptions places={labels} blocked={pickup} />
               </select>
             </label>
             <label htmlFor="quick-deadline" className="block text-sm font-bold !text-[#171b37]">

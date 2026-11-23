@@ -32,6 +32,7 @@ test('Google supplies the line, distance and traffic-aware duration for the sele
     trafficAware: true,
     distanceMeters: 5330,
     durationSeconds: 900,
+    calculatedAt: expect.any(String),
     distanceText: '5.3 km',
     durationText: '15 mins',
   });

@@ -8,12 +8,15 @@ test('popular Chennai locations route to the selected airport terminal', async (
     coordinates: [[80.276308, 13.082590], [80.164110, 12.982069]],
     distanceMeters: 19200,
     durationSeconds: 2100,
+    calculatedAt: '2026-11-23T13:30:00.000Z',
   } }));
   await page.goto(web);
   const pickup = page.getByRole('combobox', { name: 'Pickup point' });
   const destination = page.getByRole('combobox', { name: 'Destination' });
   await expect(pickup.locator('option', { hasText: 'Kilambakkam Bus Terminus' })).toHaveCount(1);
   await expect(destination.locator('option', { hasText: 'Marina Beach Lighthouse' })).toHaveCount(1);
+  await expect(pickup.locator('optgroup[label="Hospitals"] option', { hasText: 'Apollo Hospitals' })).toHaveCount(1);
+  await expect(destination.locator('optgroup[label="Parks, beaches & landmarks"] option', { hasText: 'Shore Temple Parking' })).toHaveCount(1);
   await pickup.selectOption('Chennai Central Railway Station');
   await destination.selectOption('Chennai Airport T2 (International)');
   const requestedRoute = page.waitForRequest((request) => request.url().includes('/api/maps?'));
@@ -21,16 +24,19 @@ test('popular Chennai locations route to the selected airport terminal', async (
   const route = new URL((await requestedRoute).url());
   expect(route.searchParams.get('from')).toBe('80.276308,13.082590');
   expect(route.searchParams.get('to')).toBe('80.164110,12.982069');
-  await expect(page.getByText('35 min drive')).toBeVisible();
-  await expect(page.getByText(/19\.2 km · Traffic excluded/)).toBeVisible();
+  const report = page.getByRole('region', { name: 'Trip timing report' });
+  await expect(report.getByText('35 min', { exact: true })).toBeVisible();
+  await expect(report.getByText('19.2 km', { exact: true })).toBeVisible();
+  await expect(report.getByText(/Traffic excluded/)).toBeVisible();
   const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
   const directions = new URL((await google.getAttribute('href'))!);
   expect(directions.searchParams.get('origin')).toBe('13.0825901,80.2763077');
   expect(directions.searchParams.get('destination')).toBe('12.9820693,80.1641102');
 });
 
-test('a rider can use a searched location and review the road duration separately from pickup ETA', async ({ page, request }) => {
+test('a rider can search, copy the map timing report and review the pickup ETA separately', async ({ page, request, context }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const pickup = { label: 'Guindy National Park, Chennai', lat: 13.000005, lng: 80.2280448 };
 
   await page.route('**/api/maps?*', async (route) => {
@@ -42,6 +48,7 @@ test('a rider can use a searched location and review the road duration separatel
         coordinates: [[80.228045, 13.000005], [80.2, 13.004], [80.167339, 12.982553]],
         distanceMeters: 8550,
         durationSeconds: 955,
+        calculatedAt: '2026-11-23T13:30:00.000Z',
         roadAccessMeters: [190, 20],
       } });
     } else {
@@ -57,11 +64,23 @@ test('a rider can use a searched location and review the road duration separatel
   await pickupInput.fill('Guindy National Park');
   await pickupInput.press('Enter');
   await page.getByRole('button', { name: pickup.label }).click();
-  await page.getByRole('textbox', { name: 'Destination' }).fill('Chennai Airport');
+  const destination = page.getByRole('textbox', { name: 'Destination' });
+  await destination.fill('Chennai International Airport');
+  await expect(page.getByRole('button', { name: 'Chennai Airport T2 (International)', exact: true })).toBeVisible();
+  await destination.fill('Chennai Airport');
   await page.getByRole('button', { name: 'Chennai Airport', exact: true }).click();
 
-  await expect(page.getByText('16 min drive')).toBeVisible();
-  await expect(page.getByText(/8\.6 km · Traffic excluded/)).toBeVisible();
+  const report = page.getByRole('region', { name: 'Trip timing report' });
+  await expect(report.getByText('16 min', { exact: true })).toBeVisible();
+  await expect(report.getByText('8.6 km', { exact: true })).toBeVisible();
+  await expect(report.getByText(/Traffic excluded/)).toBeVisible();
+  await expect(report.locator('time')).toHaveAttribute('datetime', '2026-11-23T13:30:00.000Z');
+  await report.getByRole('button', { name: 'Copy timing report' }).click();
+  await expect(report.getByRole('status')).toHaveText('Timing report copied.');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain('Guindy National Park, Chennai → Chennai Airport');
+  expect(copied).toContain('16 min estimated drive · 8.6 km');
+  expect(copied).toContain('FOSSGIS / OSRM · Traffic excluded');
   await expect(page.getByText('Road access is 190 m from pickup.')).toBeVisible();
   const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
   await expect(google).toBeVisible();
@@ -77,7 +96,7 @@ test('a rider can use a searched location and review the road duration separatel
   await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
   await expect(page.getByText('Driver to pickup (simulated)', { exact: true })).toBeVisible();
-  await expect(page.getByText('16 min drive')).toBeVisible();
+  await expect(report.getByText('16 min', { exact: true })).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   expect(id).toBeTruthy();
   const journey = await request.get(`${api}/api/v1/journeys/${id}`);

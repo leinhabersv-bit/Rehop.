@@ -62,7 +62,13 @@ async function fetchMapData(url: URL, kind: keyof typeof lastRequest): Promise<M
       const access = data.waypoints?.map((waypoint: { distance?: number }) => waypoint.distance);
       const roadAccessMeters = access?.length === 2 && access.every(Number.isFinite) ? access : undefined;
       return {
-        data: { coordinates, distanceMeters: route.distance, durationSeconds: route.duration, roadAccessMeters },
+        data: {
+          coordinates,
+          distanceMeters: route.distance,
+          durationSeconds: route.duration,
+          calculatedAt: new Date().toISOString(),
+          roadAccessMeters,
+        },
         status: 200,
       };
     }

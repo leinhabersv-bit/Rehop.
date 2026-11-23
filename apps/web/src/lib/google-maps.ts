@@ -35,6 +35,7 @@ export async function getGoogleDrivingRoute(pickup: Location, dropoff: Location)
     coordinates: path.map(({ lng, lat }) => [lng, lat]),
     distanceMeters,
     durationSeconds: durationMillis / 1000,
+    calculatedAt: new Date().toISOString(),
     provider: 'google',
     trafficAware: !fallbackInfo || fallbackInfo.routingMode === 'TRAFFIC_AWARE',
     distanceText: localizedValues?.distance ?? undefined,

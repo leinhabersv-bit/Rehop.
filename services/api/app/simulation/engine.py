@@ -67,6 +67,18 @@ LOCATIONS = [
     Location(label="Express Avenue, Royapettah", lat=13.0586461, lng=80.2641867),
     Location(label="Chennai Trade Centre, Nandambakkam", lat=13.0154329, lng=80.1912316),
     Location(label="IIT Madras Research Park Gate", lat=12.9899354, lng=80.2415758),
+    Location(label="SIPCOT IT Park, Siruseri", lat=12.8316885, lng=80.2205304),
+    Location(label="Anna Nagar Tower Park", lat=13.086483, lng=80.2153454),
+    Location(label="Vadapalani Murugan Temple", lat=13.0529483, lng=80.2135971),
+    Location(label="Apollo Hospitals, Greams Road", lat=13.0632248, lng=80.2515817),
+    Location(label="MIOT International Hospital", lat=13.0207927, lng=80.1852559),
+    Location(label="Stanley Medical College Hospital", lat=13.1041151, lng=80.2836547),
+    Location(label="Fort St. George Museum", lat=13.080677, lng=80.2876057),
+    Location(label="Government Museum, Egmore", lat=13.0699018, lng=80.2566558),
+    Location(label="Vandalur Zoo Entrance", lat=12.8906413, lng=80.0809923),
+    Location(label="Shore Temple Parking, Mamallapuram", lat=12.616743, lng=80.1953309),
+    Location(label="Muttukadu Boat House", lat=12.8063999, lng=80.2422292),
+    Location(label="Chetpet Eco Park", lat=13.0756583, lng=80.2434076),
 ]
 SCENARIOS = {
     "S01": "Healthy pickup",

@@ -4,6 +4,7 @@ export interface DrivingRoute {
   coordinates: [number, number][];
   distanceMeters: number;
   durationSeconds: number;
+  calculatedAt: string;
   provider?: 'google';
   trafficAware?: boolean;
   distanceText?: string;

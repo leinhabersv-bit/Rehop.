@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, Route } from 'lucide-react';
+import { Clipboard, ExternalLink, Route } from 'lucide-react';
 import { formatDrivingDistance, formatDrivingDuration, getDrivingRoute, retryMapRequest } from '@/lib/maps';
 import type { Location } from '@/types';
 
@@ -20,7 +20,10 @@ const googleRoutingEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 const point = (location: Location) => `${location.lng.toFixed(6)},${location.lat.toFixed(6)}`;
 
 export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Location; dropoff: Location; collapsed?: boolean }) {
+  const titleId = useId();
+  const mapId = useId();
   const [expanded, setExpanded] = useState(!collapsed);
+  const [copyStatus, setCopyStatus] = useState<{ report: string; message: string } | null>(null);
   const from = point(pickup);
   const to = point(dropoff);
   const route = useQuery({
@@ -47,50 +50,107 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
   const result = route.data;
   const isGoogle = result?.provider === 'google';
   const Map = isGoogle ? GoogleDrivingMap : DrivingMap;
-  const externalLabel = isGoogle ? 'Open in Google Maps' : 'Live traffic in Google Maps';
+  const externalLabel = result?.trafficAware ? 'Open in Google Maps' : 'Live traffic in Google Maps';
   const driveDuration = result && (result.durationText || formatDrivingDuration(result.durationSeconds));
   const driveDistance = result && (result.distanceText || formatDrivingDistance(result.distanceMeters));
   const roadAccess = result?.roadAccessMeters;
+  const timingSource = isGoogle ? 'Google Maps' : 'FOSSGIS / OSRM';
+  const traffic = result?.trafficAware ? 'Live traffic estimate' : 'Traffic excluded';
+  const checked = result && new Date(result.calculatedAt);
+  const roadAccessNote = roadAccess && [
+    roadAccess[0] > 100 && `${formatDrivingDistance(roadAccess[0])} from pickup`,
+    roadAccess[1] > 100 && `${formatDrivingDistance(roadAccess[1])} from the destination`,
+  ].filter(Boolean).join(' and ');
+  const report = result && [
+    'RIDE & SEEK | Trip timing report',
+    `${pickup.label} → ${dropoff.label}`,
+    `${driveDuration} estimated drive · ${driveDistance}`,
+    `${timingSource} · ${traffic}`,
+    `Route calculated ${result.calculatedAt}`,
+    roadAccessNote && `Road access is ${roadAccessNote}.`,
+    'Map data © OpenStreetMap contributors',
+    'https://www.openstreetmap.org/copyright',
+    directions.href,
+  ].filter(Boolean).join('\n');
+
+  async function copyReport() {
+    if (!report) return;
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopyStatus({ report, message: 'Timing report copied.' });
+    } catch {
+      setCopyStatus({ report, message: 'Clipboard unavailable. You can select the report text to copy it.' });
+    }
+  }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#d9dbe7] bg-white" aria-label="Trip drive estimate">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-4">
+    <section aria-labelledby={titleId} className="min-w-0 overflow-hidden rounded-2xl border border-[#d9dbe7] bg-white">
+      <div className="grid gap-3 bg-[#f4f6ff] p-3 sm:p-4">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#edf1ff] text-[#173ed7]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#173ed7] text-white">
             <Route size={17} aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="font-extrabold text-[#171b37]">Drive from pickup to destination</p>
-            {result && <p className="text-sm text-[#475673]">
-              <strong className="text-[#173ed7]">{driveDuration} drive</strong>
-              {' · '}{driveDistance}{' · '}{result.trafficAware ? 'Live traffic estimate' : 'Traffic excluded'}
-              {isGoogle && <> · <span translate="no" className="whitespace-nowrap font-normal text-[#5e5e5e]">Google Maps</span></>}
-            </p>}
-            {route.isPending && <p role="status" className="text-sm text-[#475673]">Calculating drive time…</p>}
-            {route.isError && <p role="status" className="text-sm text-[#a42644]">{route.error.message}{' '}
-              <button type="button" onClick={() => void route.refetch()} className="font-bold underline">Retry route</button>
-            </p>}
+            <h3 id={titleId} className="text-base font-extrabold text-[#171b37]">Trip timing report</h3>
+            <p className="break-words text-xs font-medium text-[#475673] sm:text-sm">{pickup.label} → {dropoff.label}</p>
           </div>
         </div>
-        {collapsed && route.data ? (
-          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="min-h-9 rounded-lg px-2 text-sm font-bold text-[#173ed7] hover:bg-[#edf1ff]">
-            {expanded ? 'Hide map' : 'Show map'}
-          </button>
-        ) : (
-          <a href={directions.href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-bold text-[#173ed7] hover:bg-[#edf1ff]">
-              {externalLabel} <ExternalLink size={14} aria-hidden="true" />
+        <div aria-live="polite">
+          {result && (
+            <>
+              <dl className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="min-w-0 rounded-xl bg-white px-3 py-2">
+                  <dt className="text-xs font-semibold text-[#475673]">Estimated drive</dt>
+                  <dd className="text-lg font-black leading-tight text-[#173ed7] sm:text-2xl">{driveDuration}</dd>
+                </div>
+                <div className="min-w-0 rounded-xl bg-white px-3 py-2">
+                  <dt className="text-xs font-semibold text-[#475673]">Road distance</dt>
+                  <dd className="text-lg font-black leading-tight text-[#171b37] sm:text-2xl">{driveDistance}</dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-[#475673]">
+                <span translate={isGoogle ? 'no' : undefined} className="whitespace-nowrap font-normal text-[#5e5e5e]">{timingSource}</span>
+                {' · '}{traffic}
+                {checked && !Number.isNaN(checked.valueOf()) && (
+                  <>{' · Calculated '}<time dateTime={result.calculatedAt}>{checked.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></>
+                )}
+              </p>
+            </>
+          )}
+          {route.isPending && <p role="status" className="text-sm text-[#475673]">Calculating drive time…</p>}
+          {route.isError && <p role="status" className="text-sm text-[#a42644]">{route.error.message}{' '}
+            <button type="button" onClick={() => void route.refetch()} className="font-bold underline">Retry route</button>
+          </p>}
+        </div>
+        <div className="-my-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold text-[#173ed7]">
+          <a href={directions.href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+            {externalLabel} <ExternalLink size={14} aria-hidden="true" />
           </a>
-        )}
+          {collapsed && result && (
+            <button type="button" aria-controls={mapId} aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="min-h-9 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+              {expanded ? 'Hide map' : 'Show map'}
+            </button>
+          )}
+          {result && !isGoogle && (
+            <button type="button" onClick={() => void copyReport()} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 motion-safe:transition-colors hover:bg-white">
+              <Clipboard size={14} aria-hidden="true" /> Copy timing report
+            </button>
+          )}
+          {isGoogle && result.trafficAware && (
+            <button type="button" onClick={() => void route.refetch()} disabled={route.isFetching} className="min-h-9 rounded-lg px-2 hover:bg-white disabled:opacity-60">
+              {route.isFetching ? 'Updating traffic…' : 'Refresh traffic estimate'}
+            </button>
+          )}
+        </div>
+        {copyStatus && copyStatus.report === report && <p role="status" className="text-xs font-semibold text-[#475673]">{copyStatus.message}</p>}
       </div>
       {result && (
         <>
-          {expanded && <Map coordinates={result.coordinates} pickup={pickup} dropoff={dropoff} />}
-          {roadAccess && (roadAccess[0] > 100 || roadAccess[1] > 100) && (
-            <p className="px-3 pt-2 text-xs text-[#475673]">
-              Road access is {roadAccess[0] > 100 && `${formatDrivingDistance(roadAccess[0])} from pickup`}
-              {roadAccess[0] > 100 && roadAccess[1] > 100 && ' and '}
-              {roadAccess[1] > 100 && `${formatDrivingDistance(roadAccess[1])} from the destination`}.
-            </p>
+          <div id={mapId} hidden={!expanded}>
+            {expanded && <Map coordinates={result.coordinates} pickup={pickup} dropoff={dropoff} />}
+          </div>
+          {roadAccessNote && (
+            <p className="px-3 pt-2 text-xs text-[#475673]">Road access is {roadAccessNote}.</p>
           )}
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 text-xs text-[#475673]">
             {isGoogle ? <>
@@ -101,15 +161,9 @@ export function TripRoute({ pickup, dropoff, collapsed = false }: { pickup: Loca
               <a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer" className="underline">Routing by FOSSGIS / OSRM</a>
               <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer" className="underline">Report a map issue</a>
             </>}
-            {collapsed && <a href={directions.href} target="_blank" rel="noreferrer" className="font-bold text-[#173ed7] underline">{externalLabel}</a>}
-            {isGoogle && result.trafficAware && (
-              <button type="button" onClick={() => void route.refetch()} disabled={route.isFetching} className="font-bold text-[#173ed7] underline disabled:opacity-60">
-                {route.isFetching ? 'Updating traffic…' : 'Refresh traffic estimate'}
-              </button>
-            )}
           </div>
         </>
       )}
-    </div>
+    </section>
   );
 }
