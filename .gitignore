@@ -21,3 +21,5 @@ venv/
 *.log
 # Eval output (not benchmark claims)
 eval/results/*.json
+
+/.agent/
