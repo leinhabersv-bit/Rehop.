@@ -66,6 +66,9 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   await confirmation.getByRole('button', { name: 'Track your ride' }).click();
   await expect(page).toHaveURL(`${web}/journey/${id}`);
   await tick(request, id, 24);
+  const stalledCab = page.locator('[data-pickup-cab]');
+  await expect(stalledCab).toHaveAttribute('data-stalled', 'true');
+  await expect(stalledCab).toHaveAttribute('style', /left:\s*0(?:\.00)?%/);
   await page.getByRole('button', { name: 'Review switch & fee' }).click();
   const approval = page.getByRole('dialog');
   await expect(approval.getByRole('button', { name: 'Go back' })).toBeFocused();
