@@ -36,6 +36,10 @@ async function bookRecommended(page: Page) {
 }
 
 test('interprets, books, switches and confirms pickup on one simulated journey', async ({ page, request }) => {
+  await page.route('**/api/maps', (route) => route.fulfill({ json: {
+    coordinates: [[80.145, 12.841], [80.168, 12.983]], distanceMeters: 20_000,
+    durationSeconds: 1200, calculatedAt: '2026-11-23T08:30:00Z',
+  } }));
   await page.goto(`${web}/book`);
   await page.route('**/api/v1/journeys', (route) => route.continue({ url: route.request().url() + '?scenario=S03' }));
   await page.getByText('Describe your trip with AI', { exact: true }).click();
@@ -86,6 +90,13 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   await expect(page.getByText(/pickup confirmed/i).first()).toBeVisible();
   const complete = await getJourney(request, id);
   expect(complete).toMatchObject({ state: 'PICKUP_CONFIRMED', active_ride: { provider: replacementProvider, state: 'IN_PROGRESS' } });
+  expect(Date.parse(complete.boarded_at ?? '')).toBeGreaterThan(0);
+  const transit = page.getByRole('region', { name: 'Trip progress' });
+  await expect(transit.getByText('Arrival ETA', { exact: true })).toBeVisible();
+  const remaining = transit.getByText('Remaining distance', { exact: true }).locator('..').locator('dd');
+  await expect(remaining).toHaveText(/\d+\.\d km/);
+  const startingDistance = await remaining.textContent();
+  await expect(remaining).not.toHaveText(startingDistance!);
   expect(complete.active_ride_id).not.toBe(original.active_ride_id);
   await expect(page).toHaveURL(`${web}/journey/${id}`);
   await expect(page.getByRole('button', { name: 'Approve switch' })).toHaveCount(0);

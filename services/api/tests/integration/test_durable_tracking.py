@@ -36,3 +36,19 @@ def test_stalled_pickup_advances_without_moving_the_driver():
     assert session.ride_ticks == 4
     assert session.stationary_ticks == 4
     assert session.ride.distance_to_pickup_m == distance
+
+
+def test_boarding_timestamp_survives_storage_and_idempotent_retries():
+    session = Session(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]))
+    session.book(session.quotes[0].quote_id, "book-trip")
+    session.tick(24)
+    boarded_at = datetime(2026, 11, 24, tzinfo=UTC)
+    session.confirm_pickup("board-trip", boarded_at=boarded_at)
+
+    payload = StoredSession.model_validate(vars(session)).model_dump()
+    restored = StoredSession.model_validate(payload).restore()
+    assert restored.snapshot().boarded_at == boarded_at
+    retry = restored.confirm_pickup("board-trip", boarded_at=boarded_at + timedelta(minutes=1))
+    assert retry.boarded_at == boarded_at
+    del payload["boarded_at"]
+    assert StoredSession.model_validate(payload).restore().snapshot().boarded_at is None

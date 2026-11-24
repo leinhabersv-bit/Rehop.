@@ -19,7 +19,7 @@ type MapView = {
 export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver }: Pick<DrivingRoute, 'coordinates'> & {
   pickup: Location;
   dropoff: Location;
-  driver?: { progress: number; marker: ReactNode };
+  driver?: { progress: number; marker: ReactNode; target?: 'destination' };
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
@@ -28,6 +28,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
   const displayed = useRef<number | null>(null);
   const fitRoute = useRef<(() => void) | null>(null);
   const tracking = driver !== undefined;
+  const toDestination = driver?.target === 'destination';
   const progress = driver?.progress;
   const track = useMemo(() => tracking ? measureRoute(coordinates) : null, [tracking, coordinates]);
   const { lat: pickupLat, lng: pickupLng } = pickup;
@@ -45,8 +46,8 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
       if (!node || disposed) return;
       const map = new maps.Map(node, { gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: !tracking });
       const line = new maps.Polyline({ map, strokeColor: '#173ed7', strokeWeight: 5 });
-      const markers = (tracking ? ['Pickup'] : ['Pickup', 'Destination']).map((title, index) => new marker.Marker({
-        map, title, label: tracking ? 'P' : index ? 'B' : 'A',
+      const markers = (tracking ? [toDestination ? 'Destination' : 'Pickup'] : ['Pickup', 'Destination']).map((title, index) => new marker.Marker({
+        map, title, label: tracking ? toDestination ? 'D' : 'P' : index ? 'B' : 'A',
       }));
       let cab: MapView['cab'];
       if (tracking) {
@@ -80,7 +81,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
       loaded?.markers.forEach((marker) => marker.setMap(null));
       node?.replaceChildren();
     };
-  }, [tracking]);
+  }, [tracking, toDestination]);
 
   useEffect(() => {
     const node = container.current;
@@ -121,7 +122,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
     const { cab, map } = view;
     const target = track.length * progress;
     const start = displayed.current ?? target;
-    const pickupPoint = track.pointAt(track.length);
+    const endpoint = track.pointAt(track.length);
     const cameraStart = following && window.matchMedia('(max-width: 639px)').matches ? map.getCenter()?.toJSON() : undefined;
     const place = (distance: number, cameraProgress = 0) => {
       displayed.current = distance;
@@ -129,8 +130,8 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
       const heading = routeScreenHeading(track.pointAt(distance - 12), track.pointAt(distance + 12));
       cab.place({ lng: point[0], lat: point[1] }, heading);
       if (cameraStart && cameraProgress) {
-        // Keep the cab and the pickup together at the zoom that fit the whole route.
-        const center = interpolateRoutePoint(point, pickupPoint, 0.5);
+        // Keep the cab and the endpoint together at the zoom that fit the whole route.
+        const center = interpolateRoutePoint(point, endpoint, 0.5);
         const [lng, lat] = interpolateRoutePoint([cameraStart.lng, cameraStart.lat], center, cameraProgress);
         map.moveCamera({ center: { lat, lng } });
       }
@@ -158,7 +159,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
   return failed
     ? <p role="status" className="px-3 py-2 text-sm text-[#475673]">The map could not load. Reload the page to try again.</p>
     : <div className="relative isolate">
-      <div ref={container} role="region" aria-label={tracking ? 'Google Maps pickup route' : 'Driving route map'} className="isolate z-0 h-[clamp(20rem,50svh,27rem)] w-full bg-[#e8edf8] sm:h-80" />
+      <div ref={container} role="region" aria-label={tracking ? toDestination ? 'Google Maps destination route' : 'Google Maps pickup route' : 'Driving route map'} className="isolate z-0 h-[clamp(20rem,50svh,27rem)] w-full bg-[#e8edf8] sm:h-80" />
       {view?.cab && (
         <button type="button" aria-pressed={following} onClick={() => {
           if (!following) fitRoute.current?.();
