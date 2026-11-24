@@ -170,116 +170,32 @@
 .approachCar {
   position: absolute;
   top: 50%;
-  width: 68px;
-  height: 38px;
-  transform: translate(-50%, -51%);
-  perspective: 280px;
+  width: 34px;
+  height: 18px;
+  transform: translate(-50%, -50%);
   transition: left .75s ease-out;
 }
 
-.approachCar::before {
+.cabBody {
   position: absolute;
-  inset: 23px 1px 1px;
-  border-radius: 50%;
-  background: #070f2b;
-  filter: blur(3px);
-  content: '';
+  inset: 1px 0;
+  border: 1px solid #242446;
+  border-radius: 4px 7px 7px 4px;
+  background: linear-gradient(90deg, #9a374e 0 12%, transparent 12% 88%, #fff4dc 88%) center 2px / 95% 2px no-repeat,
+    linear-gradient(90deg, #9a374e 0 12%, transparent 12% 88%, #fff4dc 88%) center bottom 2px / 95% 2px no-repeat,
+    linear-gradient(180deg, #ffd6b8, #ffb486 48%, #e9926e);
+  box-shadow: 0 0 0 1px #fff9ec, 0 2px 4px #12173188;
 }
 
-.approachCar[data-stalled='true']::before {
-  background: #f6a478;
-}
-
-.cabModel {
+.cabCabin {
   position: absolute;
-  inset: 0;
-  transform: rotateX(-20deg) rotateY(-25deg);
-  transform-style: preserve-3d;
+  inset: 2px 8px 2px 6px;
+  clip-path: polygon(8% 0, 85% 0, 100% 20%, 100% 80%, 85% 100%, 8% 100%, 0 80%, 0 20%);
+  background: linear-gradient(90deg, #29334f 0 19%, #557aff 19% 24%, #2148c9 24% 71%, #7394ff 71% 76%, #192842 76%);
 }
 
-.cabModel > span {
-  position: absolute;
-}
-
-.cabSide {
-  inset: 15px 2px 4px;
-  transform: translateZ(13px);
-  border-radius: 5px 8px 4px 6px;
-  background: linear-gradient(180deg, #527eff 0%, #1a40cf 34%, #122c91 100%);
-  box-shadow: inset 0 -2px #0d206f;
-  border-top: 1px solid #94b2ff;
-}
-
-.cabSide::before,
-.cabSide::after {
-  position: absolute;
-  bottom: -6px;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #111936;
-  border-radius: 50%;
-  background: radial-gradient(circle, #e0e7ff 0 18%, #778cba 20% 42%, #242e49 45%);
-  content: '';
-}
-
-.cabSide::before { left: 7px; }
-.cabSide::after { right: 7px; }
-
-.cabHood {
-  inset: 2px 3px auto;
-  height: 26px;
-  transform: rotateX(90deg);
-  border-radius: 4px 7px 6px 3px;
-  background: linear-gradient(105deg, #416dff, #7799ff 76%, #3d63e2);
-}
-
-.cabNose {
-  top: 16px;
-  left: 52px;
-  width: 26px;
-  height: 17px;
-  transform: rotateY(90deg);
-  border-radius: 5px 5px 8px 7px;
-  background: linear-gradient(90deg, #ffe7ce 0 21%, #1e2e66 21% 79%, #fff0d9 79%) center 4px / 94% 4px no-repeat, linear-gradient(#4671ef, #19349d);
-}
-
-.cabWindows {
-  inset: 3px 16px 21px 10px;
-  transform: translateZ(12px);
-  border: 1px solid #93adff;
-  clip-path: polygon(17% 0, 72% 0, 98% 100%, 0 100%);
-  background: linear-gradient(90deg, transparent 49%, #657fff 49% 54%, transparent 54%), linear-gradient(145deg, #94c4ff, #23376f 55%, #131d4b);
-}
-
-.cabWindshield {
-  top: 2px;
-  left: 33px;
-  width: 25px;
-  height: 17px;
-  transform: rotateY(90deg) rotateX(35deg);
-  border-radius: 4px;
-  background: linear-gradient(165deg, #9dc7ff, #273e7a 63%);
-}
-
-.cabRoof {
-  top: -9px;
-  left: 14px;
-  width: 31px;
-  height: 23px;
-  transform: rotateX(90deg);
-  border-radius: 5px;
-  background: linear-gradient(120deg, #ffd7b5, #ffae80 72%, #e88766);
-}
-
-.cabTaxiLight {
-  top: -5px;
-  left: 24px;
-  width: 13px;
-  height: 7px;
-  transform: translateZ(5px);
-  border-radius: 3px 3px 1px 1px;
-  background: linear-gradient(#fff3d0, #ffc494);
-  box-shadow: 0 0 5px #ffc49490;
+.approachCar[data-stalled='true'] .cabBody {
+  box-shadow: 0 0 0 2px #fff1d8, 0 0 0 5px #ffb48660;
 }
 
 @media (prefers-reduced-motion: reduce) {

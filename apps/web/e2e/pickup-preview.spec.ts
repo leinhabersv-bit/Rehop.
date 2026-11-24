@@ -91,6 +91,8 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   const approach = page.getByRole('img', { name: /^Simulated driver approach/ });
   const cab = approach.locator('[data-pickup-cab]');
   await expect(cab).toBeVisible();
+  await expect(cab).toHaveCSS('width', '34px');
+  await expect(cab).toHaveCSS('perspective', 'none');
   const initialPosition = await cab.getAttribute('style');
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   const first: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
