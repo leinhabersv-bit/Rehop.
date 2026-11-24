@@ -208,16 +208,26 @@ export default function JourneyPanel({ id }: { id: string }) {
               <>
                 <div className={styles.approach} role="img" aria-label={`Simulated driver approach. ${pickupStatus}. ${positionStalled ? 'Driver position unchanged. ' : ''}${(ride.distance_to_pickup_m / 1000).toFixed(1)} km to pickup.`}>
                   <div className={styles.approachHeading} aria-hidden="true">
-                    <span>Driver approach</span>
-                    <span>Simulated tracking</span>
+                    <span>Driver location</span>
+                    <span>Simulated pickup route</span>
                   </div>
                   <div className={styles.approachTrack} aria-hidden="true">
                     <span className={styles.approachPin}><MapPin size={23} /></span>
-                    <span className={styles.approachCar} data-stalled={positionStalled} style={{ left: `${(progress * 100).toFixed(2)}%` }}><CarFront size={24} /></span>
+                    <span className={styles.approachCar} data-stalled={positionStalled} data-pickup-cab style={{ left: `${(progress * 100).toFixed(2)}%` }}>
+                      <span className={styles.cabModel}>
+                        <span className={styles.cabSide} />
+                        <span className={styles.cabHood} />
+                        <span className={styles.cabNose} />
+                        <span className={styles.cabWindows} />
+                        <span className={styles.cabWindshield} />
+                        <span className={styles.cabRoof} />
+                        <span className={styles.cabTaxiLight} />
+                      </span>
+                    </span>
                   </div>
                   <div className={styles.approachFooter} aria-hidden="true">
                     <span>{positionStalled ? 'Position unchanged' : pickupStatus}</span>
-                    <span>Pickup point</span>
+                    <span title={data.pickup.label}>Pickup · {data.pickup.label}</span>
                   </div>
                 </div>
                 <dl className={styles.stats}>

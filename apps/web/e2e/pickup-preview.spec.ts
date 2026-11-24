@@ -88,7 +88,10 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   expect(sheet.y + sheet.height).toBe(690);
   await track.click();
   await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
-  await expect(page.getByRole('img', { name: /^Simulated driver approach/ })).toBeVisible();
+  const approach = page.getByRole('img', { name: /^Simulated driver approach/ });
+  const cab = approach.locator('[data-pickup-cab]');
+  await expect(cab).toBeVisible();
+  const initialPosition = await cab.getAttribute('style');
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   const first: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
   expect(first.policy.max_total_fare_inr).toBe(300);
@@ -96,6 +99,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
     const updated: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
     return updated.active_ride?.distance_to_pickup_m;
   }, { timeout: 12_000 }).toBeLessThan(first.active_ride!.distance_to_pickup_m);
+  await expect.poll(() => cab.getAttribute('style')).not.toBe(initialPosition);
   await expect(page.getByRole('button', { name: /advance|simulate/i })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
   await expect(page.getByRole('link', { name: /VIT Chennai.*Chennai Airport/ })).toHaveAttribute('href', `/journey/${id}`);
