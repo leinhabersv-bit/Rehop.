@@ -1,4 +1,6 @@
 import type { Event, Journey, Location, RecoveryPolicy, Scenario } from '@/types';
+import { readRecentRides } from '@/lib/recent-rides';
+import { bookingRiderId } from '@/lib/rider-id';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -72,7 +74,7 @@ export const api = {
   journey: (id: string): Promise<Journey> => json<Journey>(`/api/v1/journeys/${id}`),
   events: (id: string, sinceSeq = 0) =>
     json<{ events: Event[]; last_event_seq: number }>(`/api/v1/journeys/${id}/events?since_seq=${sinceSeq}`),
-  book: (id: string, quoteId: string, expectedVersion?: number, key = crypto.randomUUID()): Promise<Journey> => {
+  book: async (id: string, quoteId: string, expectedVersion?: number, key = crypto.randomUUID()): Promise<Journey> => {
     const payload: { quote_id: string; idempotency_key: string; expected_version?: number } = {
       quote_id: quoteId,
       idempotency_key: key,
@@ -80,7 +82,18 @@ export const api = {
     if (typeof expectedVersion === 'number') {
       payload.expected_version = expectedVersion;
     }
-    return post<Journey>(`/api/v1/journeys/${id}/book`, payload);
+    let headers: Record<string, string> | undefined;
+    if (typeof window !== 'undefined') {
+      try {
+        headers = {
+          'X-Ride-Rider': await bookingRiderId(),
+          'X-Ride-Recent': readRecentRides().filter((rideId) => /^journey_[a-f0-9]{12}$/.test(rideId)).join(','),
+        };
+      } catch {
+        throw new ApiError('RIDER_STORAGE_UNAVAILABLE', 'Allow browser storage to book a ride.', 400);
+      }
+    }
+    return json<Journey>(`/api/v1/journeys/${id}/book`, { method: 'POST', headers, body: JSON.stringify(payload) });
   },
   tick: (id: string, steps = 6) => post<Journey>(`/api/v1/journeys/${id}/tick`, { steps }),
   approve: (id: string, approved: boolean, version: number) =>

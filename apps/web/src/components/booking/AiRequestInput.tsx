@@ -8,8 +8,6 @@ import { api } from '@/lib/api/client';
 export interface ParsedIntentResult {
   pickup: string | null;
   dropoff: string | null;
-  need_in_minutes: number | null;
-  budget: number | null;
   source: string;
   original_text: string;
 }
@@ -21,16 +19,10 @@ export interface AiRequestInputProps {
 }
 
 const EXAMPLE_PROMPTS = [
-  'To Chennai Airport within 25 minutes',
-  'From Chennai Airport to VIT Chennai under ₹500',
-  'From VIT Chennai to Chennai Airport, pickup within 8 minutes. Keep it under ₹600.',
+  'From Guindy to Chennai Airport',
+  'From Chennai Airport to VIT Chennai',
+  'From Chennai Central Railway Station to Marina Beach Lighthouse',
 ];
-
-export function parseBudget(text: string): number | null {
-  const match = text.match(/(?:₹|\b(?:rs\.?|inr)\s*)\s*([\d,]+)|\b(?:under|below|max(?:imum)?)\s+([\d,]+)/i);
-  const amount = Number((match?.[1] ?? match?.[2] ?? '').replaceAll(',', ''));
-  return Number.isInteger(amount) && amount >= 100 && amount <= 10000 ? amount : null;
-}
 
 export function AiRequestInput({
   onIntentParsed,
@@ -61,8 +53,6 @@ export function AiRequestInput({
       onIntentParsed({
         pickup: parsed.pickup,
         dropoff: parsed.dropoff,
-        need_in_minutes: parsed.need_in_minutes,
-        budget: parseBudget(trimmed),
         source: parsed.source,
         original_text: trimmed,
       });
@@ -116,7 +106,7 @@ export function AiRequestInput({
           }}
           onKeyDown={handleKeyDown}
           disabled={disabled || loading}
-          placeholder='e.g. "From VIT Chennai to Chennai Airport, pickup within 8 minutes."'
+          placeholder='e.g. "From VIT Chennai to Chennai Airport."'
           className="w-full resize-none bg-transparent px-4 py-3 text-sm text-[#171b37] placeholder:text-[#475673]/45 focus:outline-none disabled:opacity-50"
         />
 

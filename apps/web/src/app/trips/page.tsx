@@ -27,8 +27,8 @@ export default function TripsPage() {
         <Link className="btn mt-4 inline-flex" href="/book">Plan a ride</Link>
       </section>
     ) : <ul className="space-y-3">
-      {trips.map((item, index) => <li key={ids[index]} className="rounded-2xl border border-[#d4dcec] bg-white p-4 sm:p-5">
-        {item.data ? <Link className="flex items-center justify-between gap-3 rounded-lg" href={
+      {trips.map((item, index) => <li key={ids[index]} className={`rounded-2xl border border-[#d4dcec] bg-white p-4 sm:p-5 ${item.data ? 'max-sm:p-0' : ''}`}>
+        {item.data ? <Link className="flex items-center justify-between gap-3 rounded-lg max-sm:min-h-16 max-sm:p-4" href={
           '/journey/' + encodeURIComponent(item.data.id)
         }>
           <div><strong>{item.data.pickup.label} → {item.data.dropoff.label}</strong><p className="mt-1 text-sm text-[#43536b]">{status[item.data.state] ?? 'View ride status'}</p></div>

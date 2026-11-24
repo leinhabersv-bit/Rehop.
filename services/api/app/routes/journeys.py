@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated, Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query
 
 from app.intelligence.llm import parse_ride_intent
 from app.schemas.enums import Provider
@@ -18,6 +20,7 @@ from app.schemas.requests import (
     RecoveryPolicy,
     TickRequest,
 )
+from app.simulation.durable import HOSTED, create_ride, open_ride
 from app.simulation.engine import LOCATIONS, SCENARIOS, store
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
@@ -30,8 +33,8 @@ def parse_intent(req: ParseIntentRequest):
 
 @router.post("/journeys/{journey_id}/driver-message")
 def driver_message(journey_id: str, req: DriverMessageRequest):
-    with store.lock:
-        return store.get(journey_id).driver_message(req.text, req.idempotency_key).model_dump(mode="json")
+    with open_ride(journey_id) as journey:
+        return journey.driver_message(req.text, req.idempotency_key).model_dump(mode="json")
 
 
 @router.get("/locations")
@@ -43,13 +46,12 @@ def locations():
 def get_quotes(req: QuoteRequest):
     # Quote previews are created from the journey. Use POST /journeys first
     # so quote IDs remain authoritative through booking.
-    with store.lock:
-        journey = store.create(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
-        return {
-            "journey_id": journey.id,
-            "quotes": [quote.model_dump(mode="json") for quote in journey.quotes],
-            "is_simulated": True,
-        }
+    journey = create_ride(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
+    return {
+        "journey_id": journey.id,
+        "quotes": [quote.model_dump(mode="json") for quote in journey.quotes],
+        "is_simulated": True,
+    }
 
 
 @router.post("/journeys", status_code=201)
@@ -57,30 +59,41 @@ def create_journey(
     req: JourneyCreate,
     scenario: Annotated[Literal["S01", "S03"], Query(description="Simulated pickup behavior.")] = "S01",
 ):
-    with store.lock:
-        return store.create(req, scenario=scenario).snapshot().model_dump(mode="json")
+    return create_ride(req, scenario=scenario).snapshot().model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}")
 def get_journey(journey_id: str):
-    with store.lock:
-        return store.get(journey_id).snapshot().model_dump(mode="json")
+    with open_ride(journey_id) as journey:
+        return journey.snapshot().model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/book")
-def book(journey_id: str, req: BookRequest):
-    with store.lock:
+def book(
+    journey_id: str,
+    req: BookRequest,
+    x_ride_rider: Annotated[UUID | None, Header()] = None,
+    x_ride_recent: Annotated[str, Header(max_length=167)] = "",
+):
+    if HOSTED and x_ride_rider is None:
+        raise SimulationError(
+            "RIDER_REQUIRED", "Reload the booking page before booking a ride.", status=428,
+        )
+    recent_ids = tuple(
+        recent_id for recent_id in x_ride_recent.split(",")[:8]
+        if re.fullmatch(r"journey_[a-f0-9]{12}", recent_id)
+    )
+    rider_id = str(x_ride_rider) if x_ride_rider else None
+    with open_ride(journey_id, rider_id=rider_id, recent_ids=recent_ids) as journey:
         return (
-            store.get(journey_id)
-            .book(req.quote_id, req.idempotency_key, expected_version=req.expected_version)
+            journey.book(req.quote_id, req.idempotency_key, expected_version=req.expected_version)
             .model_dump(mode="json")
         )
 
 
 @router.get("/journeys/{journey_id}/events")
 def events(journey_id: str, since_seq: int = 0):
-    with store.lock:
-        journey = store.get(journey_id)
+    with open_ride(journey_id) as journey:
         return {
             "journey_id": journey.id,
             "events": [e.model_dump(mode="json") for e in journey.events if e.seq > since_seq],
@@ -90,30 +103,27 @@ def events(journey_id: str, since_seq: int = 0):
 
 @router.post("/journeys/{journey_id}/rescue/approve")
 def approve(journey_id: str, req: ApprovalRequest):
-    with store.lock:
+    with open_ride(journey_id) as journey:
         return (
-            store.get(journey_id)
-            .approve_switch(req.approved, req.idempotency_key, expected_version=req.expected_version)
+            journey.approve_switch(req.approved, req.idempotency_key, expected_version=req.expected_version)
             .model_dump(mode="json")
         )
 
 
 @router.post("/journeys/{journey_id}/cancel")
 def cancel(journey_id: str, req: ActionRequest):
-    with store.lock:
+    with open_ride(journey_id) as journey:
         return (
-            store.get(journey_id)
-            .cancel(req.idempotency_key, expected_version=req.expected_version)
+            journey.cancel(req.idempotency_key, expected_version=req.expected_version)
             .model_dump(mode="json")
         )
 
 
 @router.post("/journeys/{journey_id}/pickup/confirm")
 def confirm_pickup(journey_id: str, req: ActionRequest):
-    with store.lock:
+    with open_ride(journey_id) as journey:
         return (
-            store.get(journey_id)
-            .confirm_pickup(req.idempotency_key, expected_version=req.expected_version)
+            journey.confirm_pickup(req.idempotency_key, expected_version=req.expected_version)
             .model_dump(mode="json")
         )
 

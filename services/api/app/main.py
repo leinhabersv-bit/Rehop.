@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
@@ -11,25 +12,24 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.routes.journeys import router
-from app.schemas.enums import JourneyState, RideState
 from app.schemas.errors import ErrorEnvelope, ErrorPayload, SimulationError
+from app.simulation.durable import HOSTED, tracking
 from app.simulation.engine import store
 
 
 def advance_rider_pickups() -> None:
     with store.lock:
         for journey in store.sessions.values():
-            if (
-                (journey.scenario == "S01" or journey.recovery_attempts > 0)
-                and journey.state == JourneyState.MONITORING
-                and journey.ride is not None
-                and journey.ride.state == RideState.DRIVER_EN_ROUTE
-            ):
+            if tracking(journey):
                 journey.tick(1)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    if HOSTED:
+        yield
+        return
+
     async def run_clock() -> None:
         while True:
             await asyncio.sleep(5)
@@ -56,6 +56,24 @@ app.add_middleware(
 )
 app.include_router(router)
 
+if HOSTED:
+    public_api = {
+        "GET": re.compile(r"/(?:health|api/v1/(?:locations|journeys/journey_[a-f0-9]{12}(?:/events)?))"),
+        "POST": re.compile(
+            r"/api/v1/(?:intent/parse|journeys(?:/journey_[a-f0-9]{12}/"
+            r"(?:book|cancel|rescue/approve|pickup/confirm))?)"
+        ),
+    }
+
+    @app.middleware("http")
+    async def public_routes(request: Request, call_next):
+        pattern = public_api.get(request.method)
+        if not pattern or not pattern.fullmatch(request.url.path):
+            return JSONResponse({"error": {"message": "Route unavailable."}}, status_code=404)
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
 
 @app.exception_handler(SimulationError)
 async def simulation_error_handler(request: Request, exc: SimulationError):
@@ -74,6 +92,10 @@ def health():
 
 @app.websocket("/ws/journeys/{journey_id}")
 async def journey_stream(websocket: WebSocket, journey_id: str):
+    if HOSTED:
+        await websocket.close(code=4404)
+        return
+
     def pending_events(after_seq: int):
         with store.lock:
             journey = store.get(journey_id)

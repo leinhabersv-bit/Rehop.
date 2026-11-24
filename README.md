@@ -17,7 +17,7 @@ A **simulation-first AI ride-recovery hackathon project**. RIDE & SEEK monitors 
 - ✅ Fresh-backup pre-cancellation validation and conditional 2025-guideline fee notice; fee is a simulated upper-bound illustration, **not** a provider quote.
 - ✅ Representative seeded simulation scenarios S01–S16, including a stalled pickup, two cancellations, budget limits and GPS uncertainty.
 - ✅ Automated backend tests and a synthetic smoke-report command.
-- 🟡 This demo runs in a single process. Restarting the API clears journeys. SQLite persistence and production concurrency are future work.
+- Local development keeps journeys in memory. The Vercel deployment stores them in Postgres.
 
 ## Tech stack
 
@@ -25,6 +25,25 @@ A **simulation-first AI ride-recovery hackathon project**. RIDE & SEEK monitors 
 |---|---|---|---|
 | Next.js / React / TypeScript | FastAPI + Pydantic | AI interpreter + deterministic safety policy | GitHub PRs |
 | Tailwind CSS / TanStack Query | REST + WebSocket | Synthetic provider event engine | pytest / Vitest / Playwright |
+
+## Cloud deployment
+
+Deploy `apps/web` and `services/api` as separate Vercel projects. Set the web
+project's build variables `NEXT_PUBLIC_API_BASE_URL=/ride-api` and
+`NEXT_PUBLIC_REHOP_POLLING=1`. Connect a database to the API project as
+`DATABASE_URL` and apply `services/api/deploy/schema.sql` before sending traffic.
+Cloud tracking reads saved journeys and advances the simulated clock from the
+time of the last update. Local development still uses the in-memory engine and
+WebSockets.
+
+For the existing Cloudflare Pages project, copy `deploy/pages-config.toml` as
+`wrangler.toml` into a staging directory and
+`deploy/pages-worker.mjs` into its `public` directory as `_worker.js`. Deploy the
+staging directory with Wrangler. The worker routes the website and map requests
+to the web project, and `/ride-api` to the API project.
+
+Before sharing, open the Pages URL and check ride planning, route estimates,
+and pickup progress on a simulated booking.
 
 ## Run locally
 

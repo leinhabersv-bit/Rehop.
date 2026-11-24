@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { api, ApiError } from '@/lib/api/client';
-import { parseBudget } from './AiRequestInput';
 import { calculateNeedBy, SIMULATED_BASE_TIME } from './BookingForm';
-import { isQuoteExpired, isQuoteWithinPolicy } from './ProviderCard';
+import { isQuoteExpired, isQuoteWithinPolicy } from '@/lib/pickup';
 import type { Journey, Quote, RecoveryPolicy } from '@/types';
 
 // In Node environment, polyfill sessionStorage for safety assertion checks
@@ -341,11 +340,6 @@ describe('Booking Regression & Safety Verification', () => {
   });
 });
 
-it('reads complete budget values and leaves an absent cap unset', () => {
-  expect(parseBudget('Keep it under ₹500')).toBe(500);
-  expect(parseBudget('INR 1,200')).toBe(1200);
-  expect(parseBudget('Need pickup within 20 minutes')).toBeNull();
-});
 
 it('uses the same booking key and version on an explicit retry after a transport timeout', async () => {
   const timeout = vi.spyOn(AbortSignal, 'timeout')

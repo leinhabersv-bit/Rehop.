@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, House } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarPlus, CarFront, House } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 interface BrowserNavigation extends EventTarget {
@@ -38,33 +38,60 @@ function traverse(direction: typeof back | typeof forward) {
 
 const navButton = 'inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 font-bold focus-visible:outline-2 focus-visible:outline-[#173ed7] disabled:opacity-35 sm:min-h-9';
 
+const mobileTabs = [
+  { href: '/', label: 'Home', Icon: House },
+  { href: '/book', label: 'Book', Icon: CalendarPlus },
+  { href: '/trips', label: 'Your rides', Icon: CarFront },
+];
+
 export function Navbar() {
   const path = usePathname();
   const rides = path === '/trips' || path.startsWith('/journey/');
+  const booking = path === '/book' || path === '/compare' || path === '/quotes';
+  const currentTab = rides ? '/trips' : booking ? '/book' : path;
   const directions = useSyncExternalStore(subscribeToHistory, availableDirections, () => 0);
   return (
-    <header className="sticky top-0 z-50 border-b border-[#d9dbe7] bg-[#fff9f0]/95 backdrop-blur">
-      <div className="mx-auto grid h-24 max-w-7xl grid-cols-[1fr_auto] grid-rows-2 items-center gap-x-2 px-4 sm:h-16 sm:grid-cols-[1fr_auto_1fr] sm:grid-rows-1 sm:gap-3 sm:px-8">
-        <Link href="/" aria-label="RIDE & SEEK home" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-black tracking-tight text-[#171b37] sm:gap-2 sm:text-xl">
-          <span className="grid size-8 place-items-center rounded-[11px] bg-[#173ed7] text-[#ffb27d] sm:size-9"><ArrowUpRight size={21} strokeWidth={3} aria-hidden="true" /></span>
-          RIDE &amp; SEEK
-        </Link>
-        <nav aria-label="Page navigation" className="col-span-2 row-start-2 grid grid-cols-3 items-center gap-1 rounded-xl border border-[#e0d9d1] bg-[#fffdf8] text-xs text-[#171b37] sm:col-span-1 sm:row-start-1 sm:flex sm:p-0.5 sm:text-sm">
-          <button type="button" className={`${navButton} enabled:hover:bg-[#edf1ff]`} disabled={!(directions & back)} onClick={() => traverse(back)}>
-            <ArrowLeft size={15} aria-hidden="true" /> Back
-          </button>
-          <Link href="/" aria-current={path === '/' ? 'page' : undefined} className={`${navButton} text-[#173ed7] hover:bg-[#edf1ff] ${path === '/' ? 'bg-[#e4eaff]' : ''}`}>
-            <House size={15} aria-hidden="true" /> Home
+    <>
+      <header className="sticky top-0 z-50 border-b border-[#d9dbe7] bg-[#fff9f0]/95 backdrop-blur">
+        <div className="mx-auto grid h-14 max-w-7xl grid-cols-[minmax(0,1fr)_auto] grid-rows-1 items-center gap-x-0.5 px-3 sm:h-16 sm:grid-cols-[1fr_auto_1fr] sm:grid-rows-1 sm:gap-3 sm:px-8">
+          <Link href="/" aria-label="RIDE & SEEK home" className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-xs font-black tracking-tight text-[#171b37] sm:min-h-0 sm:gap-2 sm:text-xl">
+            <span className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-[#173ed7] text-[#ffb27d] sm:size-9 sm:rounded-[11px]"><ArrowUpRight size={21} strokeWidth={3} aria-hidden="true" /></span>
+            RIDE &amp; SEEK
           </Link>
-          <button type="button" className={`${navButton} enabled:hover:bg-[#edf1ff]`} disabled={!(directions & forward)} onClick={() => traverse(forward)}>
-            Forward <ArrowRight size={15} aria-hidden="true" />
-          </button>
-        </nav>
-        <nav aria-label="Main navigation" className="col-start-2 row-start-1 flex items-center justify-end gap-1 text-sm font-bold text-[#171b37] sm:col-start-3 sm:gap-3">
-          <Link href="/trips" aria-current={rides ? 'page' : undefined} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-2 hover:bg-[#eee8df] sm:min-h-10 sm:px-3 ${rides ? 'bg-[#e4eaff] text-[#173ed7]' : ''}`}>Your rides</Link>
-          <Link href="/book" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#173ed7] px-3 text-white hover:bg-[#1232b5] sm:min-h-10 sm:px-4"><span>Book</span><ArrowRight size={15} aria-hidden="true" /></Link>
-        </nav>
-      </div>
-    </header>
+          <nav aria-label="Page navigation" className="col-start-2 row-start-1 flex items-center rounded-xl text-xs text-[#171b37] sm:col-span-1 sm:border sm:border-[#e0d9d1] sm:bg-[#fffdf8] sm:gap-1 sm:p-0.5 sm:text-sm">
+            <button type="button" className={`${navButton} max-sm:w-11 enabled:hover:bg-[#edf1ff]`} disabled={!(directions & back)} onClick={() => traverse(back)}>
+              <ArrowLeft size={15} className="max-sm:size-[18px]" aria-hidden="true" /> <span className="max-sm:sr-only">Back</span>
+            </button>
+            <Link href="/" aria-current={path === '/' ? 'page' : undefined} className={`${navButton} max-sm:hidden text-[#173ed7] hover:bg-[#edf1ff] ${path === '/' ? 'bg-[#e4eaff]' : ''}`}>
+              <House size={15} aria-hidden="true" /> Home
+            </Link>
+            <button type="button" className={`${navButton} max-sm:w-11 enabled:hover:bg-[#edf1ff]`} disabled={!(directions & forward)} onClick={() => traverse(forward)}>
+              <span className="max-sm:sr-only">Forward</span> <ArrowRight size={15} className="max-sm:size-[18px]" aria-hidden="true" />
+            </button>
+          </nav>
+          <nav aria-label="Main navigation" className="col-start-3 row-start-1 hidden items-center justify-end gap-0.5 text-sm font-bold text-[#171b37] sm:flex sm:gap-3">
+            <Link href="/trips" aria-current={rides ? 'page' : undefined} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-2 hover:bg-[#eee8df] sm:min-h-10 sm:px-3 ${rides ? 'bg-[#e4eaff] text-[#173ed7]' : ''}`}>
+              <span>Your rides</span>
+            </Link>
+            <Link href="/book" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#173ed7] px-3 text-white hover:bg-[#1232b5] max-sm:px-2.5 max-sm:text-xs sm:min-h-10 sm:px-4"><span>Book</span><ArrowRight size={15} className="max-sm:hidden" aria-hidden="true" /></Link>
+          </nav>
+        </div>
+      </header>
+      <nav aria-label="Mobile navigation" className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 border-t border-[#d9dbe7] bg-[#fffdf8]/95 shadow-[0_-6px_20px_#171b370d] backdrop-blur sm:hidden">
+        <div className="grid grid-cols-3 gap-1 px-3 py-1.5">
+          {mobileTabs.map(({ href, label, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={currentTab === href ? 'page' : undefined}
+              className="flex min-h-[51px] flex-col items-center justify-center gap-1 rounded-xl text-xs font-bold leading-none text-[#475673] aria-[current=page]:bg-[#e4eaff] aria-[current=page]:text-[#173ed7] focus-visible:outline-2 focus-visible:outline-[#173ed7]"
+            >
+              <Icon size={20} aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }

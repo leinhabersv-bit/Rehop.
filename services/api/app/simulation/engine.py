@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from datetime import UTC, datetime, timedelta
 from threading import RLock
 from uuid import uuid4
@@ -120,7 +119,6 @@ class Session:
         self.cancellation_fee_notice: FeeNotice | None = None
         self.scenario = scenario
         self.seed = seed
-        self.rng = random.Random(seed)
         self.clock = BASE_TIME
         self.state = JourneyState.CREATED
         self.version = 0

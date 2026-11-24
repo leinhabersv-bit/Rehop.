@@ -6,7 +6,7 @@
   min-height: clamp(27rem, 49vw, 38rem);
   overflow: hidden;
   border-radius: clamp(1.25rem, 3vw, 2rem);
-  background: #111528 url('/images/ride-seek-intro.webp') center / cover;
+  background: #111528 url('/images/ride-seek-intro.webp?v=loop') center / cover;
   color: #fffdf8;
 }
 
@@ -62,8 +62,7 @@
   font-size: clamp(1rem, 2.1vw, 1.4rem);
 }
 
-.action,
-.playback {
+.action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -84,21 +83,9 @@
   background: #ffd0ad;
 }
 
-.playback {
-  position: absolute;
-  right: clamp(.75rem, 3vw, 2rem);
-  bottom: clamp(.75rem, 3vw, 2rem);
-  border: 1px solid rgb(255 253 248 / 45%);
-  background: rgb(10 15 34 / 82%);
-  color: #fffdf8;
-}
 
-.playback:hover {
-  background: #252f4d;
-}
 
-.action:focus-visible,
-.playback:focus-visible {
+.action:focus-visible {
   outline: 2px solid #fffdf8;
   outline-offset: 3px;
 }
@@ -116,16 +103,43 @@
     display: block;
   }
 
-  .playback {
-    width: 44px;
-    padding: 0;
-    right: 1.25rem;
-    bottom: 1.5rem;
+
+}
+
+@media (max-width: 639px) {
+  .scene {
+    min-height: clamp(19rem, 41svh, 23rem);
+    border-radius: 1.5rem;
   }
 
-  .playback span {
-    display: none;
+  .video {
+    object-position: 64% center;
   }
+
+  .scene::after {
+    background: linear-gradient(0deg, #0a0f22 1%, rgb(10 15 34 / 78%) 36%, rgb(10 15 34 / 7%) 85%);
+  }
+
+  .content {
+    padding: 1.125rem;
+  }
+
+  .title {
+    font-size: clamp(3.25rem, 15vw, 4.5rem);
+    line-height: .89;
+  }
+
+  .tagline {
+    margin: .65rem 0 .9rem;
+  }
+
+  .action {
+    width: 100%;
+    min-height: 48px;
+    justify-content: space-between;
+    border-radius: .9rem;
+  }
+
 }
 
 @media (prefers-reduced-motion: no-preference) {

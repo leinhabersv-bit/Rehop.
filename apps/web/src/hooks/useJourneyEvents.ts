@@ -34,6 +34,7 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
 
+    const pollingOnly = process.env.NEXT_PUBLIC_REHOP_POLLING === '1';
     const queryKey = ['journey', journeyId];
     const received = new Map<number, Event>();
     let ordered: Event[] = [];
@@ -73,7 +74,8 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
       try {
         const response = await api.events(journeyId, ordered.length);
         merge(response.events);
-        if (socket?.readyState !== WebSocket.OPEN) publish('replaying');
+        if (pollingOnly) publish('live');
+        else if (socket?.readyState !== WebSocket.OPEN) publish('replaying');
       } catch {
         if (socket?.readyState !== WebSocket.OPEN) publish('offline');
       } finally {
@@ -90,7 +92,10 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
     function connect() {
       if (stopped) return;
       try {
-        const url = new URL(`${API_BASE.replace(/\/$/, '')}/ws/journeys/${encodeURIComponent(journeyId)}`);
+        const url = new URL(
+          `${API_BASE.replace(/\/$/, '')}/ws/journeys/${encodeURIComponent(journeyId)}`,
+          window.location.origin,
+        );
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
         url.searchParams.set('since_seq', String(ordered.length));
         const activeSocket = new WebSocket(url);
@@ -118,7 +123,8 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
       }
     }
 
-    connect();
+    if (pollingOnly) void replay();
+    else connect();
     const fallback = setInterval(() => {
       if (received.size || socket?.readyState !== WebSocket.OPEN) void replay();
     }, 4000);

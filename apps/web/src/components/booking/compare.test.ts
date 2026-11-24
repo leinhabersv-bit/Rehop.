@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { ProviderCard } from './ProviderCard';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 import { CompareScreen } from './CompareScreen';
 import { providerName, type Quote, type Provider, type Journey } from '@/types';
@@ -71,8 +70,6 @@ const MOCK_JOURNEY_FOR_TESTS: Journey = {
 
 describe('Compare & Confirmation Components & Business Logic', () => {
   it('exports valid React components', () => {
-    expect(ProviderCard).toBeDefined();
-    expect(typeof ProviderCard).toBe('function');
     expect(BookingConfirmationModal).toBeDefined();
     expect(typeof BookingConfirmationModal).toBe('function');
     expect(CompareScreen).toBeDefined();

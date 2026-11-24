@@ -3,12 +3,13 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Activity, CarFront, Check, MapPin, ShieldCheck } from 'lucide-react';
 import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
 import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
-import RouteCanvas from './RouteCanvas';
 import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
+import { pickupActivity } from './pickup-activity';
 import styles from './journey.module.css';
 
 const finished = new Set(['PICKUP_CONFIRMED', 'EXHAUSTED', 'USER_CANCELLED']);
@@ -28,41 +29,22 @@ const rideLabels: Record<string, string> = {
   DRIVER_ARRIVED: 'Driver arrived',
   IN_PROGRESS: 'Passenger boarded',
 };
+const pickupSteps = [
+  { label: 'On the way', Icon: CarFront },
+  { label: 'At pickup', Icon: MapPin },
+  { label: 'Boarded', Icon: Check },
+];
 const connectionLabels: Record<Connection, string> = {
   connecting: 'Connecting to live updates',
   live: 'Live updates',
   replaying: 'Reconnecting · checking for updates',
   offline: 'Updates interrupted · reconnecting',
 };
-const eventLabels: Record<string, string> = {
-  RIDE_CONFIRMED: 'Provider confirmed booking',
-  DRIVER_CANCELLED: 'Driver cancelled the ride',
-  DRIVER_ARRIVED: 'Driver arrived at pickup',
-  PICKUP_CONFIRMED: 'Passenger confirmed boarding',
-  BACKUP_FOUND: 'Backup quote found',
-  QUOTE_REFRESHED: 'Backup quote rechecked',
-  QUOTE_REFRESH_FAILED: 'Backup unavailable on recheck',
-  APPROVAL_REQUIRED: 'Rider approval required',
-  SWITCH_APPROVED: 'Rider approved switch',
-  SWITCH_REJECTED: 'Rider declined recovery',
-  RIDE_CANCEL_REQUESTED: 'Original cancellation requested',
-  RIDE_CANCEL_CONFIRMED: 'Original cancellation confirmed',
-  RECOVERY_SUCCEEDED: 'Replacement booking confirmed',
-  REPLACEMENT_QUOTE_LOST: 'Replacement unavailable after cancellation',
-  DRIVER_MESSAGE_CLASSIFIED: 'Driver message classified',
-};
 const recoveryEvents = new Set([
   'APPROVAL_REQUIRED', 'QUOTE_REFRESH_FAILED', 'RECOVERY_SUCCEEDED', 'REPLACEMENT_QUOTE_LOST',
   'RECOVERY_EXHAUSTED', 'RECOVERY_BLOCKED', 'SWITCH_REJECTED',
 ]);
-const backgroundEvents = new Set(['TELEMETRY_UPDATED', 'RISK_UPDATED', 'DEADLINE_DECISION']);
 const readable = (value: string) => value.replaceAll('_', ' ').toLowerCase();
-const clockTime = (value: string) => new Date(value).toLocaleTimeString('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  timeZone: 'UTC',
-});
 const minutes = (seconds: number) => Math.ceil(seconds / 60);
 
 function recoveryStatus(journey: Journey, event?: Event): string | null {
@@ -90,7 +72,7 @@ function recoveryStatus(journey: Journey, event?: Event): string | null {
       : 'The backup became unavailable on recheck.';
   }
   if (event?.type === 'RECOVERY_BLOCKED' && event.payload.reason === 'CANCELLATION_FEE_LIMIT') {
-    return 'The possible cancellation fee is above your limit. Your original ride remains active.';
+    return 'The switch was blocked by the possible cancellation fee. Your original ride remains active.';
   }
   if (event?.type === 'RECOVERY_SUCCEEDED' && journey.active_ride?.ride_id === event.ride_id) {
     return `Replacement confirmed with ${providerName[journey.active_ride.provider]}. Tracking now follows this ride.`;
@@ -171,13 +153,20 @@ export default function JourneyPanel({ id }: { id: string }) {
   const canAct = !action && !query.isError && !done && !reconciling;
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
   const canBoard = canAct && ride?.state === 'DRIVER_ARRIVED';
-  const remainingSeconds = (Date.parse(data.need_by) - Date.parse(data.simulated_time)) / 1000;
-  const late = Boolean(ride && ride.state === 'DRIVER_EN_ROUTE' && ride.eta_sec > remainingSeconds);
   const backup = data.state === 'AWAITING_APPROVAL' && !reconciling ? data.pending_backup : null;
   const bookedQuote = ride ? data.quotes.find((quote) => quote.quote_id === ride.quote_id) : undefined;
+  const cancellationFee = data.cancellation_fee_notice?.potential_fee_upper_bound_inr ?? (
+    bookedQuote ? Math.min(Math.ceil(bookedQuote.estimated_fare_inr / 10), 100) : null
+  );
   const latestRecovery = stream.events.findLast((event) => recoveryEvents.has(event.type));
   const status = recoveryStatus(data, latestRecovery);
-  const timeline = stream.events.filter((event) => !backgroundEvents.has(event.type));
+  const { timeline, progress, stalled } = pickupActivity(stream.events, ride);
+  const positionStalled = stalled && risk?.band !== 'UNKNOWN' && !query.isError;
+  const pickupStatus = ride && data.state === 'MONITORING'
+    ? rideLabels[ride.state] ?? readable(ride.state)
+    : journeyLabels[data.state] ?? readable(data.state);
+  const pickupStep = ride?.state === 'IN_PROGRESS' || data.state === 'PICKUP_CONFIRMED' ? 2
+    : ride?.state === 'DRIVER_ARRIVED' ? 1 : 0;
 
   return (
     <>
@@ -201,7 +190,6 @@ export default function JourneyPanel({ id }: { id: string }) {
           <h1 className="mt-3">{data.state === 'PICKUP_CONFIRMED' ? 'You’re on your way' : 'Your pickup'}</h1>
           <p className="lead">{data.pickup.label} → {data.dropoff.label}</p>
         </div>
-        <span className="badge">{journeyLabels[data.state] ?? readable(data.state)}</span>
       </header>
       {query.isError && (
         <div className={`error ${styles.notice}`} role="alert">
@@ -210,39 +198,60 @@ export default function JourneyPanel({ id }: { id: string }) {
         </div>
       )}
       <div className={styles.columns}>
-        <div className="stack">
-          <section className={`panel stack ${styles.card}`} aria-labelledby="progress-title">
-            <div className={styles.cardHeading}>
+          <section className={styles.pickupCard} aria-labelledby="progress-title">
+            <div className={styles.pickupHeader}>
               <h2 id="progress-title">Pickup status</h2>
-              {ride && <span className="badge">{rideLabels[ride.state] ?? readable(ride.state)}</span>}
+              <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
-            <RouteCanvas ride={ride} uncertain={risk?.band === 'UNKNOWN' || reconciling || query.isError} />
-            {ride && <div className={styles.driver}>
-              <strong>{providerName[ride.provider]}</strong>
-              <span className="muted">Driver {ride.driver_id}</span>
-            </div>}
-            <dl className={styles.stats}>
-              <div className="stat"><dt>Driver to pickup</dt><dd>{
-                ride?.state === 'DRIVER_ARRIVED' ? 'At pickup' :
-                ride?.state === 'IN_PROGRESS' ? 'Boarded' :
-                ride?.state === 'DRIVER_EN_ROUTE' || ride?.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
-              }</dd></div>
-              <div className="stat"><dt>Distance to pickup</dt><dd>{ride ? `${(ride.distance_to_pickup_m / 1000).toFixed(1)} km` : '—'}</dd></div>
-              <div className="stat"><dt>Recovery attempts</dt><dd>{data.recovery_attempts}/{data.policy.max_recovery_attempts}</dd></div>
-            </dl>
-            <p className="helper">Driver position and pickup time are simulated.</p>
-            {late && !done && !reconciling && <p className={styles.warning}>
-              {risk?.band === 'UNKNOWN' ? 'The last reported pickup estimate' : 'The current pickup estimate'} is past your deadline.
-            </p>}
-            {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Compare rides</Link></div>}
+            <p className={styles.pickupStatus}>{pickupStatus}</p>
+            {ride && (
+              <>
+                <div className={styles.approach} role="img" aria-label={`Simulated driver approach. ${pickupStatus}. ${positionStalled ? 'Driver position unchanged. ' : ''}${(ride.distance_to_pickup_m / 1000).toFixed(1)} km to pickup.`}>
+                  <div className={styles.approachHeading} aria-hidden="true">
+                    <span>Driver approach</span>
+                    <span>Simulated tracking</span>
+                  </div>
+                  <div className={styles.approachTrack} aria-hidden="true">
+                    <span className={styles.approachPin}><MapPin size={23} /></span>
+                    <span className={styles.approachCar} data-stalled={positionStalled} style={{ left: `${(progress * 100).toFixed(2)}%` }}><CarFront size={24} /></span>
+                  </div>
+                  <div className={styles.approachFooter} aria-hidden="true">
+                    <span>{positionStalled ? 'Position unchanged' : pickupStatus}</span>
+                    <span>Pickup point</span>
+                  </div>
+                </div>
+                <dl className={styles.stats}>
+                  <div><dt>Driver to pickup</dt><dd>{
+                    ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
+                    ride.state === 'IN_PROGRESS' ? 'Boarded' :
+                    ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
+                  }</dd></div>
+                  <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
+                </dl>
+                <ol className={styles.pickupSteps} aria-label="Pickup progress">
+                  {pickupSteps.map(({ label, Icon }, index) => (
+                    <li key={label} aria-current={index === pickupStep ? 'step' : undefined} data-reached={index <= pickupStep}>
+                      <span className={styles.stepIcon}><Icon size={16} aria-hidden="true" /></span>
+                      {label}
+                    </li>
+                  ))}
+                </ol>
+                <p className={styles.driver}>
+                  <strong>{providerName[ride.provider]}</strong>
+                  <span>{risk?.band === 'UNKNOWN' || reconciling || query.isError ? 'Last reported pickup estimate' : 'Simulated pickup estimate'}</span>
+                </p>
+              </>
+            )}
+            {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Review ride</Link></div>}
             {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
               <button className="btn" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
           </section>
 
+        <div className={styles.trackColumn}>
           <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
             <div className={styles.cardHeading}>
-              <h2 ref={recoveryHeading} id="recovery-title" tabIndex={-1}>Pickup protection</h2>
+              <h2 ref={recoveryHeading} id="recovery-title" tabIndex={-1}><ShieldCheck size={20} aria-hidden="true" /> Pickup protection</h2>
               {risk && !done && !reconciling && <span className={`badge ${risk.band === 'HIGH' ? 'high' : risk.band === 'LOW' ? 'low' : ''}`}>{readable(risk.band)} risk</span>}
             </div>
             {status && <div className={done || reconciling ? 'inline-note' : styles.recoveryNotice} role="status">{status}</div>}
@@ -278,10 +287,13 @@ export default function JourneyPanel({ id }: { id: string }) {
             {error && <p role="alert" className="error">{error}</p>}
           </section>
 
-          {canAct && (
+          {canAct && ride && (
             <section aria-label="Manage ride" className="rounded-2xl border border-[#d9dce9] bg-[#fffdf8] p-4">
               {reviewCancel ? <>
                 <p className="mb-3 text-sm font-bold">Cancel this ride?</p>
+                {cancellationFee !== null && cancellationFee > 0 && (
+                  <p className={`${styles.warning} mb-3`}>A simulated cancellation fee of up to ₹{cancellationFee} may apply. The amount depends on the reason and provider.</p>
+                )}
                 <div className="button-row">
                   <button type="button" className="btn danger" onClick={() => {
                     setReviewCancel(false);
@@ -293,25 +305,23 @@ export default function JourneyPanel({ id }: { id: string }) {
             </section>
           )}
 
-          <TripRoute pickup={data.pickup} dropoff={data.dropoff} />
+          <aside className={`panel stack ${styles.card}`} aria-labelledby="ride-activity">
+            <div className={styles.cardHeading}>
+              <h2 id="ride-activity"><Activity size={20} aria-hidden="true" /> Ride activity</h2>
+            </div>
+            {timeline.length ? (
+              <ol className={styles.timeline} aria-label="Simulated time since booking, newest first">
+                {timeline.slice().reverse().map((event) => (
+                  <li key={event.seq}>
+                    <span className={styles.elapsed}>{event.elapsed}</span>
+                    <span>{event.label}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className="muted">Journey updates will appear here.</p>}
+          </aside>
         </div>
-
-        <aside className={`panel stack ${styles.card} ${styles.timelinePanel}`}>
-          <div className={styles.cardHeading}>
-            <h2>Ride activity</h2>
-          </div>
-          <p role="status" className={`helper ${styles.connection}`} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
-          {timeline.length ? (
-            <ol className={styles.timeline} aria-label="Journey events, newest first">
-              {timeline.slice().reverse().map((event) => (
-                <li key={event.seq}>
-                  <time dateTime={event.timestamp}>{clockTime(event.timestamp)}</time>
-                  <span>{eventLabels[event.type] ?? readable(event.type)}</span>
-                </li>
-              ))}
-            </ol>
-          ) : <p className="muted">Journey updates will appear here.</p>}
-        </aside>
+        <div className={styles.tripMap}><TripRoute pickup={data.pickup} dropoff={data.dropoff} /></div>
       </div>
     </>
   );

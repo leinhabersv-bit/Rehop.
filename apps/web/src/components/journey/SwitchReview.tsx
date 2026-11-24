@@ -66,8 +66,7 @@ export default function SwitchReview({
               <>
                 <strong>Possible cancellation fee up to ₹{fee.potential_fee_upper_bound_inr}</strong>
                 <p>{fee.caution}</p>
-                <p>Your cancellation fee limit is ₹{reviewed.policy.max_cancellation_fee_inr}.</p>
-                {exceedsFeeLimit && <p className="error">The possible fee exceeds your limit. Your current ride stays active.</p>}
+                {exceedsFeeLimit && <p className="error">Switching is unavailable at this fee. Your current ride stays active.</p>}
               </>
             ) : <p>The fee estimate is unavailable. Review the offer again before switching.</p>}
           </div>

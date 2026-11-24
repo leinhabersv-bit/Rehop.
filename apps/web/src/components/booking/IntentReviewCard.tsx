@@ -4,16 +4,13 @@ import React, { useState } from 'react';
 import {
   Sparkles,
   CheckCircle2,
-  Info,
   ArrowRight,
   Edit3,
-  Clock,
   MapPin,
   RotateCcw,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import type { Location } from '@/types';
-import { PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 import type { ParsedIntentResult } from './AiRequestInput';
 
 export interface IntentReviewCardProps {
@@ -22,8 +19,6 @@ export interface IntentReviewCardProps {
   onConfirmAndFind: (confirmedValues: {
     pickup: string;
     dropoff: string;
-    need_in_minutes: number | null;
-    budget: number | null;
   }) => void;
   onEditManually: () => void;
   className?: string;
@@ -41,10 +36,8 @@ export function IntentReviewCard({
   // Editable fields within the review card
   const [pickup, setPickup] = useState(intent.pickup ?? '');
   const [dropoff, setDropoff] = useState(intent.dropoff ?? '');
-  const [needInMinutes, setNeedInMinutes] = useState(intent.need_in_minutes);
-  const [budget, setBudget] = useState(intent.budget);
   const [isEditing, setIsEditing] = useState(!intent.pickup || !intent.dropoff);
-  const fieldsCount = [intent.pickup, intent.dropoff, intent.need_in_minutes, intent.budget].filter(Boolean).length;
+  const fieldsCount = [intent.pickup, intent.dropoff].filter(Boolean).length;
   const validRoute = pickup !== dropoff && locations.some((item) => item.label === pickup)
     && locations.some((item) => item.label === dropoff);
 
@@ -52,8 +45,6 @@ export function IntentReviewCard({
     onConfirmAndFind({
       pickup,
       dropoff,
-      need_in_minutes: needInMinutes,
-      budget,
     });
   };
 
@@ -93,7 +84,7 @@ export function IntentReviewCard({
           Review your ride request
         </h2>
         <p className="text-sm font-medium text-[#475673] mt-1">
-          Check the extracted details, then review your recovery and spending limits.
+          Check the pickup and destination before continuing.
         </p>
       </div>
 
@@ -114,7 +105,7 @@ export function IntentReviewCard({
       <div className="rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-4 sm:p-5 mb-5">
         <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-[#d9dbe7]">
           <h3 className="text-sm sm:text-base font-extrabold text-[#171b37]">
-            Extracted preferences
+            Trip details
           </h3>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0d755d]/15 border border-[#0d755d]/30 px-2.5 py-0.5 text-xs font-bold text-[#0d755d]">
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -166,79 +157,6 @@ export function IntentReviewCard({
             )}
           </div>
 
-          {/* Arrival Deadline / Pickup needed in */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
-            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-[#173ed7]" />
-              Pickup needed within
-            </span>
-            {isEditing ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {PICKUP_WAIT_PRESETS.map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => setNeedInMinutes(mins)}
-                    className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-                      needInMinutes === mins
-                        ? 'bg-[#173ed7] text-white'
-                        : 'bg-[#fffdf8] text-[#475673] hover:text-[#171b37]'
-                    }`}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span className="text-sm font-bold text-[#173ed7]">
-                {needInMinutes ? `Within ${needInMinutes} minutes` : 'Set in trip details'}
-              </span>
-            )}
-          </div>
-
-          {/* Max Fare / Budget */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1.5 border-b border-[#d9dbe7]/60">
-            <span className="text-xs font-semibold text-[#475673] flex items-center gap-2">
-              <span className="text-[#173ed7] font-black text-sm">₹</span>
-              Maximum fare cap
-            </span>
-            {isEditing ? (
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-bold text-[#475673]">₹</span>
-                <input
-                  type="number"
-                  aria-label="Maximum fare cap"
-                  min={100}
-                  max={10000}
-                  step={1}
-                  value={budget ?? ''}
-                  onChange={(e) => setBudget(e.target.value ? Number(e.target.value) : null)}
-                  className="w-24 rounded-lg bg-[#fffdf8] border border-[#d9dbe7] px-2 py-1 text-xs font-semibold text-[#171b37] focus:outline-none focus:border-[#173ed7]"
-                />
-              </div>
-            ) : (
-              <span className="text-sm font-extrabold text-[#171b37]">{budget === null ? 'Set in trip details' : `₹${budget}`}</span>
-            )}
-          </div>
-
-        </div>
-      </div>
-
-      {/* 3. Safety / Policy Callout Card */}
-      <div className="rounded-2xl bg-[#edf1ff] border border-[#d9dbe7] p-4 mb-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#edf1ff]/20 text-[#475673] mt-0.5">
-            <Info className="h-4 w-4" />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-xs sm:text-sm font-bold text-[#171b37]">
-              AI is assisting, not booking
-            </h4>
-            <p className="text-xs font-medium text-[#475673] mt-0.5 leading-relaxed">
-              You can edit every field. Booking always requires your explicit confirmation, and no
-              fare is charged without your approval.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -250,7 +168,7 @@ export function IntentReviewCard({
           size="lg"
           fullWidth
           onClick={handleConfirm}
-          disabled={!validRoute || (budget !== null && (budget < 100 || budget > 10000))}
+          disabled={!validRoute}
           className="!bg-[#173ed7] !text-white !border-[#173ed7] font-extrabold shadow-[0_0_24px_rgba(39,59,119,0.12)]"
           rightIcon={<ArrowRight className="h-4 w-4" />}
         >

@@ -35,7 +35,9 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
     queryKey: ['map-places', submitted],
     queryFn: ({ signal }) => searchPlaces(submitted, signal),
     enabled: open && submitted.length >= 3,
-    staleTime: 15 * 60_000,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: retryMapRequest,
   });
   const searchWords = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -44,7 +46,8 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
     return searchWords.every((word) => label.includes(word));
   });
   const mapResults = search.data?.places ?? [];
-  const places = submitted ? [
+  const googleResults = submitted && search.data?.provider === 'google' && mapResults.length > 0;
+  const places = googleResults ? mapResults : submitted ? [
     ...suggestions,
     ...mapResults.filter((result) => !suggestions.some((place) => place.lat === result.lat && place.lng === result.lng)),
   ] : suggestions;
@@ -65,8 +68,8 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
       }}
       onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
     >
-      <div className="flex items-center gap-2 rounded-xl border border-[#d9dbe7] bg-white px-2.5 py-1.5 focus-within:border-[#173ed7] sm:gap-3 sm:px-3">
-        <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-[#edf1ff] text-[#173ed7] sm:grid">
+      <div className="flex items-center gap-2 rounded-xl border border-[#d9dbe7] bg-white px-2.5 py-1.5 focus-within:border-[#173ed7] max-sm:gap-1.5 max-sm:bg-[#f6f8ff] max-sm:pl-2 max-sm:pr-0.5 sm:gap-3 sm:px-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#edf1ff] text-[#173ed7] max-sm:size-7">
           <Icon size={16} aria-hidden="true" />
         </span>
         <label htmlFor={id} className="min-w-0 flex-1">
@@ -137,7 +140,8 @@ function PlaceField({ label, value, locations, onChange, onSelect, pickup }: Pla
               <span>{place.label}</span>
             </button>
           ))}
-          {submitted && <a href="https://www.openstreetmap.org/copyright" className="block px-2 py-1 text-xs text-[#475673] underline" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>}
+          {googleResults && <span translate="no" className="block whitespace-nowrap px-2 py-1 text-xs font-normal text-[#5e5e5e]">Google Maps</span>}
+          {submitted && search.isSuccess && !search.data?.provider && <a href="https://www.openstreetmap.org/copyright" className="block px-2 py-1 text-xs text-[#475673] underline" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>}
         </div>
       )}
     </div>

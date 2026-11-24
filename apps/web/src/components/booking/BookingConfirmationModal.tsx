@@ -22,10 +22,6 @@ export function hasConfirmedRide(journey: Journey, quoteId?: string): boolean {
     ['CONFIRMED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.state);
 }
 
-const simulatorTime = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-});
-
 export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide }: BookingConfirmationModalProps) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -43,7 +39,6 @@ export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide
 
   const quote = journey.quotes.find((item) =>
     item.quote_id === ride.quote_id && item.provider === ride.provider);
-  const deadline = Date.parse(journey.need_by);
   const rideState = {
     CONFIRMED: 'Booking accepted',
     DRIVER_EN_ROUTE: 'Driver approaching',
@@ -114,17 +109,10 @@ export function BookingConfirmationModal({ isOpen, onClose, journey, onTrackRide
                 <dd className="font-bold">{Math.ceil(ride.eta_sec / 60)} min</dd>
               </div>
               <div>
-                <dt className="text-xs text-[#475673]">Pickup deadline</dt>
-                <dd className="font-bold">{Number.isFinite(deadline) ? simulatorTime.format(deadline) + ' UTC' : '—'}</dd>
-              </div>
-              <div>
                 <dt className="text-xs text-[#475673]">Driver status</dt>
                 <dd className="font-bold text-[#0d755d]">{rideState}</dd>
               </div>
             </dl>
-            <p className="break-all border-t border-[#d9dbe7] pt-3 text-xs text-[#475673]">
-              Ride ID <span className="font-mono text-[#171b37]">{ride.ride_id}</span>
-            </p>
           </div>
         </div>
 

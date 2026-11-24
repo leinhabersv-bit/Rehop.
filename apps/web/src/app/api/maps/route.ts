@@ -1,9 +1,12 @@
 import type { Location } from '@/types';
+import { computeGoogleDrive, searchGoogleIndia } from './google-server';
 
 const userAgent = 'ReHop/0.1 (+https://github.com/leinhabersv-bit/Rehop.)';
 const lastRequest = { places: 0, route: 0 };
+const lastGoogleRequest = { places: 0, route: 0 };
 type MapResult = { data: object; status: number };
 const cache = new Map<string, { expires: number; result: Promise<MapResult> }>();
+const googlePending = new Map<string, Promise<MapResult | null>>();
 
 function validPoint(point: unknown): point is [number, number] {
   return Array.isArray(point) && point.length === 2 &&
@@ -27,7 +30,7 @@ function placesFrom(features: PhotonFeature[]) {
   for (const feature of features) {
     const coordinates = feature.geometry?.coordinates;
     const props = feature.properties;
-    if (!validPoint(coordinates) || !props) continue;
+    if (!validPoint(coordinates) || props?.countrycode?.toUpperCase() !== 'IN') continue;
     const [lng, lat] = coordinates;
     const address = [props.housenumber, props.street].filter(Boolean).join(' ');
     const parts = [props.name, address, props.district, props.city || props.county, props.state, props.country].filter(Boolean);
@@ -78,11 +81,21 @@ async function fetchMapData(url: URL, kind: keyof typeof lastRequest): Promise<M
   return { data: { error: 'Map service is temporarily unavailable. Try again shortly.' }, status: 503 };
 }
 
-export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams;
+export async function POST(request: Request) {
+  if (!request.headers.get('content-type')?.startsWith('application/json') ||
+      request.headers.get('sec-fetch-site') === 'cross-site') {
+    return Response.json({ error: 'Use the trip planner to request map data.' }, { status: 403 });
+  }
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      Object.values(body).some((value) => typeof value !== 'string')) {
+    return Response.json({ error: 'Invalid map request.' }, { status: 400 });
+  }
+  const params = new URLSearchParams(body);
   const query = params.get('q')?.trim().replace(/\s+/g, ' ');
   let kind: keyof typeof lastRequest;
   let url: URL;
+  let points: [string, string] | undefined;
 
   if (query !== undefined) {
     if (query.length < 3 || query.length > 160) {
@@ -90,7 +103,7 @@ export async function GET(request: Request) {
     }
     kind = 'places';
     url = new URL(process.env.REHOP_PHOTON_URL || 'https://photon.komoot.io/api/');
-    url.search = new URLSearchParams({ q: query, limit: '8', lat: '13.08', lon: '80.27', lang: 'en' }).toString();
+    url.search = new URLSearchParams({ q: query, limit: '12', countrycode: 'IN', lang: 'en' }).toString();
   } else {
     const from = parsePoint(params.get('from'));
     const to = parsePoint(params.get('to'));
@@ -98,6 +111,7 @@ export async function GET(request: Request) {
       return Response.json({ error: 'Choose two different places to see a route.' }, { status: 400 });
     }
     kind = 'route';
+    points = [from, to];
     const base = process.env.REHOP_OSRM_URL || 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
     url = new URL(`${base.replace(/\/$/, '')}/${from};${to}`);
     url.search = new URLSearchParams({
@@ -106,19 +120,55 @@ export async function GET(request: Request) {
   }
 
   const key = kind === 'places' ? `places:${query?.toLowerCase()}` : url.href;
+  const source = points ? params.get('source') : null;
+  const includeGooglePath = source === 'google-map';
+  const mapsKey = source === 'osm' ? undefined : process.env.GOOGLE_MAPS_SERVER_KEY?.trim();
+  const googleKey = includeGooglePath ? `google-map:${key}` : key;
+  const responseOptions = { headers: { 'Cache-Control': 'no-store' } };
   const now = Date.now();
+  const inFlight = mapsKey && googlePending.get(googleKey);
+  if (inFlight) {
+    const result = await inFlight;
+    if (result) return Response.json(result.data, { ...responseOptions, status: result.status });
+  }
   const cached = cache.get(key);
-  if (cached && cached.expires > now) {
+  if (!mapsKey && cached && cached.expires > now) {
     const { data, status } = await cached.result;
     return Response.json(data, { status });
   }
-  if (now - lastRequest[kind] < 1000) {
+  const requestTimes = mapsKey ? lastGoogleRequest : lastRequest;
+  if (now - requestTimes[kind] < 1000) {
     return Response.json({ error: 'Map service is busy. Try again in a second.' }, {
       status: 429,
       headers: { 'Retry-After': '1' },
     });
   }
-  lastRequest[kind] = now;
+  requestTimes[kind] = now;
+  if (mapsKey) {
+    const pending = (async (): Promise<MapResult | null> => {
+      try {
+        if (points) {
+          const route = await computeGoogleDrive(...points, mapsKey, includeGooglePath);
+          if (route && includeGooglePath && (!Array.isArray(route.coordinates) ||
+              route.coordinates.length < 2 || !route.coordinates.every(validPoint))) return null;
+          return route
+            ? { data: route, status: 200 }
+            : { data: { error: 'No driving route found. Try a nearby road or entrance.' }, status: 404 };
+        }
+        const result = await searchGoogleIndia(query!, mapsKey);
+        return { data: result, status: 200 };
+      } catch {
+        return null;
+      }
+    })();
+    googlePending.set(googleKey, pending);
+    const result = await pending.finally(() => googlePending.delete(googleKey));
+    if (result) return Response.json(result.data, { ...responseOptions, status: result.status });
+  }
+  if (cached && cached.expires > now) {
+    const { data, status } = await cached.result;
+    return Response.json(data, { status });
+  }
   const pending = fetchMapData(url, kind);
   cache.delete(key);
   if (cache.size >= 250) {

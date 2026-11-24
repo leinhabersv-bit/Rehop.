@@ -2,7 +2,6 @@
 
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { DEFAULT_PICKUP_WAIT } from '@/lib/pickup';
 import { BookingForm } from '@/components/booking/BookingForm';
 
 function BookingContent() {
@@ -10,23 +9,17 @@ function BookingContent() {
   const customSearch = searchParams.get('search') === '1';
   const initialPickup = searchParams.get('pickup') ?? (customSearch ? '' : 'VIT Chennai');
   const initialDropoff = searchParams.get('dropoff') ?? (customSearch ? '' : 'Chennai Airport');
-  const requestedMinutes = Number(searchParams.get('needIn'));
-  const initialNeedIn = Number.isInteger(requestedMinutes) && requestedMinutes >= 5 && requestedMinutes <= 120
-    ? requestedMinutes
-    : DEFAULT_PICKUP_WAIT;
-
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pb-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-black tracking-tight sm:text-5xl">Set up your trip</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pb-10 max-sm:gap-3 max-sm:pb-4">
+      <header className="space-y-2 max-sm:px-1 max-sm:pt-2">
+        <h1 className="text-3xl font-black tracking-tight max-sm:text-[2.125rem] max-sm:leading-[1.02] sm:text-5xl">Set up your trip</h1>
         <p className="text-sm leading-relaxed text-[#475673] sm:text-base">
-          Tell us where you’re going and how long you can wait. Review your recommended ride before booking.
+          Choose your pickup and destination to see your route and recommended ride.
         </p>
       </header>
       <BookingForm
         initialPickup={initialPickup}
         initialDropoff={initialDropoff}
-        initialNeedIn={initialNeedIn}
       />
     </div>
   );

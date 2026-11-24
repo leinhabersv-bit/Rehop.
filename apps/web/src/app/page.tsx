@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
-import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
 
 const sampleRoutes = [
   ['VIT Chennai', 'Chennai Airport'],
@@ -44,7 +43,6 @@ export default function HomePage() {
   const labels = locations.data?.locations.map(({ label }) => label) ?? [];
   const [pickupChoice, setPickup] = useState('');
   const [dropoffChoice, setDropoff] = useState('');
-  const [wait, setWait] = useState(DEFAULT_PICKUP_WAIT);
   const pickup = pickupChoice || labels[0] || '';
   const dropoff = dropoffChoice || labels[1] || '';
   const ready = !locations.isError && pickup !== dropoff && labels.includes(pickup) && labels.includes(dropoff);
@@ -52,38 +50,32 @@ export default function HomePage() {
   function continueTrip(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ready) return;
-    router.push('/book?' + new URLSearchParams({ pickup, dropoff, needIn: String(wait) }));
+    router.push('/book?' + new URLSearchParams({ pickup, dropoff }));
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8 lg:space-y-7">
+    <div className="mx-auto max-w-6xl space-y-5 pb-8 max-sm:space-y-3 max-sm:pb-4 lg:space-y-7">
       <RideIntro />
-      <div className="grid items-stretch gap-5 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
-        <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-28 rounded-[28px] bg-[#fffdf8] p-5 sm:scroll-mt-20 sm:p-8">
+      <div className="grid items-stretch gap-5 max-sm:gap-3 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
+        <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-28 rounded-[28px] bg-[#fffdf8] p-5 max-sm:scroll-mt-[4.125rem] max-sm:rounded-3xl max-sm:border max-sm:border-[#ece2d7] max-sm:p-4 max-sm:shadow-[0_8px_24px_#171b370a] sm:scroll-mt-20 sm:p-8">
           <h2 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
             Where to<span className="text-[#173ed7]">?</span>
           </h2>
-          <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] sm:text-base">Check the route and drive time before booking. Get pickup updates and a backup if your driver cancels.</p>
+          <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] max-sm:my-2.5 sm:text-base">Check the route and drive time before booking. Get pickup updates and a backup if your driver cancels.</p>
           <form onSubmit={continueTrip} className="space-y-3">
             <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
-            <label htmlFor="quick-pickup" className="block text-sm font-bold !text-[#171b37]">
+            <label htmlFor="quick-pickup" className="quick-route-field block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><Navigation size={16} className="text-[#173ed7]" aria-hidden="true" /> Pickup point</span>
               <select id="quick-pickup" value={pickup} disabled={!labels.length || locations.isError} onChange={(event) => setPickup(event.target.value)} className={field}>
                 {!labels.length && <option value="">Select pickup</option>}
                 <PlaceOptions places={labels} blocked={dropoff} />
               </select>
             </label>
-            <label htmlFor="quick-destination" className="block text-sm font-bold !text-[#171b37]">
+            <label htmlFor="quick-destination" className="quick-route-field block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><MapPin size={16} className="text-[#173ed7]" aria-hidden="true" /> Destination</span>
               <select id="quick-destination" value={dropoff} disabled={!labels.length || locations.isError} onChange={(event) => setDropoff(event.target.value)} className={field}>
                 {!labels.length && <option value="">Select destination</option>}
                 <PlaceOptions places={labels} blocked={pickup} />
-              </select>
-            </label>
-            <label htmlFor="quick-deadline" className="block text-sm font-bold !text-[#171b37]">
-              <span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-[#173ed7]" aria-hidden="true" /> Maximum pickup wait</span>
-              <select id="quick-deadline" value={wait} onChange={(event) => setWait(Number(event.target.value))} className={field}>
-                {PICKUP_WAIT_PRESETS.map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
               </select>
             </label>
             {locations.isPending && <p role="status" className="text-sm text-[#475673]">Loading pickup points…</p>}
@@ -92,19 +84,19 @@ export default function HomePage() {
               Review trip details <ArrowRight size={18} aria-hidden="true" />
             </button>
           </form>
-          <Link href={`/book?search=1&needIn=${wait}`} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg text-sm font-bold text-[#173ed7] hover:underline">
+          <Link href="/book?search=1" className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg text-sm font-bold text-[#173ed7] hover:underline">
             <MapPin size={16} aria-hidden="true" /> Search any address or landmark
           </Link>
           {ready && <div className="mt-4 flex flex-wrap gap-2" aria-label="Suggested routes">
             {sampleRoutes.filter(([from, to]) => labels.includes(from) && labels.includes(to)).map(([from, to]) => (
-              <button key={from} type="button" onClick={() => { setPickup(from); setDropoff(to); }} className="min-h-9 rounded-full border border-[#d9dbe7] px-3 text-xs font-bold text-[#334363] hover:border-[#173ed7]">
+              <button key={from} type="button" onClick={() => { setPickup(from); setDropoff(to); }} className="min-h-9 rounded-full border border-[#d9dbe7] px-3 text-xs font-bold text-[#334363] hover:border-[#173ed7] max-sm:min-h-11 max-sm:w-full max-sm:rounded-xl max-sm:bg-[#f4f6ff] max-sm:py-2 max-sm:text-left">
                 {from} → {to}
               </button>
             ))}
           </div>}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-[#475673] underline">Places © OpenStreetMap contributors</a>
         </section>
-        <section aria-labelledby="pickup-protection-title" className="relative isolate flex min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#112575] px-5 pb-5 pt-32 text-white sm:px-8 sm:pb-8 sm:pt-40 lg:px-10 lg:pb-12">
+        <section aria-labelledby="pickup-protection-title" className="relative isolate flex min-w-0 flex-col justify-end overflow-hidden rounded-[28px] bg-[#112575] px-5 pb-5 pt-32 text-white max-sm:rounded-3xl max-sm:pt-24 sm:px-8 sm:pb-8 sm:pt-40 lg:px-10 lg:pb-12">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-[position:65%_40%]" style={{
             backgroundImage: 'linear-gradient(90deg, rgba(9,22,67,.76), rgba(9,22,67,.04) 90%), linear-gradient(0deg, #101f5e 3%, rgba(12,26,80,.84) 38%, transparent 82%), url(/images/pickup-protection-blue-hour.webp)',
           }} />
@@ -120,7 +112,7 @@ export default function HomePage() {
             </div>
             <div className="rounded-2xl bg-[#ffdec8] p-3.5 text-[#281a3d] sm:p-4">
               <dt className="flex items-center gap-3 font-extrabold"><RefreshCw size={21} className="shrink-0 text-[#563580]" aria-hidden="true" />Driver cancels</dt>
-              <dd className="mt-1 pl-[33px] text-sm leading-relaxed">Once cancellation is confirmed, we book an eligible backup within your limits and track the new pickup.</dd>
+              <dd className="mt-1 pl-[33px] text-sm leading-relaxed">Turn on auto-rebooking to get an eligible backup after a confirmed cancellation. Tracking continues with the new ride.</dd>
             </div>
           </dl>
           <Link href="/trips" className="mt-5 inline-flex min-h-10 w-fit items-center gap-2 rounded-lg font-bold text-[#ffcfaa] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">

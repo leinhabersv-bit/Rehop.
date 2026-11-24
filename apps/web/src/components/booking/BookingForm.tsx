@@ -3,10 +3,10 @@
 import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Clock3, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { api } from '@/lib/api/client';
-import { DEFAULT_PICKUP_WAIT, PICKUP_WAIT_PRESETS } from '@/lib/pickup';
+import { DEFAULT_PICKUP_WAIT } from '@/lib/pickup';
 import type { Location, RecoveryPolicy } from '@/types';
 import { LocationInput } from './LocationInput';
 import { TripRoute } from './TripRoute';
@@ -16,7 +16,6 @@ import { IntentReviewCard } from './IntentReviewCard';
 export interface BookingFormProps {
   initialPickup?: string;
   initialDropoff?: string;
-  initialNeedIn?: number;
   className?: string;
 }
 
@@ -27,12 +26,17 @@ export function calculateNeedBy(needInMinutes: number, baseTime: string = SIMULA
   return new Date(simulatedBase + needInMinutes * 60000).toISOString();
 }
 
-const BUDGET_PRESETS = [350, 500, 650, 900, 1200];
+const PICKUP_POLICY: Omit<RecoveryPolicy, 'auto_rebook_on_confirmed_driver_cancel'> = {
+  max_total_fare_inr: 650,
+  max_recovery_attempts: 2,
+  preemptive_switch_requires_approval: true,
+  allow_same_provider_retry: true,
+  max_cancellation_fee_inr: 100,
+};
 
 export function BookingForm({
   initialPickup = 'VIT Chennai',
   initialDropoff = 'Chennai Airport',
-  initialNeedIn = DEFAULT_PICKUP_WAIT,
   className = '',
 }: BookingFormProps) {
   const router = useRouter();
@@ -55,13 +59,7 @@ export function BookingForm({
   const [dropoff, setDropoff] = useState(initialDropoff);
   const [selectedPickup, setSelectedPickup] = useState<Location | null>(null);
   const [selectedDropoff, setSelectedDropoff] = useState<Location | null>(null);
-  const [budget, setBudget] = useState(650);
-  const [needInMinutes, setNeedInMinutes] = useState(initialNeedIn);
-
-  // Safety limits states
-  const [maxAttempts, setAttempts] = useState(2);
-  const [maxFee, setMaxFee] = useState(100);
-
+  const [autoRebook, setAutoRebook] = useState(false);
   // AI parsed intent state
   const [parsedIntent, setParsedIntent] = useState<ParsedIntentResult | null>(null);
 
@@ -77,15 +75,11 @@ export function BookingForm({
   const handleIntentConfirmed = (confirmed: {
     pickup: string;
     dropoff: string;
-    need_in_minutes: number | null;
-    budget: number | null;
   }) => {
     setPickup(confirmed.pickup);
     setDropoff(confirmed.dropoff);
     setSelectedPickup(null);
     setSelectedDropoff(null);
-    if (confirmed.need_in_minutes !== null) setNeedInMinutes(confirmed.need_in_minutes);
-    if (confirmed.budget !== null) setBudget(confirmed.budget);
     setParsedIntent(null);
     form.current?.focus();
   };
@@ -105,8 +99,6 @@ export function BookingForm({
     setValidationError(null);
     const actualPickup = pickup;
     const actualDropoff = dropoff;
-    const actualNeedIn = needInMinutes;
-    const actualBudget = budget;
 
     // Validation
     if (!actualPickup.trim()) {
@@ -121,37 +113,16 @@ export function BookingForm({
       setValidationError('Pickup and destination must be different locations.');
       return;
     }
-    if (!actualBudget || actualBudget < 100 || actualBudget > 10000) {
-      setValidationError('Maximum budget must be between ₹100 and ₹10,000.');
-      return;
-    }
-
     if (!fromLoc || !toLoc) {
       setValidationError('Search for your pickup and destination, then choose a result for each.');
-      return;
-    }
-    if (!Number.isInteger(actualNeedIn) || actualNeedIn < 5 || actualNeedIn > 120) {
-      setValidationError('Choose a pickup deadline between 5 and 120 minutes.');
       return;
     }
     submitting.current = true;
     setBusy(true);
 
-    const policy: RecoveryPolicy = {
-      auto_rebook_on_confirmed_driver_cancel: true,
-      max_total_fare_inr: actualBudget,
-      max_recovery_attempts: maxAttempts,
-      preemptive_switch_requires_approval: true,
-      allow_same_provider_retry: true,
-      max_cancellation_fee_inr: maxFee,
-    };
-
-    // Need_by simulation timestamp (UTC ISO format)
-    const needByIso = calculateNeedBy(actualNeedIn);
-
     try {
-      // 1. Try real backend API
-      const journey = await api.createJourney(fromLoc, toLoc, policy, needByIso);
+      const policy = { ...PICKUP_POLICY, auto_rebook_on_confirmed_driver_cancel: autoRebook };
+      const journey = await api.createJourney(fromLoc, toLoc, policy, calculateNeedBy(DEFAULT_PICKUP_WAIT));
       startTransition(() => {
         router.push(`/compare?journey=${journey.id}`);
       });
@@ -171,9 +142,9 @@ export function BookingForm({
   };
 
   return (
-    <div className={`mx-auto flex w-full max-w-3xl flex-col gap-4 ${className}`}>
-      <details className="rounded-2xl border border-[#dedce9] bg-[#f0edff] px-4 py-3 text-[#382b70]">
-        <summary className="cursor-pointer rounded-md py-1 text-sm font-bold">Describe your trip with AI</summary>
+    <div className={`mx-auto flex w-full max-w-3xl flex-col gap-4 max-sm:gap-3 ${className}`}>
+      <details className="rounded-2xl border border-[#dedce9] bg-[#f0edff] px-4 py-3 text-[#382b70] max-sm:px-3 max-sm:py-0 max-sm:open:pb-3">
+        <summary className="cursor-pointer rounded-md py-1 text-sm font-bold max-sm:min-h-11 max-sm:py-3">Describe your trip with AI</summary>
         <div className="mt-3"><AiRequestInput onIntentParsed={handleIntentParsed} /></div>
       </details>
 
@@ -187,7 +158,7 @@ export function BookingForm({
         />
       )}
 
-      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="ride-planner grid min-w-0 gap-3 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-3 sm:gap-4 sm:p-6">
+      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="ride-planner grid min-w-0 gap-3 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-3 max-sm:rounded-3xl max-sm:shadow-[0_8px_24px_#171b370a] sm:gap-4 sm:p-6">
         <section aria-labelledby="trip-route" className="grid min-w-0 gap-2">
           <h2 id="trip-route" className="text-lg font-extrabold">Trip route</h2>
           {loadingLocations && <p role="status" className="text-sm text-[#475673]">Loading pickup points…</p>}
@@ -207,50 +178,18 @@ export function BookingForm({
             }}
             availableLocations={availableLocations}
           />
-          {fromLoc && toLoc && !sameLocation && <TripRoute pickup={fromLoc} dropoff={toLoc} collapsed />}
+          <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#dedce9] bg-[#f0edff] p-3 text-[#382b70]">
+            <input type="checkbox" role="switch" checked={autoRebook} onChange={(event) => setAutoRebook(event.target.checked)}
+              className="size-5 shrink-0 accent-[#563580]" aria-describedby="auto-rebook-detail" />
+            <span>
+              <span className="block text-sm font-bold">Auto-rebook if my driver cancels</span>
+              <span id="auto-rebook-detail" className="block text-xs leading-relaxed">If an eligible backup is available, RIDE &amp; SEEK books it and continues tracking. A delayed pickup still needs your approval to switch.</span>
+            </span>
+          </label>
+          {fromLoc && toLoc && !sameLocation && <TripRoute pickup={fromLoc} dropoff={toLoc} />}
         </section>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <section className="rounded-2xl border border-[#dce1ed] bg-[#f2f5ff] p-4">
-            <label htmlFor="pickup-deadline" className="!flex items-center justify-between gap-2 !text-[#171b37]">
-              <span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-[#173ed7]" aria-hidden="true" /> Maximum pickup wait</span>
-              <strong className="shrink-0">{needInMinutes} min</strong>
-            </label>
-            <div className="my-3 grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap">
-              {PICKUP_WAIT_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setNeedInMinutes(preset)} aria-pressed={needInMinutes === preset} className={`min-h-11 rounded-lg px-2.5 text-xs font-bold sm:min-h-8 ${needInMinutes === preset ? 'bg-[#173ed7] text-white' : 'bg-white text-[#354366]'}`}>{preset} min</button>)}
-            </div>
-            <input id="pickup-deadline" type="range" min={5} max={120} step={1} value={needInMinutes} onChange={(event) => setNeedInMinutes(Number(event.target.value))} className="!m-0 accent-[#173ed7]" />
-          </section>
-          <section className="rounded-2xl border border-[#e9daca] bg-[#fff2e6] p-4">
-            <label htmlFor="max-fare" className="!text-[#171b37]">Fare cap (₹)</label>
-            <input id="max-fare" value={budget || ''} onChange={(event) => setBudget(Number(event.target.value))} type="number" min={100} max={10000} inputMode="numeric" required className="!mt-2 !bg-white !text-base sm:!text-sm" />
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {BUDGET_PRESETS.map((preset) => <button key={preset} type="button" onClick={() => setBudget(preset)} aria-pressed={budget === preset} className={`min-h-11 rounded-lg px-2.5 text-xs font-bold sm:min-h-8 ${budget === preset ? 'bg-[#ffbc90] text-[#3f261f]' : 'bg-white text-[#594333]'}`}>₹{preset}</button>)}
-            </div>
-          </section>
-        </div>
-
-        <section aria-labelledby="pickup-protection" className="rounded-2xl border border-[#dce1ed] p-4">
-          <h2 id="pickup-protection" className="mb-2 flex items-center gap-2 text-base font-extrabold"><ShieldCheck size={19} className="text-[#173ed7]" aria-hidden="true" /> Pickup protection</h2>
-          <p className="text-sm text-[#475673]">Driver stalled? You approve any switch. Driver cancelled? We rebook automatically within your fare and retry limits.</p>
-          <details className="mt-3 border-t border-[#e2e6ef] pt-2">
-            <summary className="cursor-pointer py-1 text-sm font-bold text-[#173ed7]">Recovery limits</summary>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <label>Maximum recovery attempts
-                <select id="attempt-cap" value={maxAttempts} onChange={(event) => setAttempts(Number(event.target.value))}>
-                  {[0, 1, 2, 3].map((attempt) => <option key={attempt} value={attempt}>{attempt}</option>)}
-                </select>
-              </label>
-              <label>Maximum cancellation fee
-                <select id="fee-cap" value={maxFee} onChange={(event) => setMaxFee(Number(event.target.value))}>
-                  {[0, 50, 100].map((fee) => <option key={fee} value={fee}>₹{fee}</option>)}
-                </select>
-              </label>
-            </div>
-          </details>
-        </section>
-
-        <div className="ride-planner-actions sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_#171b3710] backdrop-blur sm:shadow-none">
+        <div className="sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_#171b3710] backdrop-blur max-sm:static max-sm:mx-0 max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none sm:shadow-none">
           {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
           <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
             Find my ride

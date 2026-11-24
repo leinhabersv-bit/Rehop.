@@ -57,12 +57,52 @@ a {
 }
 
 @media (max-width: 639px) {
-  .ride-planner :is(input, select, button, a, summary) {
-    scroll-margin-block: 7rem 5rem;
+  html {
+    --mobile-tab-space: calc(64px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: var(--mobile-tab-space);
   }
 
-  .ride-planner:has(input:is([type="text"], [type="number"]):focus) .ride-planner-actions {
-    position: static;
+  body {
+    padding-bottom: var(--mobile-tab-space);
+  }
+
+  .mobile-tab-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .driving-route-map .leaflet-control-zoom a {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+  }
+
+  .ride-planner :is(input, select, button, a, summary) {
+    scroll-margin-block: 4.5rem 1rem;
+  }
+
+  .quick-route-field {
+    display: grid;
+    gap: .125rem;
+    padding: .625rem .75rem 0;
+    border: 1px solid #dce2f2;
+    border-radius: .875rem;
+    background: #f6f8ff;
+  }
+
+  .quick-route-field > span {
+    font-size: .75rem;
+  }
+
+  .quick-route-field > select {
+    min-height: 44px;
+    margin: 0;
+    padding: 0 .125rem;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .quick-route-field:focus-within {
+    border-color: var(--rehop-primary);
   }
 }
 

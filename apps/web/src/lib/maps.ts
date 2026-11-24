@@ -7,8 +7,6 @@ export interface DrivingRoute {
   calculatedAt: string;
   provider?: 'google';
   trafficAware?: boolean;
-  distanceText?: string;
-  durationText?: string;
   roadAccessMeters?: [number, number];
 }
 
@@ -31,18 +29,23 @@ class MapRequestError extends Error {
 }
 
 async function request<T>(params: Record<string, string>, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`/api/maps?${new URLSearchParams(params)}`, { signal });
+  const response = await fetch('/api/maps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+    signal,
+  });
   const data = await response.json();
   if (!response.ok) throw new MapRequestError(data.error || 'Map service is unavailable.', response.status);
   return data;
 }
 
 export function searchPlaces(query: string, signal: AbortSignal) {
-  return request<{ places: Location[] }>({ q: query }, signal);
+  return request<{ places: Location[]; provider?: 'google' }>({ q: query }, signal);
 }
 
-export function getDrivingRoute(from: string, to: string, signal: AbortSignal) {
-  return request<DrivingRoute>({ from, to }, signal);
+export function getDrivingRoute(from: string, to: string, signal: AbortSignal, source?: 'osm' | 'google-map') {
+  return request<DrivingRoute>({ from, to, ...(source ? { source } : {}) }, signal);
 }
 
 export function retryMapRequest(count: number, error: Error) {

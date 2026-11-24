@@ -1,25 +1,21 @@
 'use client';
 
-import { TripRoute } from './TripRoute';
-
 import React, { useState, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
   Sparkles,
-  RefreshCw,
   AlertCircle,
   MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { api, ApiError } from '@/lib/api/client';
-import type { Journey, Quote } from '@/types';
-import { providerName } from '@/types';
+import type { Journey } from '@/types';
 import { recommendRide } from '@/lib/pickup';
 import { rememberRide } from '@/lib/recent-rides';
-import { ProviderCard, isQuoteWithinPolicy } from './ProviderCard';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 
 export function CompareScreen() {
@@ -50,14 +46,10 @@ export function CompareScreen() {
     retry: 1,
   });
 
-  const [showAlternatives, setShowAlternatives] = useState(false);
-
-  // Selected quote state
-  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
-
   // Booking & modal states
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [hasOtherRide, setHasOtherRide] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [confirmedJourney, setConfirmedJourney] = useState<Journey | null>(null);
 
@@ -72,32 +64,21 @@ export function CompareScreen() {
   } | null>(null);
   const attempt = pendingAttempt?.journeyId === queryJourneyId ? pendingAttempt : null;
 
-  const quotes = journey?.quotes ?? [];
   const recommended = journey && recommendRide(journey);
-  const displayedQuotes = [...quotes].sort((a, b) => a.estimated_fare_inr - b.estimated_fare_inr);
-  const simulatedTimeMs = Date.parse(journey?.simulated_time ?? '');
-  const deadlineMs = Date.parse(journey?.need_by ?? '');
   const canBook = journey?.state === 'WAITING_FOR_RIDE' && !journey.booking_uncertain && !journey.active_ride_id;
-  const isEligible = (quote: Quote) =>
-    journey && Date.parse(quote.expires_at) > simulatedTimeMs &&
-    isQuoteWithinPolicy(quote, journey.policy);
-  const selectedQuote = quotes.find((quote) => quote.quote_id === selectedQuoteId && isEligible(quote))
-    ?? recommended;
-  const selectedProviderName = selectedQuote ? providerName[selectedQuote.provider] : null;
-  const chosenRecommendation = selectedQuote?.quote_id === recommended?.quote_id;
-  const selectedMeetsDeadline = selectedQuote && simulatedTimeMs + selectedQuote.pickup_eta_sec * 1000 <= deadlineMs;
-  const maxWaitMinutes = Math.max(0, Math.round((deadlineMs - simulatedTimeMs) / 60_000));
 
   const handleConfirmBooking = async () => {
-    if (inFlight.current || !journey || (!attempt && (!canBook || !selectedQuote))) return;
-    const request = attempt ?? {
+    if (inFlight.current || !journey) return;
+    const request = attempt ?? (canBook && recommended ? {
       journeyId: journey.id,
-      quoteId: selectedQuote!.quote_id,
+      quoteId: recommended.quote_id,
       version: journey.version,
       key: crypto.randomUUID(),
-    };
+    } : null);
+    if (!request) return;
     inFlight.current = true;
     setBookingError(null);
+    setHasOtherRide(false);
     setIsBooking(true);
     const acceptSnapshot = (snapshot: Journey) => {
       if (snapshot?.id !== request.journeyId || typeof snapshot.version !== 'number' ||
@@ -112,6 +93,7 @@ export function CompareScreen() {
         return true;
       }
       if (snapshot.booking_uncertain || snapshot.state === 'RECONCILING') {
+        rememberRide(snapshot.id);
         setBookingError('The provider has yet to confirm the booking. Open tracking to check its status.');
         setPendingAttempt(null);
         return true;
@@ -144,6 +126,7 @@ export function CompareScreen() {
       setPendingAttempt(request);
       setBookingError('The booking outcome is unknown. Check status before continuing.');
     } catch (err) {
+      setHasOtherRide(err instanceof ApiError && err.code === 'ACTIVE_RIDE_EXISTS');
       const ambiguous = !(err instanceof ApiError) || !err.status || err.status === 408 || err.status >= 500;
       const providerUncertain = request.providerUncertain ||
         (err instanceof ApiError && err.code === 'BOOKING_UNCONFIRMED');
@@ -175,7 +158,7 @@ export function CompareScreen() {
             {queryJourneyId ? 'Could not load this journey' : 'Choose a trip first'}
           </h2>
           <p className="text-sm text-[#475673] mb-6 leading-relaxed">
-            {queryJourneyId ? error?.message : 'Choose a pickup and destination to compare simulated rides.'}
+            {queryJourneyId ? error?.message : 'Choose a pickup and destination to find a ride.'}
           </p>
           {queryJourneyId && <Button onClick={() => refetch()} loading={isFetching} fullWidth className="mb-3">Try again</Button>}
           <Button
@@ -187,18 +170,13 @@ export function CompareScreen() {
           >
             Go to Booking Form
           </Button>
-          <p className="mt-4 text-xs text-[#475673]">
-            All providers (Provider A-D) and fares are synthetic.
-          </p>
         </div>
       </div>
     );
   }
 
-  const alternativesVisible = showAlternatives || (!recommended && !!quotes.length);
-
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5 pb-10">
+    <div className="mx-auto w-full max-w-4xl space-y-5 pb-10 max-sm:space-y-3 max-sm:pb-5">
       <header className="space-y-3">
         <button
           type="button"
@@ -217,8 +195,6 @@ export function CompareScreen() {
               <MapPin size={16} className="shrink-0 text-[#173ed7]" aria-hidden="true" />
               {journey.pickup.label} <span aria-hidden="true">→</span> {journey.dropoff.label}
             </span>
-            <span className="text-[#475673]">Max wait <strong className="text-[#171b37]">{maxWaitMinutes} min</strong></span>
-            <span className="text-[#475673]">Fare cap <strong className="text-[#171b37]">₹{journey.policy.max_total_fare_inr}</strong></span>
           </div>
         )}
       </header>
@@ -226,46 +202,46 @@ export function CompareScreen() {
       {isLoading && <p role="status" className="rounded-2xl border border-[#d9dbe7] p-5 text-[#475673]">Checking simulated fares and pickup times…</p>}
 
       {journey && (
-        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#173ed7]/40 bg-white p-5 sm:p-7">
-          {canBook && selectedQuote ? (
+        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#173ed7]/40 bg-white p-5 max-sm:border-[#d9e0f6] max-sm:p-4 max-sm:shadow-[0_8px_24px_#171b370a] sm:p-7">
+          {canBook && recommended ? (
             <>
-              <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-[#475673]">
-                <Sparkles size={17} aria-hidden="true" /> {chosenRecommendation ? 'RIDE & SEEK recommends' : 'Your selection'}
-              </p>
-              <h2 id="ride-choice" className="text-2xl font-black tracking-tight sm:text-4xl">{selectedProviderName}</h2>
-              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3">
-                <div>
-                  <dt className="text-sm text-[#475673]">Driver to pickup (simulated)</dt>
-                  <dd className="text-2xl font-black">{Math.ceil(selectedQuote.pickup_eta_sec / 60)} min</dd>
+              <h2 id="ride-choice" className="flex items-center gap-2 text-lg font-bold max-sm:text-[#173ed7]">
+                <Sparkles size={18} aria-hidden="true" /> Recommended ride
+              </h2>
+              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3 max-sm:gap-2 max-sm:divide-x-0 max-sm:border-y-0 max-sm:py-0">
+                <div className="max-sm:rounded-2xl max-sm:bg-[#edf1ff] max-sm:p-3">
+                  <dt className="text-sm text-[#475673]">Pickup in</dt>
+                  <dd className="text-2xl font-black max-sm:text-[#173ed7]">{Math.max(1, Math.ceil(recommended.pickup_eta_sec / 60))} min</dd>
                 </div>
-                <div className="pl-4">
+                <div className="pl-4 max-sm:rounded-2xl max-sm:bg-[#fff0e3] max-sm:p-3">
                   <dt className="text-sm text-[#475673]">Estimated fare</dt>
-                  <dd className="text-2xl font-black">₹{selectedQuote.estimated_fare_inr}</dd>
+                  <dd className="text-2xl font-black">₹{recommended.estimated_fare_inr.toLocaleString('en-IN')}</dd>
                 </div>
               </dl>
-              <p className={selectedMeetsDeadline ? 'mb-5 text-sm text-[#475673]' : 'mb-5 text-sm font-bold text-[#475673]'}>
-                {chosenRecommendation
-                  ? 'Lowest fare among available rides that meet your maximum wait and fare cap.'
-                  : selectedMeetsDeadline ? 'This ride fits your maximum wait and fare cap.' : 'This pickup is estimated to exceed your maximum wait.'}
-              </p>
             </>
           ) : (
             <div className="mb-4">
               <h2 id="ride-choice" className="text-xl font-black">
-                {canBook ? 'No ride meets both limits' : 'Check your journey status'}
+                {canBook ? 'No recommended ride available' : 'Check your journey status'}
               </h2>
               <p className="mt-1 text-sm text-[#475673]">
-                {canBook ? 'Adjust your trip limits or review any available alternatives below.' : 'Open tracking for the latest provider status.'}
+                {canBook ? 'Try again to check for a ride.' : 'Open tracking for the latest provider status.'}
               </p>
             </div>
           )}
 
-          {canBook && selectedQuote && journey.policy.auto_rebook_on_confirmed_driver_cancel && journey.policy.max_recovery_attempts > 0 && (
+          {canBook && recommended && journey.policy.auto_rebook_on_confirmed_driver_cancel && journey.policy.max_recovery_attempts > 0 && (
             <p className="mb-3 text-sm text-[#475673]">
-              By booking, you allow automatic rebooking after a confirmed driver cancellation, within your fare and retry limits.
+              Auto-rebooking is on for confirmed driver cancellations.
             </p>
           )}
-          {bookingError && <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]"><AlertCircle size={17} className="shrink-0" aria-hidden="true" />{bookingError}</p>}
+          {bookingError && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]">
+            <AlertCircle size={17} className="shrink-0" aria-hidden="true" />
+            <div>
+              <p>{bookingError}</p>
+              {hasOtherRide && <Link href="/trips" className="mt-1 inline-block font-bold text-[#173ed7] underline">View your rides</Link>}
+            </div>
+          </div>}
 
           <Button
             variant="primary"
@@ -273,64 +249,18 @@ export function CompareScreen() {
             fullWidth
             loading={isBooking}
             loadingText="Confirming simulated ride…"
-            disabled={canBook && !attempt && (!selectedQuote || isFetching || !!error)}
+            disabled={canBook && !attempt && (isFetching || (!!recommended && !!error))}
             onClick={() => {
-              if (canBook || attempt) void handleConfirmBooking();
+              if (attempt || (canBook && recommended)) void handleConfirmBooking();
+              else if (canBook) void refetch();
               else router.push(`/journey/${journey.id}`);
             }}
             rightIcon={<ArrowRight size={18} aria-hidden="true" />}
           >
-            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : selectedProviderName ? `Book with ${selectedProviderName}` : 'No eligible ride selected'}
+            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : 'Try again'}
           </Button>
         </section>
       )}
-
-      {journey && <TripRoute pickup={journey.pickup} dropoff={journey.dropoff} />}
-
-      {canBook && !!quotes.length && (
-        <section aria-labelledby="compare-rides" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="compare-rides" className="text-base font-bold">Provider quotes</h2>
-            <button
-              type="button"
-              aria-expanded={alternativesVisible}
-              aria-controls="ride-quotes"
-              onClick={() => setShowAlternatives(!alternativesVisible)}
-              disabled={!recommended}
-              className="min-h-10 rounded-lg border border-[#d9dbe7] px-3 text-sm font-bold text-[#475673] hover:border-[#173ed7] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
-            >
-              {alternativesVisible ? 'Hide provider quotes' : `Compare all ${quotes.length} rides`}
-            </button>
-          </div>
-          {alternativesVisible && (
-            <>
-              <div id="ride-quotes" role="radiogroup" aria-label="Simulated ride quotes" className="grid gap-3 sm:grid-cols-2">
-                {displayedQuotes.map((quote) => (
-                  <ProviderCard
-                    key={quote.quote_id}
-                    quote={quote}
-                    isSelected={selectedQuote?.quote_id === quote.quote_id}
-                    onSelect={setSelectedQuoteId}
-                    maxFare={journey?.policy.max_total_fare_inr}
-                    isBooking={isBooking || !!attempt}
-                    simulatedTimeMs={simulatedTimeMs}
-                    deadlineMs={deadlineMs}
-                    tag={recommended?.quote_id === quote.quote_id ? 'Recommended' : undefined}
-                  />
-                ))}
-              </div>
-              <a href="#book-recommendation" className="inline-block py-2 text-sm font-bold text-[#173ed7] underline underline-offset-4">Review selected ride ↑</a>
-            </>
-          )}
-        </section>
-      )}
-
-      {journey && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#d9dbe7] pt-3 text-sm text-[#475673]">
-        <span>Quotes and pickup ETAs are simulated.</span>
-        <button type="button" onClick={() => void refetch()} disabled={isFetching} className="inline-flex min-h-10 items-center gap-2 rounded-lg font-bold hover:text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#B9FF45]">
-          <RefreshCw size={15} aria-hidden="true" /> Check latest status
-        </button>
-      </div>}
 
       {confirmedJourney && (
         <BookingConfirmationModal
