@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { LocateFixed } from 'lucide-react';
 import { loadGoogleLibrary } from '@/lib/google-maps';
 import type { DrivingRoute } from '@/lib/maps';
-import { interpolateRoutePoint, measureRoute, routeScreenHeading, trackingCamera } from '@/lib/route-path';
+import { measureRoute, routeScreenHeading, trackingCenter, trackingZoom } from '@/lib/route-path';
 import type { Location } from '@/types';
 
 type MapView = {
@@ -28,6 +28,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const displayed = useRef<number | null>(null);
   const fitRoute = useRef<(() => void) | null>(null);
+  const followFrame = useRef<{ map: google.maps.Map; viewport: typeof viewport; route: ReturnType<typeof measureRoute>; zoom: number } | null>(null);
   const tracking = driver !== undefined;
   const toDestination = driver?.target === 'destination';
   const progress = driver?.progress;
@@ -47,7 +48,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
       if (!node || disposed) return;
       const map = new maps.Map(node, {
         gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: !tracking,
-        isFractionalZoomEnabled: tracking || undefined,
+        isFractionalZoomEnabled: tracking ? false : undefined,
       });
       const line = new maps.Polyline({ map, strokeColor: '#173ed7', strokeWeight: 5 });
       const markers = (tracking ? [toDestination ? 'Destination' : 'Pickup'] : ['Pickup', 'Destination']).map((title, index) => new marker.Marker({
@@ -100,7 +101,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
       if (node.clientWidth && node.clientHeight) view.map.fitBounds(bounds, tracking ? 56 : 32);
     };
     fitRoute.current = fit;
-    fit();
+    if (!tracking) fit();
     const observer = new ResizeObserver(() => {
       if (tracking) {
         const { clientWidth: width, clientHeight: height } = node;
@@ -132,35 +133,33 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
     const target = track.length * progress;
     const start = displayed.current ?? target;
     const endpoint = track.pointAt(track.length);
-    const cameraStart = map.getCenter()?.toJSON();
-    const zoomStart = map.getZoom();
-    const place = (distance: number, cameraProgress = 0) => {
+    if (!following) followFrame.current = null;
+    const place = (distance: number) => {
       displayed.current = distance;
       const point = track.pointAt(distance);
+      if (following && viewport.width && viewport.height) {
+        const frame = followFrame.current;
+        const reframing = !frame || frame.map !== map || frame.viewport !== viewport || frame.route !== track;
+        const zoom = reframing ? trackingZoom(track.remainingPoints(distance), endpoint, viewport, toDestination) : frame.zoom;
+        const [lng, lat] = trackingCenter(point, endpoint, track.pointAt(distance + 120), viewport, toDestination, zoom);
+        // Leave zoom out of movement updates so Google can pan the same tile layer.
+        map.moveCamera(reframing ? { center: { lat, lng }, zoom } : { center: { lat, lng } });
+        if (reframing) followFrame.current = { map, viewport, route: track, zoom };
+      }
       const heading = routeScreenHeading(track.pointAt(distance - 12), track.pointAt(distance + 12));
       cab.place({ lng: point[0], lat: point[1] }, heading);
-      if (following && viewport.width && viewport.height && cameraProgress) {
-        const camera = trackingCamera(point, endpoint, track.pointAt(distance + 120), viewport, toDestination);
-        const [lng, lat] = cameraStart
-          ? interpolateRoutePoint([cameraStart.lng, cameraStart.lat], camera.center, cameraProgress) : camera.center;
-        const zoom = zoomStart === undefined ? camera.zoom : zoomStart + (camera.zoom - zoomStart) * cameraProgress;
-        map.moveCamera({ center: { lat, lng }, zoom });
-      }
     };
-    if (start === target) {
-      place(target, 1);
-      return;
-    }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      place(target, 1);
+    if (start === target || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      place(target);
       return;
     }
     const startedAt = performance.now();
+    const duration = toDestination ? 1_000 : 900;
     let frame: number;
     function animate(now: number) {
-      const elapsed = Math.min(1, (now - startedAt) / 750);
-      const eased = elapsed * elapsed * (3 - 2 * elapsed);
-      place(start + (target - start) * eased, eased);
+      const elapsed = Math.min(1, (now - startedAt) / duration);
+      const step = toDestination ? elapsed : elapsed * elapsed * (3 - 2 * elapsed);
+      place(start + (target - start) * step);
       if (elapsed < 1) frame = requestAnimationFrame(animate);
     }
     frame = requestAnimationFrame(animate);
