@@ -18,7 +18,7 @@ it('shows movement and one stall update, with elapsed time since booking', () =>
   ];
   const ride = { ride_id: 'ride', distance_to_pickup_m: 750 } as Ride;
   expect(pickupActivity(events, ride)).toEqual({
-    progress: expect.closeTo(1 / 6), stalled: true,
+    progress: expect.closeTo(1 / 6), stalled: true, startDistance: 900,
     timeline: [
       { seq: 2, elapsed: '+0:00', label: 'Ride booked with Provider B' },
       { seq: 6, elapsed: '+0:20', label: 'Driver position has stayed the same' },

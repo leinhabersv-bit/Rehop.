@@ -9,6 +9,7 @@ import { providerName, type Event, type Journey } from '@/types';
 import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
+import PickupApproach from './PickupApproach';
 import { pickupActivity } from './pickup-activity';
 import styles from './journey.module.css';
 
@@ -160,7 +161,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   );
   const latestRecovery = stream.events.findLast((event) => recoveryEvents.has(event.type));
   const status = recoveryStatus(data, latestRecovery);
-  const { timeline, progress, stalled } = pickupActivity(stream.events, ride);
+  const { timeline, progress, stalled, startDistance } = pickupActivity(stream.events, ride);
   const positionStalled = stalled && risk?.band !== 'UNKNOWN' && !query.isError;
   const pickupStatus = ride && data.state === 'MONITORING'
     ? rideLabels[ride.state] ?? readable(ride.state)
@@ -206,30 +207,6 @@ export default function JourneyPanel({ id }: { id: string }) {
             <p className={styles.pickupStatus}>{pickupStatus}</p>
             {ride && (
               <>
-                <div className={styles.approach} role="img" aria-label={`Simulated driver approach. ${pickupStatus}. ${positionStalled ? 'Driver position unchanged. ' : ''}${(ride.distance_to_pickup_m / 1000).toFixed(1)} km to pickup.`}>
-                  <div className={styles.approachHeading} aria-hidden="true">
-                    <span>Driver location</span>
-                    <span>Simulated pickup route</span>
-                  </div>
-                  <div className={styles.approachTrack} aria-hidden="true">
-                    <span className={styles.approachPin}><MapPin size={23} /></span>
-                    <span className={styles.approachCar} data-stalled={positionStalled} data-pickup-cab style={{ left: `${(progress * 100).toFixed(2)}%` }}>
-                      <span className={styles.cabModel}>
-                        <span className={styles.cabSide} />
-                        <span className={styles.cabHood} />
-                        <span className={styles.cabNose} />
-                        <span className={styles.cabWindows} />
-                        <span className={styles.cabWindshield} />
-                        <span className={styles.cabRoof} />
-                        <span className={styles.cabTaxiLight} />
-                      </span>
-                    </span>
-                  </div>
-                  <div className={styles.approachFooter} aria-hidden="true">
-                    <span>{positionStalled ? 'Position unchanged' : pickupStatus}</span>
-                    <span title={data.pickup.label}>Pickup · {data.pickup.label}</span>
-                  </div>
-                </div>
                 <dl className={styles.stats}>
                   <div><dt>Driver to pickup</dt><dd>{
                     ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
@@ -238,6 +215,9 @@ export default function JourneyPanel({ id }: { id: string }) {
                   }</dd></div>
                   <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
                 </dl>
+                <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
+                  startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
+                  progress={progress} stalled={positionStalled} status={pickupStatus} />
                 <ol className={styles.pickupSteps} aria-label="Pickup progress">
                   {pickupSteps.map(({ label, Icon }, index) => (
                     <li key={label} aria-current={index === pickupStep ? 'step' : undefined} data-reached={index <= pickupStep}>

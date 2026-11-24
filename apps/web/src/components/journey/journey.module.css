@@ -109,6 +109,23 @@
   color: #ffcbab;
 }
 
+.pickupMap {
+  overflow: hidden;
+  border: 1px solid #5a70ac;
+  border-radius: 1.1rem;
+  background: #16244b;
+}
+
+.pickupMap > .approachHeading,
+.pickupMap > .approachFooter {
+  padding: .7rem .85rem;
+}
+
+.pickupMap .approachCar {
+  top: 0;
+  left: 0;
+}
+
 .approachTrack {
   position: relative;
   align-self: center;
