@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { api, ApiError } from '@/lib/api/client';
-import type { Journey } from '@/types';
-import { recommendRide } from '@/lib/pickup';
+import { providerName, type Journey } from '@/types';
+import { isQuoteExpired, isQuoteWithinPolicy, recommendRide } from '@/lib/pickup';
 import { rememberRide } from '@/lib/recent-rides';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 
@@ -66,6 +66,9 @@ export function CompareScreen() {
 
   const recommended = journey && recommendRide(journey);
   const canBook = journey?.state === 'WAITING_FOR_RIDE' && !journey.booking_uncertain && !journey.active_ride_id;
+  const listedQuotes = journey?.quotes.filter((quote) => quote.quote_id !== recommended?.quote_id) ?? [];
+  const allOverBudget = !!journey?.quotes.length && journey.quotes.every((quote) => !isQuoteWithinPolicy(quote, journey.policy));
+  const editTrip = journey ? `/book?edit=${encodeURIComponent(journey.id)}` : '/book';
 
   const handleConfirmBooking = async () => {
     if (inFlight.current || !journey) return;
@@ -180,7 +183,7 @@ export function CompareScreen() {
       <header className="space-y-3">
         <button
           type="button"
-          onClick={() => router.push('/book')}
+          onClick={() => router.push(editTrip)}
           className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#475673] hover:text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
         >
           <ArrowLeft size={17} aria-hidden="true" /> Edit trip
@@ -208,6 +211,7 @@ export function CompareScreen() {
               <h2 id="ride-choice" className="flex items-center gap-2 text-lg font-bold max-sm:text-[#173ed7]">
                 <Sparkles size={18} aria-hidden="true" /> Recommended ride
               </h2>
+              <p className="mt-2 text-sm text-[#475673]"><strong className="text-[#171b37]">{providerName[recommended.provider]}</strong> · Lowest eligible fare within your ₹{journey.policy.max_total_fare_inr.toLocaleString('en-IN')} limit.</p>
               <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3 max-sm:gap-2 max-sm:divide-x-0 max-sm:border-y-0 max-sm:py-0">
                 <div className="max-sm:rounded-2xl max-sm:bg-[#edf1ff] max-sm:p-3">
                   <dt className="text-sm text-[#475673]">Pickup in</dt>
@@ -222,10 +226,10 @@ export function CompareScreen() {
           ) : (
             <div className="mb-4">
               <h2 id="ride-choice" className="text-xl font-black">
-                {canBook ? 'No recommended ride available' : 'Check your journey status'}
+                {canBook ? allOverBudget ? 'No rides within your budget' : 'No recommended ride available' : 'Check your journey status'}
               </h2>
               <p className="mt-1 text-sm text-[#475673]">
-                {canBook ? 'Try again to check for a ride.' : 'Open tracking for the latest provider status.'}
+                {canBook ? allOverBudget ? `Every estimate is above your ₹${journey.policy.max_total_fare_inr.toLocaleString('en-IN')} max fare.` : 'Try again to check for a ride.' : 'Open tracking for the latest provider status.'}
               </p>
             </div>
           )}
@@ -252,13 +256,33 @@ export function CompareScreen() {
             disabled={canBook && !attempt && (isFetching || (!!recommended && !!error))}
             onClick={() => {
               if (attempt || (canBook && recommended)) void handleConfirmBooking();
+              else if (canBook && allOverBudget) router.push(editTrip);
               else if (canBook) void refetch();
               else router.push(`/journey/${journey.id}`);
             }}
             rightIcon={<ArrowRight size={18} aria-hidden="true" />}
           >
-            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : 'Try again'}
+            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : allOverBudget ? 'Edit max fare' : 'Try again'}
           </Button>
+        </section>
+      )}
+
+      {journey && canBook && listedQuotes.length > 0 && (
+        <section aria-labelledby="provider-estimates" className="rounded-3xl border border-[#d9e0f6] bg-[#fffdf8] p-4 sm:p-6">
+          <h2 id="provider-estimates" className="text-base font-extrabold text-[#171b37]">{recommended ? 'Other provider estimates' : 'Provider estimates'}</h2>
+          <ul className="mt-2 divide-y divide-[#d9e0f6]">
+            {listedQuotes.map((quote) => (
+              <li key={quote.quote_id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 py-3 text-sm sm:gap-x-6">
+                <span className="font-bold text-[#171b37]">
+                  {providerName[quote.provider]}
+                  {isQuoteExpired(quote, Date.parse(journey.simulated_time)) ? <span className="block text-xs font-medium text-[#475673]">Expired</span> :
+                    !isQuoteWithinPolicy(quote, journey.policy) && <span className="block text-xs font-medium text-[#8c3651]">Above max fare</span>}
+                </span>
+                <span className="text-[#475673]">{Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))} min pickup</span>
+                <span className="text-right font-bold tabular-nums text-[#171b37]">₹{quote.estimated_fare_inr.toLocaleString('en-IN')}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

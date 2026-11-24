@@ -62,11 +62,19 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await page.goto(web);
   await page.getByRole('button', { name: 'Review trip details' }).click();
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
+  await page.getByRole('spinbutton', { name: 'Max fare (₹)' }).fill('300');
   const getRecommendation = page.getByRole('button', { name: 'Find my ride' });
   await getRecommendation.click();
 
   const recommendation = page.getByRole('region', { name: 'Recommended ride' });
+  await expect(recommendation.getByText('Provider B', { exact: true })).toBeVisible();
   await expect(recommendation.getByText('4 min', { exact: true })).toBeVisible();
+  await expect(recommendation.getByText('₹285', { exact: true })).toBeVisible();
+  const alternatives = page.getByRole('region', { name: 'Other provider estimates' });
+  await expect(alternatives.getByRole('listitem')).toHaveCount(3);
+  await expect(alternatives.getByText('Above max fare')).toHaveCount(3);
+  await expect(alternatives.getByRole('button')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Book', exact: true })).toHaveCount(1);
   await expect(page.getByRole('radiogroup')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await recommendation.getByRole('button', { name: 'Book', exact: true }).click();
@@ -83,6 +91,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(page.getByRole('img', { name: /^Simulated driver approach/ })).toBeVisible();
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   const first: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
+  expect(first.policy.max_total_fare_inr).toBe(300);
   await expect.poll(async () => {
     const updated: Journey = await (await request.get(`${api}/api/v1/journeys/${id}`)).json();
     return updated.active_ride?.distance_to_pickup_m;
@@ -90,4 +99,18 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(page.getByRole('button', { name: /advance|simulate/i })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
   await expect(page.getByRole('link', { name: /VIT Chennai.*Chennai Airport/ })).toHaveAttribute('href', `/journey/${id}`);
+});
+
+test('a fare below every estimate prevents booking and can be edited', async ({ page }) => {
+  await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Airport`);
+  const fare = page.getByRole('spinbutton', { name: 'Max fare (₹)' });
+  await fare.fill('200');
+  await page.getByRole('button', { name: 'Find my ride' }).click();
+  await expect(page.getByRole('heading', { name: 'No rides within your budget' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Provider estimates', exact: true }).getByRole('listitem')).toHaveCount(4);
+  await expect(page.getByRole('button', { name: 'Book', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit max fare' }).click();
+  await expect(fare).toHaveValue('200');
+  await expect(page.getByRole('textbox', { name: 'Pickup location' })).toHaveValue('Chennai Central Railway Station');
+  await expect(page.getByRole('textbox', { name: 'Destination' })).toHaveValue('Chennai Airport');
 });

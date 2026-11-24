@@ -14,8 +14,10 @@ import { AiRequestInput, type ParsedIntentResult } from './AiRequestInput';
 import { IntentReviewCard } from './IntentReviewCard';
 
 export interface BookingFormProps {
-  initialPickup?: string;
-  initialDropoff?: string;
+  initialPickup?: string | Location;
+  initialDropoff?: string | Location;
+  initialMaxFare?: number;
+  initialAutoRebook?: boolean;
   className?: string;
 }
 
@@ -26,8 +28,7 @@ export function calculateNeedBy(needInMinutes: number, baseTime: string = SIMULA
   return new Date(simulatedBase + needInMinutes * 60000).toISOString();
 }
 
-const PICKUP_POLICY: Omit<RecoveryPolicy, 'auto_rebook_on_confirmed_driver_cancel'> = {
-  max_total_fare_inr: 650,
+const PICKUP_POLICY: Omit<RecoveryPolicy, 'auto_rebook_on_confirmed_driver_cancel' | 'max_total_fare_inr'> = {
   max_recovery_attempts: 2,
   preemptive_switch_requires_approval: true,
   allow_same_provider_retry: true,
@@ -37,6 +38,8 @@ const PICKUP_POLICY: Omit<RecoveryPolicy, 'auto_rebook_on_confirmed_driver_cance
 export function BookingForm({
   initialPickup = 'VIT Chennai',
   initialDropoff = 'Chennai Airport',
+  initialMaxFare = 650,
+  initialAutoRebook = false,
   className = '',
 }: BookingFormProps) {
   const router = useRouter();
@@ -55,11 +58,12 @@ export function BookingForm({
   const availableLocations: Location[] = locationData?.locations ?? [];
 
   // Form states
-  const [pickup, setPickup] = useState(initialPickup);
-  const [dropoff, setDropoff] = useState(initialDropoff);
-  const [selectedPickup, setSelectedPickup] = useState<Location | null>(null);
-  const [selectedDropoff, setSelectedDropoff] = useState<Location | null>(null);
-  const [autoRebook, setAutoRebook] = useState(false);
+  const [pickup, setPickup] = useState(typeof initialPickup === 'string' ? initialPickup : initialPickup.label);
+  const [dropoff, setDropoff] = useState(typeof initialDropoff === 'string' ? initialDropoff : initialDropoff.label);
+  const [selectedPickup, setSelectedPickup] = useState(typeof initialPickup === 'string' ? null : initialPickup);
+  const [selectedDropoff, setSelectedDropoff] = useState(typeof initialDropoff === 'string' ? null : initialDropoff);
+  const [maxFare, setMaxFare] = useState(String(initialMaxFare));
+  const [autoRebook, setAutoRebook] = useState(initialAutoRebook);
   // AI parsed intent state
   const [parsedIntent, setParsedIntent] = useState<ParsedIntentResult | null>(null);
 
@@ -121,7 +125,11 @@ export function BookingForm({
     setBusy(true);
 
     try {
-      const policy = { ...PICKUP_POLICY, auto_rebook_on_confirmed_driver_cancel: autoRebook };
+      const policy = {
+        ...PICKUP_POLICY,
+        max_total_fare_inr: Number(maxFare),
+        auto_rebook_on_confirmed_driver_cancel: autoRebook,
+      };
       const journey = await api.createJourney(fromLoc, toLoc, policy, calculateNeedBy(DEFAULT_PICKUP_WAIT));
       startTransition(() => {
         router.push(`/compare?journey=${journey.id}`);
@@ -178,6 +186,15 @@ export function BookingForm({
             }}
             availableLocations={availableLocations}
           />
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#d9dbe7] bg-[#f4f6ff] p-3">
+            <div>
+              <label htmlFor="max-fare" className="block text-sm font-extrabold text-[#171b37]">Max fare (₹)</label>
+              <p id="max-fare-detail" className="text-xs text-[#475673]">Applies to your ride and any replacement.</p>
+            </div>
+            <input id="max-fare" type="number" inputMode="numeric" min={1} max={100000} step={1} required
+              aria-describedby="max-fare-detail" value={maxFare} onChange={(event) => setMaxFare(event.target.value)}
+              className="min-h-11 w-28 rounded-xl border border-[#a5b4d4] bg-white px-3 text-base font-bold text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#173ed7]" />
+          </div>
           <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-[#dedce9] bg-[#f0edff] p-3 text-[#382b70]">
             <input type="checkbox" role="switch" checked={autoRebook} onChange={(event) => setAutoRebook(event.target.checked)}
               className="size-5 shrink-0 accent-[#563580]" aria-describedby="auto-rebook-detail" />
