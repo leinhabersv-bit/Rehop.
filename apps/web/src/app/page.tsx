@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RideIntro } from '@/components/ui/RideIntro';
+import { ActiveRideCard, useActiveRide } from '@/components/journey/ActiveRide';
 import { api } from '@/lib/api/client';
 
 const sampleRoutes = [
@@ -38,6 +39,13 @@ function PlaceOptions({ places, blocked }: { places: string[]; blocked: string }
 }
 
 export default function HomePage() {
+  const { active, checking } = useActiveRide();
+  if (active) return <ActiveRideCard ride={active} />;
+  if (checking) return <p role="status" className="mx-auto max-w-6xl">Checking ride status…</p>;
+  return <RidePlanner />;
+}
+
+function RidePlanner() {
   const router = useRouter();
   const locations = useQuery({ queryKey: ['locations'], queryFn: api.locations, staleTime: 60_000 });
   const labels = locations.data?.locations.map(({ label }) => label) ?? [];

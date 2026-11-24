@@ -59,6 +59,10 @@ test('shared controls navigate home and traverse the current app history', async
 
 test('a rider can book and track a ride on a compact phone', async ({ page, request }) => {
   await page.setViewportSize({ width: 320, height: 690 });
+  await page.route('**/api/maps', (route) => route.fulfill({ json: {
+    coordinates: [[80.153, 12.84], [80.167, 12.98]], distanceMeters: 2200,
+    durationSeconds: 160, calculatedAt: '2026-11-23T08:30:00Z',
+  } }));
   await page.goto(web);
   await page.getByRole('button', { name: 'Review trip details' }).click();
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
@@ -103,8 +107,29 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   }, { timeout: 12_000 }).toBeLessThan(first.active_ride!.distance_to_pickup_m);
   await expect.poll(() => cab.getAttribute('style')).not.toBe(initialPosition);
   await expect(page.getByRole('button', { name: /advance|simulate/i })).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('link', { name: 'Your rides' }).click();
-  await expect(page.getByRole('link', { name: /VIT Chennai.*Chennai Airport/ })).toHaveAttribute('href', `/journey/${id}`);
+  const tabs = page.getByRole('navigation', { name: 'Mobile navigation' });
+  await expect(tabs.getByRole('link', { name: 'Track ride' })).toHaveAttribute('href', `/journey/${id}`);
+  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toHaveCount(0);
+  await tabs.getByRole('link', { name: 'Your rides' }).click();
+  await expect(page.getByRole('heading', { name: 'Your ride is in progress' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /delete ride/i })).toHaveCount(0);
+  await page.goto(`${web}/book`);
+  await expect(page.getByRole('heading', { name: 'Your ride is in progress' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Find my ride' })).toHaveCount(0);
+  await page.getByRole('main').getByRole('link', { name: 'Track ride' }).click();
+  const arrived = await request.post(`${api}/api/v1/journeys/${id}/tick`, { data: { steps: 24 } });
+  expect(arrived.ok()).toBe(true);
+  await page.getByRole('button', { name: 'Confirm boarding' }).click();
+  await expect(page.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
+  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toHaveCount(0);
+  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toBeVisible({ timeout: 12_000 });
+  await tabs.getByRole('link', { name: 'Your rides' }).click();
+  await expect(page.getByText('Arrived', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Delete ride:/ }).click();
+  await page.getByRole('button', { name: 'Delete ride', exact: true }).click();
+  await expect(page.getByText('Ride deleted.', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'No rides yet' })).toBeVisible();
 });
 
 test('a fare below every estimate prevents booking and can be edited', async ({ page }) => {

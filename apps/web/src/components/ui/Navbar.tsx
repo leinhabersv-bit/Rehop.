@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarPlus, CarFront, House } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useActiveRide } from '@/components/journey/ActiveRide';
 
 interface BrowserNavigation extends EventTarget {
   readonly canGoBack: boolean;
@@ -38,17 +39,16 @@ function traverse(direction: typeof back | typeof forward) {
 
 const navButton = 'inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 font-bold focus-visible:outline-2 focus-visible:outline-[#173ed7] disabled:opacity-35 sm:min-h-9';
 
-const mobileTabs = [
-  { href: '/', label: 'Home', Icon: House },
-  { href: '/book', label: 'Book', Icon: CalendarPlus },
-  { href: '/trips', label: 'Your rides', Icon: CarFront },
-];
-
 export function Navbar() {
   const path = usePathname();
+  const { active, checking } = useActiveRide();
+  const primary = active ? { href: `/journey/${encodeURIComponent(active.id)}`, label: 'Track ride', Icon: CarFront }
+    : checking ? null : { href: '/book', label: 'Book', Icon: CalendarPlus };
+  const mobileTabs = [{ href: '/', label: 'Home', Icon: House }, ...(primary ? [primary] : []),
+    { href: '/trips', label: 'Your rides', Icon: CarFront }];
   const rides = path === '/trips' || path.startsWith('/journey/');
   const booking = path === '/book' || path === '/compare' || path === '/quotes';
-  const currentTab = rides ? '/trips' : booking ? '/book' : path;
+  const currentTab = primary?.href === path ? path : rides ? '/trips' : booking && !active ? '/book' : path;
   const directions = useSyncExternalStore(subscribeToHistory, availableDirections, () => 0);
   return (
     <>
@@ -73,7 +73,7 @@ export function Navbar() {
             <Link href="/trips" aria-current={rides ? 'page' : undefined} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-2 hover:bg-[#eee8df] sm:min-h-10 sm:px-3 ${rides ? 'bg-[#e4eaff] text-[#173ed7]' : ''}`}>
               <span>Your rides</span>
             </Link>
-            <Link href="/book" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#173ed7] px-3 text-white hover:bg-[#1232b5] max-sm:px-2.5 max-sm:text-xs sm:min-h-10 sm:px-4"><span>Book</span><ArrowRight size={15} className="max-sm:hidden" aria-hidden="true" /></Link>
+            {primary && <Link href={primary.href} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#173ed7] px-3 text-white hover:bg-[#1232b5] max-sm:px-2.5 max-sm:text-xs sm:min-h-10 sm:px-4"><span>{primary.label}</span><ArrowRight size={15} className="max-sm:hidden" aria-hidden="true" /></Link>}
           </nav>
         </div>
       </header>
