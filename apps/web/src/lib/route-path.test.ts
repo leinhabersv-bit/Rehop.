@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { interpolateRoutePoint, measureRoute, routeScreenHeading, trackingCamera } from './route-path';
+import { interpolateRoutePoint, measureRoute, routeScreenHeading, trackingCenter, trackingZoom } from './route-path';
 
 it('follows each leg of the route by distance and reaches the exact pickup point', () => {
   const route = measureRoute([[80, 13], [80, 13.02], [80, 13.02], [80.005, 13.02]]);
@@ -25,15 +25,20 @@ it('centers a dateline-crossing route between the driver and pickup', () => {
   expect(routeScreenHeading([179.8, 10], [-179.8, 10])).toBeCloseTo(0);
 });
 
-it('zooms in as pickup gets closer and uses street zoom for a distant destination', () => {
+it('chooses a whole-number pickup zoom that can keep the pin in view for the remaining route', () => {
   const size = { width: 320, height: 420 };
-  const start = trackingCamera([80, 13], [80.024, 13], [80.001, 13], size, false);
-  const nearby = trackingCamera([80.020, 13], [80.024, 13], [80.021, 13], size, false);
-  expect(start.center[0]).toBeCloseTo(80.012, 5);
-  expect(nearby.zoom).toBeGreaterThan(start.zoom + 2);
-  expect(trackingCamera([80.024, 13], [80.024, 13], [80.024, 13], size, false).zoom).toBe(18);
-  const distant = trackingCamera([80, 13], [80.2, 13], [80.001, 13], size, true);
-  expect(distant.zoom).toBe(16.2);
-  expect(distant.center[0]).toBeCloseTo(80.0005, 5);
-  expect(trackingCamera([80.020, 13], [80.024, 13], [80.021, 13], size, true)).toEqual(nearby);
+  const endpoint: [number, number] = [80.024, 13];
+  const route = measureRoute([[80.02, 13], [80, 13], endpoint]);
+  expect(trackingZoom(route.remainingPoints(0), endpoint, size, false)).toBe(13);
+  expect(trackingZoom(route.remainingPoints(route.length), endpoint, size, false)).toBe(18);
+  expect(trackingCenter([80, 13], endpoint, [80.001, 13], size, false, 13)[0]).toBeCloseTo(80.012, 5);
+});
+
+it('keeps street zoom for the destination and brings the pin into frame as the cab gets close', () => {
+  const size = { width: 320, height: 420 };
+  const endpoint: [number, number] = [80.2, 13];
+  const zoom = trackingZoom([[80, 13], endpoint], endpoint, size, true);
+  expect(zoom).toBe(16);
+  expect(trackingCenter([80, 13], endpoint, [80.001, 13], size, true, zoom)[0]).toBeCloseTo(80.0005, 5);
+  expect(trackingCenter([80.197, 13], endpoint, [80.198, 13], size, true, zoom)[0]).toBeCloseTo(80.1985, 5);
 });
