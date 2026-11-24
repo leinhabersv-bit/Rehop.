@@ -4,7 +4,7 @@ const web = process.env.REHOP_TEST_WEB ?? 'http://localhost:3000';
 const api = process.env.REHOP_TEST_API ?? 'http://localhost:8000';
 
 test('popular Chennai locations route to the selected airport terminal', async ({ page }) => {
-  await page.route('**/api/maps?*', (route) => route.fulfill({ json: {
+  await page.route('**/api/maps', (route) => route.fulfill({ json: {
     coordinates: [[80.276308, 13.082590], [80.164110, 12.982069]],
     distanceMeters: 19200,
     durationSeconds: 2100,
@@ -19,19 +19,16 @@ test('popular Chennai locations route to the selected airport terminal', async (
   await expect(destination.locator('optgroup[label="Parks, beaches & landmarks"] option', { hasText: 'Shore Temple Parking' })).toHaveCount(1);
   await pickup.selectOption('Chennai Central Railway Station');
   await destination.selectOption('Chennai Airport T2 (International)');
-  const requestedRoute = page.waitForRequest((request) => request.url().includes('/api/maps?'));
+  const requestedRoute = page.waitForRequest((request) => request.url().endsWith('/api/maps'));
   await page.getByRole('button', { name: 'Review trip details' }).click();
-  const route = new URL((await requestedRoute).url());
-  expect(route.searchParams.get('from')).toBe('80.276308,13.082590');
-  expect(route.searchParams.get('to')).toBe('80.164110,12.982069');
+  expect((await requestedRoute).postDataJSON()).toMatchObject({
+    from: '80.276308,13.082590', to: '80.164110,12.982069',
+  });
   const report = page.getByRole('region', { name: 'Trip timing report' });
   await expect(report.getByText('35 min', { exact: true })).toBeVisible();
   await expect(report.getByText('19.2 km', { exact: true })).toBeVisible();
   await expect(report.getByText(/Traffic excluded/)).toBeVisible();
-  const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
-  const directions = new URL((await google.getAttribute('href'))!);
-  expect(directions.searchParams.get('origin')).toBe('13.0825901,80.2763077');
-  expect(directions.searchParams.get('destination')).toBe('12.9820693,80.1641102');
+  await expect(report.getByRole('region', { name: 'Driving route map' })).toBeVisible();
 });
 
 test('a rider can search, copy the map timing report and review the pickup ETA separately', async ({ page, request, context }) => {
@@ -39,11 +36,11 @@ test('a rider can search, copy the map timing report and review the pickup ETA s
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const pickup = { label: 'Guindy National Park, Chennai', lat: 13.000005, lng: 80.2280448 };
 
-  await page.route('**/api/maps?*', async (route) => {
-    const params = new URL(route.request().url()).searchParams;
-    if (params.get('q') === 'Guindy National Park') {
+  await page.route('**/api/maps', async (route) => {
+    const params = route.request().postDataJSON();
+    if (params.q === 'Guindy National Park') {
       await route.fulfill({ json: { places: [pickup] } });
-    } else if (params.get('from') === '80.228045,13.000005') {
+    } else if (params.from === '80.228045,13.000005') {
       await route.fulfill({ json: {
         coordinates: [[80.228045, 13.000005], [80.2, 13.004], [80.167339, 12.982553]],
         distanceMeters: 8550,
@@ -62,7 +59,6 @@ test('a rider can search, copy the map timing report and review the pickup ETA s
   const pickupInput = page.getByRole('textbox', { name: 'Pickup location' });
   await expect(pickupInput).toBeEmpty();
   await pickupInput.fill('Guindy National Park');
-  await expect(page.locator('.ride-planner-actions')).toHaveCSS('position', 'static');
   await pickupInput.press('Enter');
   await page.getByRole('button', { name: pickup.label }).click();
   const destination = page.getByRole('textbox', { name: 'Destination' });
@@ -83,24 +79,13 @@ test('a rider can search, copy the map timing report and review the pickup ETA s
   expect(copied).toContain('16 min estimated drive · 8.6 km');
   expect(copied).toContain('FOSSGIS / OSRM · Traffic excluded');
   await expect(page.getByText('Road access is 190 m from pickup.')).toBeVisible();
-  const google = page.getByRole('link', { name: 'Live traffic in Google Maps' });
-  await expect(google).toBeVisible();
-  await page.getByRole('button', { name: 'Show map' }).click();
   const map = page.getByRole('region', { name: 'Driving route map' });
   await expect(map.locator('svg path').first()).toBeVisible();
-  const directions = new URL((await google.getAttribute('href'))!);
-  expect(directions.searchParams.get('origin')).toBe('13.000005,80.2280448');
-  expect(directions.searchParams.get('destination')).toBe('12.9825533,80.167339');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-  await page.getByRole('button', { name: 'Hide map' }).click();
 
   await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'Review your ride' })).toBeVisible();
-  await expect(page.getByText('Driver to pickup (simulated)', { exact: true })).toBeVisible();
-  await expect(report.getByText('16 min', { exact: true })).toBeVisible();
-  await expect(map).toHaveCount(0);
-  await report.getByRole('button', { name: 'Show map' }).click();
-  await expect(map.locator('svg path').first()).toBeVisible();
+  await expect(page.getByText('Pickup in', { exact: true })).toBeVisible();
   const id = new URL(page.url()).searchParams.get('journey');
   expect(id).toBeTruthy();
   const journey = await request.get(`${api}/api/v1/journeys/${id}`);

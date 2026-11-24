@@ -77,18 +77,20 @@ def book(
 ):
     if HOSTED and x_ride_rider is None:
         raise SimulationError(
-            "RIDER_REQUIRED", "Reload the booking page before booking a ride.", status=428,
+            "RIDER_REQUIRED",
+            "Reload the booking page before booking a ride.",
+            status=428,
         )
     recent_ids = tuple(
-        recent_id for recent_id in x_ride_recent.split(",")[:8]
+        recent_id
+        for recent_id in x_ride_recent.split(",")[:8]
         if re.fullmatch(r"journey_[a-f0-9]{12}", recent_id)
     )
     rider_id = str(x_ride_rider) if x_ride_rider else None
     with open_ride(journey_id, rider_id=rider_id, recent_ids=recent_ids) as journey:
-        return (
-            journey.book(req.quote_id, req.idempotency_key, expected_version=req.expected_version)
-            .model_dump(mode="json")
-        )
+        return journey.book(
+            req.quote_id, req.idempotency_key, expected_version=req.expected_version
+        ).model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}/events")
@@ -104,27 +106,24 @@ def events(journey_id: str, since_seq: int = 0):
 @router.post("/journeys/{journey_id}/rescue/approve")
 def approve(journey_id: str, req: ApprovalRequest):
     with open_ride(journey_id) as journey:
-        return (
-            journey.approve_switch(req.approved, req.idempotency_key, expected_version=req.expected_version)
-            .model_dump(mode="json")
-        )
+        return journey.approve_switch(
+            req.approved, req.idempotency_key, expected_version=req.expected_version
+        ).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/cancel")
 def cancel(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
-        return (
-            journey.cancel(req.idempotency_key, expected_version=req.expected_version)
-            .model_dump(mode="json")
+        return journey.cancel(req.idempotency_key, expected_version=req.expected_version).model_dump(
+            mode="json"
         )
 
 
 @router.post("/journeys/{journey_id}/pickup/confirm")
 def confirm_pickup(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
-        return (
-            journey.confirm_pickup(req.idempotency_key, expected_version=req.expected_version)
-            .model_dump(mode="json")
+        return journey.confirm_pickup(req.idempotency_key, expected_version=req.expected_version).model_dump(
+            mode="json"
         )
 
 
