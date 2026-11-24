@@ -35,7 +35,7 @@ export function useDrivingRoute(from: string, to: string, source?: 'google-map' 
   });
 }
 
-export function TripRoute({ pickup, dropoff }: { pickup: Location; dropoff: Location }) {
+export function TripRoute({ pickup, dropoff, hideGoogleMap = false }: { pickup: Location; dropoff: Location; hideGoogleMap?: boolean }) {
   const titleId = useId();
   const [showTraffic, setShowTraffic] = useState(false);
   const [copyStatus, setCopyStatus] = useState<{ report: string; message: string } | null>(null);
@@ -130,7 +130,7 @@ export function TripRoute({ pickup, dropoff }: { pickup: Location; dropoff: Loca
       </div>
       {result && (
         <>
-          {hasInlineMap && <Map coordinates={result.coordinates} pickup={pickup} dropoff={dropoff} />}
+          {hasInlineMap && (!isGoogle || !hideGoogleMap) && <Map coordinates={result.coordinates} pickup={pickup} dropoff={dropoff} />}
           {(!isGoogle || result.trafficAware) && (
             <div className="flex flex-wrap items-center gap-x-2 border-t border-[#d9dbe7] bg-[#f4f6ff] px-3 text-xs font-bold text-[#173ed7] sm:px-4">
               {!isGoogle && (

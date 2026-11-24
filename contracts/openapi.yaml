@@ -138,6 +138,7 @@ paths:
       - RideRescue simulation
       summary: Get Journey
       operationId: get_journey_api_v1_journeys__journey_id__get
+      description: Returns the journey snapshot. For newly boarded rides, boarded_at is the UTC wall-clock time of confirmed boarding.
       parameters:
       - name: journey_id
         in: path
@@ -307,6 +308,7 @@ paths:
       - RideRescue simulation
       summary: Confirm Pickup
       operationId: confirm_pickup_api_v1_journeys__journey_id__pickup_confirm_post
+      description: Confirms boarding and returns the journey snapshot with boarded_at set to the UTC wall-clock time of confirmation. Retrying does not reset it.
       parameters:
       - name: journey_id
         in: path

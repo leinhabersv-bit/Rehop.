@@ -7,6 +7,7 @@ import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { googleMapsKey } from '@/lib/google-maps';
 import { measureRoute } from '@/lib/route-path';
 import type { Location } from '@/types';
+import { RideCab } from './RideCab';
 import styles from './journey.module.css';
 
 const GoogleDrivingMap = dynamic(() => import('@/components/booking/GoogleDrivingMap'), {
@@ -35,20 +36,7 @@ export default function PickupApproach({ pickup, dropoff, startDistance, distanc
   const route = useDrivingRoute(from, to, 'google-map', Boolean(googleMapsKey && origin));
   const coordinates = route.data?.provider === 'google' ? route.data.coordinates : undefined;
   const showMap = !!(coordinates && coordinates.length >= 2);
-  const cab = (
-    <span aria-hidden="true" className={styles.approachCar} data-stalled={stalled} data-pickup-cab
-      style={showMap ? undefined : { left: `${(progress * 100).toFixed(2)}%` }}>
-      <span className={styles.cabModel}>
-        <span className={styles.cabSide} />
-        <span className={styles.cabHood} />
-        <span className={styles.cabNose} />
-        <span className={styles.cabWindows} />
-        <span className={styles.cabWindshield} />
-        <span className={styles.cabRoof} />
-        <span className={styles.cabTaxiLight} />
-      </span>
-    </span>
-  );
+  const cab = <RideCab stalled={stalled} progress={showMap ? undefined : progress} />;
 
   if (showMap) {
     return (

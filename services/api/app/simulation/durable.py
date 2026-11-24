@@ -54,6 +54,7 @@ class StoredSession(BaseModel):
     attempted_providers: set[Provider]
     idempotency: dict[str, tuple[Command, tuple[str, str] | None]]
     booking_uncertain: bool
+    boarded_at: datetime | None = None
 
     def restore(self) -> Session:
         session = Session.__new__(Session)

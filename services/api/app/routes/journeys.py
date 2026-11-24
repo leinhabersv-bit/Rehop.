@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -122,9 +123,9 @@ def cancel(journey_id: str, req: ActionRequest):
 @router.post("/journeys/{journey_id}/pickup/confirm")
 def confirm_pickup(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
-        return journey.confirm_pickup(req.idempotency_key, expected_version=req.expected_version).model_dump(
-            mode="json"
-        )
+        return journey.confirm_pickup(
+            req.idempotency_key, expected_version=req.expected_version, boarded_at=datetime.now(UTC)
+        ).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/tick", description="Development-only simulated clock advancement")

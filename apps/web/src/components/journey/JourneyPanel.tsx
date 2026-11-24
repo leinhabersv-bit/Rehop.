@@ -10,6 +10,7 @@ import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
 import PickupApproach from './PickupApproach';
+import DestinationTracking from './DestinationTracking';
 import { pickupActivity } from './pickup-activity';
 import styles from './journey.module.css';
 
@@ -149,6 +150,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const ride = data.active_ride;
   const risk = data.risk;
   const done = finished.has(data.state);
+  const boarded = data.state === 'PICKUP_CONFIRMED';
   const reconciling = data.state === 'RECONCILING' || data.booking_uncertain;
   const canBook = data.state === 'WAITING_FOR_RIDE' && !reconciling;
   const canAct = !action && !query.isError && !done && !reconciling;
@@ -188,7 +190,7 @@ export default function JourneyPanel({ id }: { id: string }) {
       <header className={styles.heading}>
         <div>
           <Link href="/trips" className="text-sm font-bold text-[#173ed7]">← Your rides</Link>
-          <h1 className="mt-3">{data.state === 'PICKUP_CONFIRMED' ? 'You’re on your way' : 'Your pickup'}</h1>
+          <h1 className="mt-3">{boarded ? 'You’re on your way' : 'Your pickup'}</h1>
           <p className="lead">{data.pickup.label} → {data.dropoff.label}</p>
         </div>
       </header>
@@ -201,11 +203,11 @@ export default function JourneyPanel({ id }: { id: string }) {
       <div className={styles.columns}>
           <section className={styles.pickupCard} aria-labelledby="progress-title">
             <div className={styles.pickupHeader}>
-              <h2 id="progress-title">Pickup status</h2>
+              <h2 id="progress-title">{boarded ? 'Trip progress' : 'Pickup status'}</h2>
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
             <p className={styles.pickupStatus}>{pickupStatus}</p>
-            {ride && (
+            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} boardedAt={data.boarded_at} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
                   <dl className={styles.stats}>
@@ -313,7 +315,7 @@ export default function JourneyPanel({ id }: { id: string }) {
             ) : <p className="muted">Journey updates will appear here.</p>}
           </aside>
         </div>
-        <div className={styles.tripMap}><TripRoute pickup={data.pickup} dropoff={data.dropoff} /></div>
+        <div className={styles.tripMap}><TripRoute pickup={data.pickup} dropoff={data.dropoff} hideGoogleMap={boarded} /></div>
       </div>
     </>
   );

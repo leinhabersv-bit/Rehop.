@@ -136,6 +136,7 @@ class Session:
         self.attempted_providers: set[Provider] = set()
         self.idempotency: dict[str, tuple[Command, tuple[str, str] | None]] = {}
         self.booking_uncertain = False
+        self.boarded_at: datetime | None = None
         self.add_event(EventType.JOURNEY_CREATED, {"scenario": scenario, "is_simulated": True})
         self.add_event(EventType.QUOTES_READY, {"quotes": self.quotes})
         self._transition_journey(JourneyState.WAITING_FOR_RIDE, reason="Initial quotes are ready.")
@@ -263,6 +264,7 @@ class Session:
             scenario=self.scenario,
             simulated_time=self.clock,
             is_simulated=True,
+            boarded_at=self.boarded_at,
         )
 
     def _checked_snapshot(self) -> JourneySnapshot:
@@ -743,7 +745,9 @@ class Session:
         self.add_event(EventType.USER_CANCELLED, {"message": "Rider stopped the journey."})
         return self._checked_snapshot()
 
-    def confirm_pickup(self, key: str, expected_version: int | None = None) -> JourneySnapshot:
+    def confirm_pickup(
+        self, key: str, expected_version: int | None = None, *, boarded_at: datetime | None = None
+    ) -> JourneySnapshot:
         command = ("confirm_pickup", None, expected_version)
         if (replay := self._replay(key, command)) is not None:
             return replay
@@ -755,6 +759,7 @@ class Session:
         )
         self._transition_journey(JourneyState.PICKUP_CONFIRMED, reason="Passenger boarded the arrived ride.")
         self.ride.state = ride_state
+        self.boarded_at = boarded_at
         self.pending_backup = None
         self.cancellation_fee_notice = None
         self.idempotency[key] = (command, None)
