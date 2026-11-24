@@ -19,6 +19,22 @@ const googleRoutingEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 const point = (location: Location) => `${location.lng.toFixed(6)},${location.lat.toFixed(6)}`;
 
+export function useDrivingRoute(from: string, to: string, source?: 'google-map' | 'osm', enabled = true) {
+  const googleView = source !== 'osm';
+  return useQuery({
+    queryKey: ['driving-route', source ?? 'google', from, to],
+    queryFn: ({ signal }) => getDrivingRoute(from, to, signal, source),
+    enabled: enabled && from !== to,
+    staleTime: googleView ? 0 : 15 * 60_000,
+    gcTime: googleView ? 0 : 15 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: retryMapRequest,
+    retryDelay: 1100,
+  });
+}
+
 export function TripRoute({ pickup, dropoff }: { pickup: Location; dropoff: Location }) {
   const titleId = useId();
   const [showTraffic, setShowTraffic] = useState(false);
@@ -26,17 +42,7 @@ export function TripRoute({ pickup, dropoff }: { pickup: Location; dropoff: Loca
   const from = point(pickup);
   const to = point(dropoff);
   const source = googleRoutingEnabled ? 'google-map' : showTraffic ? undefined : 'osm';
-  const googleView = source !== 'osm';
-  const route = useQuery({
-    queryKey: ['driving-route', source ?? 'google', from, to],
-    queryFn: ({ signal }) => getDrivingRoute(from, to, signal, source),
-    enabled: from !== to,
-    staleTime: googleView ? 0 : 15 * 60_000,
-    gcTime: googleView ? 0 : 15 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    retry: retryMapRequest,
-  });
+  const route = useDrivingRoute(from, to, source);
   if (from === to) return null;
 
   const trafficUnavailable = showTraffic && route.data && route.data.provider !== 'google';

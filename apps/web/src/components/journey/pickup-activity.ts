@@ -66,6 +66,7 @@ export function pickupActivity(events: Event[], ride?: Ride | null) {
   const start = ride?.ride_id === currentRide ? initialDistance : distance;
   return {
     timeline,
+    startDistance: ride?.ride_id === currentRide ? initialDistance : 0,
     progress: distance <= 0 ? 1 : start > 0 ? Math.max(0, 1 - distance / start) : 0,
     stalled: !!ride && ride.ride_id === currentRide && distance > 0 && stalled,
   };
