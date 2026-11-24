@@ -1,14 +1,26 @@
 'use client';
 
 import React, { Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { BookingForm } from '@/components/booking/BookingForm';
+import { api } from '@/lib/api/client';
 
 function BookingContent() {
   const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  const previous = useQuery({
+    queryKey: ['journey', editId],
+    queryFn: () => api.journey(editId!),
+    enabled: !!editId,
+    staleTime: 30_000,
+  });
   const customSearch = searchParams.get('search') === '1';
-  const initialPickup = searchParams.get('pickup') ?? (customSearch ? '' : 'VIT Chennai');
-  const initialDropoff = searchParams.get('dropoff') ?? (customSearch ? '' : 'Chennai Airport');
+  if (editId && previous.isPending) return <p role="status">Loading trip details…</p>;
+  if (editId && !previous.data) return <p role="alert">Trip details are unavailable. <Link href="/book" className="underline">Plan a new trip</Link></p>;
+  const initialPickup = previous.data?.pickup ?? searchParams.get('pickup') ?? (customSearch ? '' : 'VIT Chennai');
+  const initialDropoff = previous.data?.dropoff ?? searchParams.get('dropoff') ?? (customSearch ? '' : 'Chennai Airport');
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pb-10 max-sm:gap-3 max-sm:pb-4">
       <header className="space-y-2 max-sm:px-1 max-sm:pt-2">
@@ -18,8 +30,11 @@ function BookingContent() {
         </p>
       </header>
       <BookingForm
+        key={editId ?? searchParams.toString()}
         initialPickup={initialPickup}
         initialDropoff={initialDropoff}
+        initialMaxFare={previous.data?.policy.max_total_fare_inr}
+        initialAutoRebook={previous.data?.state === 'WAITING_FOR_RIDE' && previous.data.policy.auto_rebook_on_confirmed_driver_cancel}
       />
     </div>
   );
