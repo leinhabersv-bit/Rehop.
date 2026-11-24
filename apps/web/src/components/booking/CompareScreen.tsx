@@ -16,15 +16,18 @@ import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Journey } from '@/types';
 import { isQuoteExpired, isQuoteWithinPolicy, recommendRide } from '@/lib/pickup';
 import { rememberRide } from '@/lib/recent-rides';
+import { ActiveRideCard, useActiveRide } from '@/components/journey/ActiveRide';
 import { BookingConfirmationModal, hasConfirmedRide } from './BookingConfirmationModal';
 
 export function CompareScreen() {
   const router = useRouter();
   const cache = useQueryClient();
   const searchParams = useSearchParams();
+  const { active, checking } = useActiveRide();
 
   // Resolve target journey ID
   const queryJourneyId = searchParams.get('journey');
+  const otherRide = active && active.id !== queryJourneyId ? active : undefined;
 
   // Fetch journey data
   const {
@@ -41,7 +44,7 @@ export function CompareScreen() {
       }
       return await api.journey(queryJourneyId);
     },
-    enabled: !!queryJourneyId,
+    enabled: !!queryJourneyId && !otherRide && !checking,
     staleTime: 30000,
     retry: 1,
   });
@@ -71,7 +74,7 @@ export function CompareScreen() {
   const editTrip = journey ? `/book?edit=${encodeURIComponent(journey.id)}` : '/book';
 
   const handleConfirmBooking = async () => {
-    if (inFlight.current || !journey) return;
+    if (inFlight.current || !journey || otherRide || checking) return;
     const request = attempt ?? (canBook && recommended ? {
       journeyId: journey.id,
       quoteId: recommended.quote_id,
@@ -149,6 +152,9 @@ export function CompareScreen() {
     }
   };
 
+  if (otherRide) return <ActiveRideCard ride={otherRide} />;
+  if (checking && !isConfirmationOpen) return <p role="status">Checking ride status…</p>;
+
   // Early return for missing journey ID or failed load
   if (!queryJourneyId || (!isLoading && !journey)) {
     return (
@@ -181,13 +187,13 @@ export function CompareScreen() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5 pb-10 max-sm:space-y-3 max-sm:pb-5">
       <header className="space-y-3">
-        <button
+        {!active && <button
           type="button"
           onClick={() => router.push(editTrip)}
           className="inline-flex min-h-10 items-center gap-2 rounded-lg text-sm font-bold text-[#475673] hover:text-[#171b37] focus-visible:outline-2 focus-visible:outline-[#B9FF45]"
         >
           <ArrowLeft size={17} aria-hidden="true" /> Edit trip
-        </button>
+        </button>}
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#173ed7]">Simulated booking</p>
           <h1 className="text-3xl font-black tracking-tight sm:text-5xl">{canBook ? 'Review your ride' : 'Your ride'}</h1>
