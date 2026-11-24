@@ -58,7 +58,7 @@ The benchmark is a **synthetic smoke report** and not a field performance claim.
 ## API workflow to test
 
 1. `POST /api/v1/journeys` with pickup, dropoff, `policy` and `need_by`; keep returned journey ID and version.
-2. The response includes **simulated** provider quotes; select one using `POST /api/v1/journeys/{journey_id}/book`, with `quote_id` and unique `idempotency_key`.
+2. The response includes **simulated** provider quotes. Compare `expires_at` with the response's `simulated_time`. Book using `POST /api/v1/journeys/{journey_id}/book` with `quote_id`, the current `expected_version`, and a unique `idempotency_key`. If the result is unknown, read the journey before taking further action. Reuse the key only for the same action and payload.
 3. Read state at `GET /api/v1/journeys/{journey_id}` and events at `GET /api/v1/journeys/{journey_id}/events`. WebSocket: `/ws/journeys/{journey_id}` with `since_seq` for replay.
 4. Advance a development scenario using `POST /api/v1/journeys/{journey_id}/tick` (simulated five-second ticks).
 5. When a backup is proposed, use `POST /api/v1/journeys/{journey_id}/rescue/approve`, passing `approved`, the **current** `expected_version` and an `idempotency_key`.

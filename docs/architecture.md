@@ -36,4 +36,10 @@
 
 ## Current limitations
 
+`POST /api/v1/journeys` accepts an optional `scenario` query parameter. The default `S01` simulates a healthy pickup. `S03` stalls the original provider and lets the rider complete booking, recovery approval and pickup on the same journey ID. The request body, response fields and existing scenario endpoints retain their shapes.
+
+The simulator uses a fixed clock for repeatable traces. A supplied pickup deadline must be later than the simulated start. Retrying a mutation uses the same idempotency key, operation, payload and expected version. Reusing an executed key for different input returns `IDEMPOTENCY_KEY_REUSED` (HTTP 409). An uncertain provider outcome blocks further booking until reconciliation. The simulator currently preserves that state for inspection, with no provider callback integration.
+
+Automatic recovery after confirmed driver cancellation defaults to off. Clients that previously inherited automatic rebooking must now send `policy.auto_rebook_on_confirmed_driver_cancel: true` after the rider opts in. The preset cancellation scenarios explicitly enable automatic recovery to exercise the retry and spending safeguards.
+
 Everything remains simulated and in memory. The ONDC naming is *architectural alignment*, not network membership. No real ride tracking, actual prices, charges, holds, guaranteed pickups, or fee payments are claimed. The simulator uses an illustrative 10%-up-to-Rs100 bound for certain no-valid-reason rider cancellations; applicable state/provider policies must replace this assumption in production.

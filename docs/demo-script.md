@@ -1,12 +1,13 @@
-# RideRescue 3-minute judge demo — v1.1
+# RIDE & SEEK rider walkthrough
 
-1. **0:00–0:20** Accepted driver not moving; deadline matters, especially for a flight. All provider data synthetic.
-2. **0:20–0:40** FE1 interprets "From VIT Chennai to Chennai Airport, pickup within 15 minutes" using configured LLM (show `source=llm`), then user confirms exact fields and permitted recovery limits.
-3. **0:40–1:00** Show Provider A–D neutral quotes, confirm Provider A. Explain ONDC/Beckn-shaped adapter without claiming live ONDC access.
-4. **1:00–1:35** S13 driver text "cancel kar do" classified as an *advisory signal*. Compare active ETA with `need_by`, explicit wait-versus-switch points, preemptive decision with human approval.
-5. **1:35–2:10** Show conditional cancellation fee (10%, cap Rs100 **only in qualifying cases**), refresh backup quote while original remains active, rider approves, original cancellation confirmed, then Provider B booking confirmed.
-6. **2:10–2:30** S05 another driver cancellation leads to bounded recovery to Provider C. New booking is never marked successful before confirmation.
-7. **2:30–2:45** S14 destroys the refreshed backup: original ride **is not cancelled**. Mention S15 demonstrates an unavoidable post-cancel race, honestly reported.
-8. **2:45–3:00** Show test suite and explicit limitation: simulation and protocol-ready mock adapters, no live ONDC/operator integration.
+1. Set pickup, destination, and maximum pickup wait from the homepage.
+2. Review the route, fare cap, and recovery limits. A stalled ride can only be switched with rider approval.
+3. Select **Find my ride** and review the recommended pickup time and fare. Booking authorizes automatic replacement after a confirmed driver cancellation.
+4. Open **Track your ride**. A standard pickup updates automatically from the simulator API. Select **Confirm boarding** once the driver arrives, or use **Cancel ride** to cancel.
+5. Open **Your rides** to revisit recent bookings on this device. The API supplies the current status each time.
 
-**One-slide ONDC story:** "A possible road to production: ONDC Mobility (Beckn). `get_quotes -> search`, `book -> select/init/confirm`, `cancel -> cancel`, `get_ride_state -> status/track`. Namma Yatri publicly uses these network standards. Our demo does not participate on ONDC."
+## Verification fixtures
+
+Fault scenarios remain available to integration tests through the existing simulator API. The tests cover the stalled-driver approval path, cancellation with automatic recovery, unavailable backup quotes, and uncertainty. They use API fixtures to advance the simulator clock without rider-facing switches.
+
+The backend is a single-process in-memory simulator. Provider A–D, rates, driver positions, and bookings are synthetic. [ONDC/Beckn path](ondc-beckn-path.md)

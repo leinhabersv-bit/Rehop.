@@ -15,3 +15,4 @@ New breaking schema changes require a reviewed PR here and edits to `contracts/`
 | 2026-11-23 | Add bounded LLM rider intent/chat/explanation with labeled fallback | Demonstrable agentic interpretation; policy keeps execution safe | BE2 + FE1 |
 | 2026-11-23 | Add `need_by` timestamp and wait/switch score | Deadline-sensitive pickup matters | BE2 + FE1 |
 | 2026-11-23 | Fresh quote prior to cancellation; show conditional fee notice | Avoid preventable no-ride gap; disclose unavoidable race | BE1 + FE2 |
+| 2026-11-23 | Default automatic recovery after confirmed driver cancellation to off | Require an explicit rider opt-in. Existing callers relying on the previous default must send `true` after consent. Seeded cancellation scenarios opt in explicitly. | BE1 + FE1 |

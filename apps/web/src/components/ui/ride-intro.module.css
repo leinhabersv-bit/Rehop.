@@ -1,0 +1,165 @@
+.scene {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: end;
+  min-height: clamp(27rem, 49vw, 38rem);
+  overflow: hidden;
+  border-radius: clamp(1.25rem, 3vw, 2rem);
+  background: #111528 url('/images/ride-seek-intro.webp?v=loop') center / cover;
+  color: #fffdf8;
+}
+
+.video,
+.scene::after {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.video {
+  z-index: -2;
+  object-fit: cover;
+  object-position: 59% center;
+}
+
+.scene::after {
+  z-index: -1;
+  content: '';
+  background:
+    linear-gradient(90deg, rgb(10 15 34 / 68%), rgb(10 15 34 / 8%) 86%),
+    linear-gradient(0deg, rgb(10 15 34 / 96%), rgb(10 15 34 / 15%) 75%);
+}
+
+.content {
+  min-width: 0;
+  padding: clamp(1.25rem, 5vw, 4rem);
+  padding-bottom: clamp(4.5rem, 8vw, 5.5rem);
+}
+
+.title {
+  margin: 0;
+  color: #fffdf8;
+  font-size: clamp(3.5rem, 11.2vw, 8.25rem);
+  font-weight: 950;
+  line-height: .88;
+  letter-spacing: -.08em;
+}
+
+.title span {
+  display: inline-block;
+}
+
+.amp {
+  color: #ffb27d;
+}
+
+.tagline {
+  margin: 1rem 0 1.25rem;
+  color: #fffdf8;
+  font-size: clamp(1rem, 2.1vw, 1.4rem);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  min-height: 44px;
+  padding: 0 .9rem;
+  border-radius: .75rem;
+  font-size: .875rem;
+  font-weight: 750;
+}
+
+.action {
+  background: #ffb27d;
+  color: #261b28;
+}
+
+.action:hover {
+  background: #ffd0ad;
+}
+
+
+
+.action:focus-visible {
+  outline: 2px solid #fffdf8;
+  outline-offset: 3px;
+}
+
+@media (max-width: 650px) {
+  .scene {
+    min-height: clamp(19rem, 48svh, 25rem);
+  }
+
+  .content {
+    padding-bottom: 1.5rem;
+  }
+
+  .title .secondLine {
+    display: block;
+  }
+
+
+}
+
+@media (max-width: 639px) {
+  .scene {
+    min-height: clamp(19rem, 41svh, 23rem);
+    border-radius: 1.5rem;
+  }
+
+  .video {
+    object-position: 64% center;
+  }
+
+  .scene::after {
+    background: linear-gradient(0deg, #0a0f22 1%, rgb(10 15 34 / 78%) 36%, rgb(10 15 34 / 7%) 85%);
+  }
+
+  .content {
+    padding: 1.125rem;
+  }
+
+  .title {
+    font-size: clamp(3.25rem, 15vw, 4.5rem);
+    line-height: .89;
+  }
+
+  .tagline {
+    margin: .65rem 0 .9rem;
+  }
+
+  .action {
+    width: 100%;
+    min-height: 48px;
+    justify-content: space-between;
+    border-radius: .9rem;
+  }
+
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .title {
+    animation: enter .7s cubic-bezier(.22, 1, .36, 1) both;
+  }
+
+  .tagline,
+  .action {
+    animation: enter .55s .14s cubic-bezier(.22, 1, .36, 1) both;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

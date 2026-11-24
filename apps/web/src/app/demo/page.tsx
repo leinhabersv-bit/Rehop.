@@ -1,2 +1,5 @@
-import ScenarioConsole from '@/components/simulator/ScenarioConsole';
-export default function Page(){return <ScenarioConsole/>}
+import { redirect } from 'next/navigation';
+
+export default function Page() {
+  redirect('/book');
+}

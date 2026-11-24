@@ -8,7 +8,7 @@ Journey
                                        |        +-> MONITORING
                                        +-> PICKUP_CONFIRMED (terminal)
 
-    WAITING_FOR_RIDE, AWAITING_APPROVAL, RECOVERING -> RECONCILING
+    WAITING_FOR_RIDE, MONITORING, AWAITING_APPROVAL, RECOVERING -> RECONCILING
     RECONCILING -> MONITORING | EXHAUSTED | USER_CANCELLED
     MONITORING, AWAITING_APPROVAL, RECOVERING -> EXHAUSTED (terminal)
     WAITING_FOR_RIDE, MONITORING, AWAITING_APPROVAL, RECOVERING -> USER_CANCELLED (terminal)
@@ -46,6 +46,7 @@ JOURNEY_TRANSITIONS: Mapping[JourneyState, frozenset[JourneyState]] = MappingPro
             {
                 JourneyState.AWAITING_APPROVAL,
                 JourneyState.RECOVERING,
+                JourneyState.RECONCILING,
                 JourneyState.PICKUP_CONFIRMED,
                 JourneyState.USER_CANCELLED,
                 JourneyState.EXHAUSTED,

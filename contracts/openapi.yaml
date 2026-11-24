@@ -101,6 +101,19 @@ paths:
       - RideRescue simulation
       summary: Create Journey
       operationId: create_journey_api_v1_journeys_post
+      parameters:
+      - name: scenario
+        in: query
+        required: false
+        schema:
+          enum:
+          - S01
+          - S03
+          type: string
+          description: Simulated pickup behavior.
+          default: S01
+          title: Scenario
+        description: Simulated pickup behavior.
       requestBody:
         content:
           application/json:
@@ -150,6 +163,7 @@ paths:
       - RideRescue simulation
       summary: Book
       operationId: book_api_v1_journeys__journey_id__book_post
+      description: A browser can book another ride after its current pickup journey ends.
       parameters:
       - name: journey_id
         in: path
@@ -157,6 +171,20 @@ paths:
         schema:
           type: string
           title: Journey Id
+      - name: x-ride-rider
+        in: header
+        required: false
+        description: Browser booking identifier. Required on the public hosted API.
+        schema:
+          type: string
+          format: uuid
+      - name: x-ride-recent
+        in: header
+        required: false
+        description: Comma-separated recent journey IDs for bookings made before browser booking identifiers were introduced.
+        schema:
+          type: string
+          maxLength: 167
       requestBody:
         required: true
         content:
@@ -169,6 +197,10 @@ paths:
           content:
             application/json:
               schema: {}
+        '409':
+          description: An active pickup journey exists, or the booking conflicts with the current journey state.
+        '428':
+          description: Browser booking identifier is missing on the hosted API.
         '422':
           description: Validation Error
           content:
@@ -565,7 +597,7 @@ components:
         auto_rebook_on_confirmed_driver_cancel:
           type: boolean
           title: Auto Rebook On Confirmed Driver Cancel
-          default: true
+          default: false
         max_total_fare_inr:
           type: integer
           maximum: 100000.0
