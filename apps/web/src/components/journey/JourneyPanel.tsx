@@ -207,17 +207,19 @@ export default function JourneyPanel({ id }: { id: string }) {
             <p className={styles.pickupStatus}>{pickupStatus}</p>
             {ride && (
               <>
-                <dl className={styles.stats}>
-                  <div><dt>Driver to pickup</dt><dd>{
-                    ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
-                    ride.state === 'IN_PROGRESS' ? 'Boarded' :
-                    ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
-                  }</dd></div>
-                  <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
-                </dl>
-                <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
-                  startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
-                  progress={progress} stalled={positionStalled} status={pickupStatus} />
+                <div className={styles.pickupTracking}>
+                  <dl className={styles.stats}>
+                    <div><dt>Driver to pickup</dt><dd>{
+                      ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
+                      ride.state === 'IN_PROGRESS' ? 'Boarded' :
+                      ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
+                    }</dd></div>
+                    <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
+                  </dl>
+                  <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
+                    startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
+                    progress={progress} stalled={positionStalled} status={pickupStatus} />
+                </div>
                 <ol className={styles.pickupSteps} aria-label="Pickup progress">
                   {pickupSteps.map(({ label, Icon }, index) => (
                     <li key={label} aria-current={index === pickupStep ? 'step' : undefined} data-reached={index <= pickupStep}>
