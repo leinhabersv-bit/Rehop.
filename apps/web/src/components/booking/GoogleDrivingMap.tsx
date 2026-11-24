@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { LocateFixed } from 'lucide-react';
 import { loadGoogleLibrary } from '@/lib/google-maps';
 import type { DrivingRoute } from '@/lib/maps';
-import { interpolateRoutePoint, measureRoute, routeScreenHeading } from '@/lib/route-path';
+import { interpolateRoutePoint, measureRoute, routeScreenHeading, trackingCamera } from '@/lib/route-path';
 import type { Location } from '@/types';
 
 type MapView = {
@@ -25,6 +25,7 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
   const [failed, setFailed] = useState(false);
   const [view, setView] = useState<MapView | null>(null);
   const [following, setFollowing] = useState(true);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const displayed = useRef<number | null>(null);
   const fitRoute = useRef<(() => void) | null>(null);
   const tracking = driver !== undefined;
@@ -44,7 +45,10 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
         loadGoogleLibrary('maps'), loadGoogleLibrary('core'), loadGoogleLibrary('marker'),
       ]) as [google.maps.MapsLibrary, google.maps.CoreLibrary, google.maps.MarkerLibrary];
       if (!node || disposed) return;
-      const map = new maps.Map(node, { gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: !tracking });
+      const map = new maps.Map(node, {
+        gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: !tracking,
+        isFractionalZoomEnabled: tracking || undefined,
+      });
       const line = new maps.Polyline({ map, strokeColor: '#173ed7', strokeWeight: 5 });
       const markers = (tracking ? [toDestination ? 'Destination' : 'Pickup'] : ['Pickup', 'Destination']).map((title, index) => new marker.Marker({
         map, title, label: tracking ? toDestination ? 'D' : 'P' : index ? 'B' : 'A',
@@ -97,7 +101,12 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
     };
     fitRoute.current = fit;
     fit();
-    const observer = new ResizeObserver(fit);
+    const observer = new ResizeObserver(() => {
+      if (tracking) {
+        const { clientWidth: width, clientHeight: height } = node;
+        setViewport((size) => size.width === width && size.height === height ? size : { width, height });
+      } else fit();
+    });
     observer.observe(node);
     return () => {
       observer.disconnect();
@@ -123,21 +132,23 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
     const target = track.length * progress;
     const start = displayed.current ?? target;
     const endpoint = track.pointAt(track.length);
-    const cameraStart = following && window.matchMedia('(max-width: 639px)').matches ? map.getCenter()?.toJSON() : undefined;
+    const cameraStart = map.getCenter()?.toJSON();
+    const zoomStart = map.getZoom();
     const place = (distance: number, cameraProgress = 0) => {
       displayed.current = distance;
       const point = track.pointAt(distance);
       const heading = routeScreenHeading(track.pointAt(distance - 12), track.pointAt(distance + 12));
       cab.place({ lng: point[0], lat: point[1] }, heading);
-      if (cameraStart && cameraProgress) {
-        // Keep the cab and the endpoint together at the zoom that fit the whole route.
-        const center = interpolateRoutePoint(point, endpoint, 0.5);
-        const [lng, lat] = interpolateRoutePoint([cameraStart.lng, cameraStart.lat], center, cameraProgress);
-        map.moveCamera({ center: { lat, lng } });
+      if (following && viewport.width && viewport.height && cameraProgress) {
+        const camera = trackingCamera(point, endpoint, track.pointAt(distance + 120), viewport, toDestination);
+        const [lng, lat] = cameraStart
+          ? interpolateRoutePoint([cameraStart.lng, cameraStart.lat], camera.center, cameraProgress) : camera.center;
+        const zoom = zoomStart === undefined ? camera.zoom : zoomStart + (camera.zoom - zoomStart) * cameraProgress;
+        map.moveCamera({ center: { lat, lng }, zoom });
       }
     };
     if (start === target) {
-      place(target);
+      place(target, 1);
       return;
     }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -154,19 +165,21 @@ export default function GoogleDrivingMap({ coordinates, pickup, dropoff, driver 
     }
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
-  }, [view, track, progress, following]);
+  }, [view, track, progress, following, viewport, toDestination]);
 
   return failed
     ? <p role="status" className="px-3 py-2 text-sm text-[#475673]">The map could not load. Reload the page to try again.</p>
     : <div className="relative isolate">
       <div ref={container} role="region" aria-label={tracking ? toDestination ? 'Google Maps destination route' : 'Google Maps pickup route' : 'Driving route map'} className="isolate z-0 h-[clamp(20rem,50svh,27rem)] w-full bg-[#e8edf8] sm:h-80" />
       {view?.cab && (
-        <button type="button" aria-pressed={following} onClick={() => {
-          if (!following) fitRoute.current?.();
-          setFollowing(!following);
-        }} className="absolute left-2 top-2 z-10 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#c7d1ee] bg-white px-3 text-xs font-bold text-[#173a9c] shadow-sm aria-pressed:border-[#173ed7] aria-pressed:bg-[#edf1ff] sm:hidden">
-          <LocateFixed size={16} aria-hidden="true" /> Follow driver
-        </button>
+        <div className="absolute left-2 top-2 z-10 flex gap-1 text-xs font-bold text-[#173a9c]">
+          <button type="button" aria-pressed={following} onClick={() => setFollowing(!following)}
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[#c7d1ee] bg-white px-2 shadow-sm aria-pressed:border-[#173ed7] aria-pressed:bg-[#edf1ff]">
+            <LocateFixed size={15} aria-hidden="true" /> Follow driver
+          </button>
+          <button type="button" onClick={() => { setFollowing(false); fitRoute.current?.(); }}
+            className="min-h-11 rounded-xl border border-[#c7d1ee] bg-white px-2 shadow-sm">Full route</button>
+        </div>
       )}
       {view?.cab && driver && createPortal(driver.marker, view.cab.node)}
     </div>;
