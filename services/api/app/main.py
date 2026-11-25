@@ -20,7 +20,7 @@ from app.simulation.engine import store
 def advance_rider_pickups() -> None:
     with store.lock:
         for journey in store.sessions.values():
-            if tracking(journey):
+            if not journey.deterministic and tracking(journey):
                 journey.tick(1)
 
 
@@ -61,7 +61,7 @@ if HOSTED:
         "GET": re.compile(r"/(?:health|api/v1/(?:locations|journeys/journey_[a-f0-9]{12}(?:/events)?))"),
         "POST": re.compile(
             r"/api/v1/(?:intent/parse|journeys(?:/journey_[a-f0-9]{12}/"
-            r"(?:book|cancel|rescue/approve|pickup/confirm))?)"
+            r"(?:book|cancel|rescue/approve|pickup/confirm|driver-message))?)"
         ),
     }
 
@@ -99,7 +99,7 @@ async def journey_stream(websocket: WebSocket, journey_id: str):
     def pending_events(after_seq: int):
         with store.lock:
             journey = store.get(journey_id)
-            return journey.events[after_seq:]
+            return journey.list_events(after_seq)
 
     await websocket.accept()
     try:

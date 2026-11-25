@@ -1,0 +1,193 @@
+import os
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from app.domain.errors import SimulationError
+from app.schemas.enums import EventType, JourneyState
+from app.schemas.requests import JourneyCreate
+from app.simulation import durable
+from app.simulation.engine import LOCATIONS, Session
+from app.simulation.replay import replay_from_events
+from app.storage.event_store import MemoryEventStore, PostgresEventStore
+
+SCHEMA = Path(__file__).resolve().parents[2] / "deploy" / "schema.sql"
+
+
+@pytest.fixture
+def hosted_database(monkeypatch):
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("TEST_DATABASE_URL is unset; a Postgres test database is required")
+
+    import psycopg
+    from psycopg import sql
+    from psycopg.conninfo import make_conninfo
+
+    schema_name = f"test_p03_{uuid4().hex}"
+    schema = sql.Identifier(schema_name)
+    with psycopg.connect(url) as admin:
+        admin.execute(sql.SQL("CREATE SCHEMA {}").format(schema))
+        admin.commit()
+        try:
+            monkeypatch.setenv("DATABASE_URL", make_conninfo(url, options=f"-c search_path={schema_name}"))
+            monkeypatch.setattr(durable, "HOSTED", True)
+            monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+            with durable.database() as connection:
+                connection.execute(SCHEMA.read_text(encoding="utf-8"))
+            yield
+        finally:
+            admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(schema))
+
+
+def test_postgres_and_memory_event_store_parity(hosted_database):
+    memory = MemoryEventStore()
+    now = datetime(2026, 11, 25, tzinfo=UTC)
+    ids = ("journey_a", "journey_b")
+    with durable.database() as connection:
+        connection.execute("INSERT INTO ride_journeys (id, payload) VALUES (%s, '{}'), (%s, '{}')", ids)
+        postgres = PostgresEventStore(connection)
+        for index in range(30):
+            args = (
+                ids[index % 2],
+                EventType.TELEMETRY_UPDATED,
+                {"index": index, "is_simulated": True},
+                "ride",
+                now + timedelta(seconds=5 * index),
+            )
+            assert postgres.append(*args) == memory.append(*args)
+
+    def append_on_new_connection(index):
+        with durable.database() as connection:
+            return PostgresEventStore(connection).append(
+                ids[0], EventType.TELEMETRY_UPDATED, {"index": index}, "ride", now
+            )
+
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        concurrent = list(workers.map(append_on_new_connection, range(30, 42)))
+    with durable.database() as connection:
+        postgres = PostgresEventStore(connection)
+        for event in sorted(concurrent, key=lambda event: event.seq):
+            assert event == memory.append(event.journey_id, event.type, event.payload, event.ride_id, now)
+        for journey_id in ids:
+            assert postgres.last_seq(journey_id) == memory.last_seq(journey_id)
+            assert postgres.list(journey_id, 10) == memory.list(journey_id, 10)
+            assert postgres.list(journey_id) == memory.list(journey_id)
+
+
+def assert_event_copies(journey_id):
+    with durable.database() as connection:
+        payload = connection.execute(
+            "SELECT payload FROM ride_journeys WHERE id = %s", (journey_id,)
+        ).fetchone()[0]
+        events = PostgresEventStore(connection).list(journey_id)
+        assert [event.model_dump(mode="json") for event in events] == payload["events"]
+    return events
+
+
+def test_hosted_mutations_keep_event_copies_identical_and_replay_responses(hosted_database, monkeypatch):
+    now = datetime(2026, 11, 25, tzinfo=UTC)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(durable, "datetime", Clock)
+    request = JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1])
+    stalled = durable.create_ride(request, scenario="S03")
+    rider_id = str(uuid4())
+    assert_event_copies(stalled.id)
+    with durable.open_ride(stalled.id, rider_id=rider_id) as session:
+        initial = session.book(session.quotes[0].quote_id, "book", expected_version=stalled.version)
+    assert_event_copies(stalled.id)
+    competing = durable.create_ride(request)
+    assert_event_copies(competing.id)
+    with (
+        pytest.raises(SimulationError, match="already have an active ride"),
+        durable.open_ride(competing.id, rider_id=rider_id) as session,
+    ):
+        session.book(session.quotes[0].quote_id, "book")
+    assert_event_copies(competing.id)
+
+    with durable.open_ride(stalled.id) as session:
+        session.driver_message("Traffic, 10 min", "message")
+    assert_event_copies(stalled.id)
+    now += timedelta(seconds=125)
+    with durable.open_ride(stalled.id) as session:
+        assert session.state == JourneyState.AWAITING_APPROVAL
+    assert_event_copies(stalled.id)
+    with durable.open_ride(stalled.id) as session:
+        session.approve_switch(True, "approve")
+    assert_event_copies(stalled.id)
+    now += timedelta(seconds=125)
+    with durable.open_ride(stalled.id) as session:
+        session.confirm_pickup("board")
+    events = assert_event_copies(stalled.id)
+    assert replay_from_events(stalled.id).state == JourneyState.PICKUP_CONFIRMED
+    with durable.open_ride(stalled.id, rider_id=rider_id) as session:
+        assert session.book(session.quotes[0].quote_id, "book", expected_version=stalled.version) == initial
+    assert assert_event_copies(stalled.id) == events
+    with (
+        pytest.raises(SimulationError, match="different request") as error,
+        durable.open_ride(stalled.id) as session,
+    ):
+        session.cancel("book")
+    assert error.value.code == "IDEMPOTENCY_KEY_REUSED"
+    assert assert_event_copies(stalled.id) == events
+    with durable.open_ride(competing.id, rider_id=rider_id) as session:
+        session.book(session.quotes[0].quote_id, "book")
+    assert_event_copies(competing.id)
+    with durable.open_ride(competing.id) as session:
+        session.cancel("cancel")
+    assert_event_copies(competing.id)
+
+
+def test_hosted_events_and_response_roll_back_with_payload(hosted_database, monkeypatch):
+    session = durable.create_ride(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]))
+    events = assert_event_copies(session.id)
+    sync = PostgresEventStore.sync_payload
+
+    def fail_after_append(*args):
+        sync(*args)
+        raise RuntimeError("forced failure after SQL writes")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(PostgresEventStore, "sync_payload", fail_after_append)
+        with (
+            pytest.raises(RuntimeError, match="forced failure"),
+            durable.open_ride(session.id) as journey,
+        ):
+            journey.book(journey.quotes[0].quote_id, "book")
+    assert assert_event_copies(session.id) == events
+    with durable.open_ride(session.id) as journey:
+        assert journey.state == JourneyState.WAITING_FOR_RIDE
+        assert journey.book(journey.quotes[0].quote_id, "book").active_ride_id
+    assert len(assert_event_copies(session.id)) == len(events) + 1
+
+
+def test_hosted_backfills_legacy_events_and_keeps_legacy_keys(hosted_database):
+    from psycopg.types.json import Jsonb
+
+    legacy = Session(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]))
+    quote = legacy.quotes[0].quote_id
+    version = legacy.version
+    legacy.book(quote, "book", expected_version=version)
+    payload = durable.StoredSession.model_validate(vars(legacy)).model_dump(mode="json")
+    del payload["idempotency_records"]
+    del payload["deterministic"]
+    payload["idempotency"] = {"book": [["book", quote, version], None]}
+    with durable.database() as connection:
+        connection.execute(
+            "INSERT INTO ride_journeys (id, payload) VALUES (%s, %s)", (legacy.id, Jsonb(payload))
+        )
+    assert replay_from_events(legacy.id).active_ride_id == legacy.ride.ride_id
+    assert_event_copies(legacy.id)
+    with durable.open_ride(legacy.id) as journey:
+        with pytest.raises(SimulationError, match="different request"):
+            journey.cancel("book")
+        assert journey.book(quote, "book", expected_version=version) == legacy.snapshot()
+    assert_event_copies(legacy.id)

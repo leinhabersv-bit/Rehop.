@@ -209,9 +209,13 @@ test('tracking shows an automatically booked replacement after confirmed driver 
   expect(refresh).toBeGreaterThan(cancellation);
   expect(types.lastIndexOf('RIDE_CONFIRMED')).toBeGreaterThan(refresh);
 
-  await expect.poll(async () => (await getJourney(request, id)).active_ride?.distance_to_pickup_m, {
-    timeout: 12_000,
-  }).toBeLessThan(recovered.active_ride!.distance_to_pickup_m);
+  // Seeded scenarios advance only when the test ticks the simulator.
+  await tick(request, id, 1);
+  const moving = await getJourney(request, id);
+  expect(moving.active_ride_id).toBe(recovered.active_ride_id);
+  expect(moving.active_ride!.distance_to_pickup_m).toBeLessThan(recovered.active_ride!.distance_to_pickup_m);
+  await expect(page.getByText('Distance to pickup', { exact: true }).locator('..').locator('dd'))
+    .toHaveText(`${(moving.active_ride!.distance_to_pickup_m / 1000).toFixed(1)} km`);
 
   await tick(request, id, 24);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();

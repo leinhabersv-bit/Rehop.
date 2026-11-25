@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from threading import RLock
-from uuid import uuid4
 
 from app.domain.errors import SimulationError as SimulationError
 from app.domain.invariants import check_invariants
@@ -39,6 +38,16 @@ from app.schemas.enums import (
 )
 from app.schemas.requests import JourneyCreate, Location
 from app.simulation.providers import ADAPTERS, PROVIDERS
+from app.storage.event_store import MemoryEventStore
+from app.storage.idempotency import (
+    FailureResponse,
+    IdempotencyRecord,
+    IdempotencyStore,
+    MemoryIdempotencyStore,
+    fingerprint,
+    key_reused,
+)
+from app.storage.ids import IdFactory
 
 BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=UTC)
 LOCATIONS = [
@@ -104,12 +113,20 @@ Command = tuple[str, str | bool | None, int | None]
 
 
 class Session:
-    def __init__(self, request: JourneyCreate, scenario: str = "S01", seed: int = 2026):
+    def __init__(
+        self,
+        request: JourneyCreate,
+        scenario: str = "S01",
+        seed: int = 2026,
+        *,
+        scenario_ids: IdFactory | None = None,
+    ):
         if request.need_by is not None and request.need_by <= BASE_TIME:
             raise SimulationError(
                 "INVALID_PICKUP_DEADLINE", "Pickup deadline must follow simulation start.", status=422
             )
-        self.id = f"journey_{uuid4().hex[:12]}"
+        self.id = scenario_ids.scenario(scenario, seed) if scenario_ids else IdFactory.rider()
+        self.deterministic = scenario_ids is not None
         self.pickup = request.pickup.model_copy()
         self.dropoff = request.dropoff.model_copy()
         self.policy = request.policy.model_copy()
@@ -136,12 +153,24 @@ class Session:
         self.eta_delta_s = 0
         self.attempted_providers: set[Provider] = set()
         self.idempotency: dict[str, tuple[Command, tuple[str, str] | None]] = {}
+        self.idempotency_records: dict[str, IdempotencyRecord] = {}
+        self.restore_stores()
         self.booking_uncertain = False
         self.boarded_at: datetime | None = None
         self.arrives_at: datetime | None = None
         self.add_event(EventType.JOURNEY_CREATED, {"scenario": scenario, "is_simulated": True})
         self.add_event(EventType.QUOTES_READY, {"quotes": self.quotes})
         self._transition_journey(JourneyState.WAITING_FOR_RIDE, reason="Initial quotes are ready.")
+
+    def restore_stores(self, idempotency_store: IdempotencyStore | None = None) -> None:
+        self._event_store = MemoryEventStore(self.events)
+        self._booking_guard: Callable[[], None] | None = None
+        if idempotency_store is None:
+            memory = MemoryIdempotencyStore()
+            memory.records(self.id).update(self.idempotency_records)
+            self.idempotency_records = memory.records(self.id)
+            idempotency_store = memory
+        self._idempotency_store = idempotency_store
 
     def _make_quotes(self) -> list[Quote]:
         quotes = [ADAPTERS[name].search(self.id, self.clock) for name in PROVIDERS]
@@ -203,17 +232,16 @@ class Session:
         )
 
     def driver_message(self, text: str, key: str) -> JourneySnapshot:
-        command = ("driver_message", text, None)
-        if (replay := self._replay(key, command)) is not None:
-            return replay
+        return self._idempotent("driver_message", key, {"text": text}, lambda: self._message(text))
+
+    def _message(self, text: str) -> JourneySnapshot:
         self._classify_driver_message(text)
-        self.idempotency[key] = (command, None)
         return self._checked_snapshot()
 
     def _classify_driver_message(self, text: str) -> None:
         if not self.ride or self.state in STOPPED:
             raise SimulationError("INVALID_STATE", "No active driver conversation.")
-        self.driver_chat_signal = classify_driver_message(text)
+        self.driver_chat_signal = classify_driver_message(text, offline=self.deterministic)
         self.add_event(
             EventType.DRIVER_MESSAGE_CLASSIFIED,
             {"message": text[:300], "signal": self.driver_chat_signal},
@@ -228,18 +256,13 @@ class Session:
             )
 
     def add_event(self, kind: EventType, payload: EventPayload, ride_id: str | None = None) -> JourneyEvent:
+        event = self._event_store.append(self.id, kind, payload, ride_id, self.clock)
         self.version += 1
-        event = JourneyEvent(
-            event_id=f"{self.id}_evt_{len(self.events) + 1:04}",
-            journey_id=self.id,
-            seq=len(self.events) + 1,
-            timestamp=self.clock,
-            type=kind,
-            ride_id=ride_id,
-            payload=payload,
-        )
         self.events.append(event)
         return event
+
+    def list_events(self, since_seq: int = 0) -> list[JourneyEvent]:
+        return self._event_store.list(self.id, since_seq)
 
     def snapshot(self) -> JourneySnapshot:
         return JourneySnapshot(
@@ -288,29 +311,64 @@ class Session:
                 "STALE_JOURNEY_VERSION", "Refresh journey state before acting.", retryable=True
             )
 
-    def _replay(self, key: str, command: Command) -> JourneySnapshot | None:
-        if key not in self.idempotency:
-            return None
-        previous_command, failure = self.idempotency[key]
-        if command != previous_command:
-            raise SimulationError("IDEMPOTENCY_KEY_REUSED", "This key belongs to a different request.")
-        if failure:
-            raise SimulationError(*failure)
-        return self._checked_snapshot()
+    def _idempotent(
+        self, operation: str, key: str, body: dict, action: Callable[[], JourneySnapshot]
+    ) -> JourneySnapshot:
+        request_hash = fingerprint({"idempotency_key": key, **body})
+        record = self._idempotency_store.get(self.id, key)
+        if record is not None:
+            return record.replay(operation, request_hash)
+
+        # Legacy hosted payloads recorded the command and failure but had no response snapshot.
+        legacy = self.idempotency.get(key)
+        if legacy is not None:
+            (legacy_operation, argument, version), failure = legacy
+            if operation != legacy_operation:
+                raise key_reused()
+            legacy_body = {"expected_version": version} if operation != "driver_message" else {}
+            legacy_body["idempotency_key"] = key
+            argument_name = {"book": "quote_id", "approve_switch": "approved", "driver_message": "text"}
+            if operation in argument_name:
+                legacy_body[argument_name[operation]] = argument
+            legacy_hash = fingerprint(legacy_body)
+            if request_hash != legacy_hash:
+                raise key_reused()
+            record = IdempotencyRecord(
+                operation=operation,
+                request_hash=legacy_hash,
+                response=FailureResponse(code=failure[0], message=failure[1]) if failure else self.snapshot(),
+            )
+            self._idempotency_store.put(self.id, key, record)
+            return record.replay(operation, request_hash)
+
+        before = self.version
+        try:
+            response = action()
+        except SimulationError as error:
+            # Rejected preconditions can be corrected and retried. Preserve applied failures.
+            if self.version != before or error.code == "BOOKING_UNCONFIRMED":
+                record = IdempotencyRecord(
+                    operation=operation, request_hash=request_hash, response=FailureResponse.from_error(error)
+                )
+                self._idempotency_store.put(self.id, key, record)
+            raise
+        record = IdempotencyRecord(operation=operation, request_hash=request_hash, response=response)
+        self._idempotency_store.put(self.id, key, record)
+        return response
 
     def book(self, quote_id: str, key: str, *, expected_version: int | None = None) -> JourneySnapshot:
-        command = ("book", quote_id, expected_version)
-        if (replay := self._replay(key, command)) is not None:
-            return replay
+        return self._idempotent(
+            "book",
+            key,
+            {"quote_id": quote_id, "expected_version": expected_version},
+            lambda: self._book_primary(quote_id, expected_version),
+        )
+
+    def _book_primary(self, quote_id: str, expected_version: int | None) -> JourneySnapshot:
+        if self._booking_guard is not None:
+            self._booking_guard()
         self._validate_version(expected_version)
-        try:
-            result = self._book(quote_id, replacement=False)
-        except SimulationError as exc:
-            if exc.code == "BOOKING_UNCONFIRMED":
-                self.idempotency[key] = (command, (exc.code, str(exc)))
-            raise
-        self.idempotency[key] = (command, None)
-        return result
+        return self._book(quote_id, replacement=False)
 
     def _book(self, quote_id: str, *, replacement: bool) -> JourneySnapshot:
         if self.state in STOPPED:
@@ -567,7 +625,9 @@ class Session:
                 and self.risk.band not in self.explained_bands
             ):
                 checked = explain_with_verified_numbers(
-                    self.risk.explanation, [self.ride.eta_sec, self.ride.distance_to_pickup_m]
+                    self.risk.explanation,
+                    [self.ride.eta_sec, self.ride.distance_to_pickup_m],
+                    offline=self.deterministic,
                 )
                 self.risk.explanation = checked.explanation
                 self.risk.explanation_source = checked.source
@@ -639,9 +699,14 @@ class Session:
     def approve_switch(
         self, approved: bool, key: str, expected_version: int | None = None
     ) -> JourneySnapshot:
-        command = ("approve_switch", approved, expected_version)
-        if (replay := self._replay(key, command)) is not None:
-            return replay
+        return self._idempotent(
+            "approve_switch",
+            key,
+            {"approved": approved, "expected_version": expected_version},
+            lambda: self._approve_switch(approved, expected_version),
+        )
+
+    def _approve_switch(self, approved: bool, expected_version: int | None) -> JourneySnapshot:
         self._validate_version(expected_version)
         if not self.pending_backup or self.state != JourneyState.AWAITING_APPROVAL:
             raise SimulationError("INVALID_STATE", "No switch approval is pending.")
@@ -651,19 +716,16 @@ class Session:
             reason = "Rider chose to keep waiting." if self.ride else "Rider declined replacement."
             self.add_event(EventType.SWITCH_REJECTED, {"reason": reason})
             self._clear_proposal(reason)
-            self.idempotency[key] = (command, None)
             return self._checked_snapshot()
         if self.recovery_attempts >= self.policy.max_recovery_attempts:
             self.add_event(EventType.RECOVERY_BLOCKED, {"reason": "POLICY_RETRY_LIMIT"})
             self._clear_proposal("Recovery attempt limit reached.")
-            self.idempotency[key] = (command, None)
             return self._checked_snapshot()
 
         # Refresh provider offer before any rider-side cancellation.
         candidate = self._refresh_backup(self.pending_backup)
         if candidate is None:
             self._clear_proposal("The refreshed backup is unavailable.")
-            self.idempotency[key] = (command, None)
             return self._checked_snapshot()
         if self.ride:
             self.cancellation_fee_notice = self._fee_notice()
@@ -673,18 +735,13 @@ class Session:
             ):
                 self.add_event(EventType.RECOVERY_BLOCKED, {"reason": "CANCELLATION_FEE_LIMIT"})
                 self._clear_proposal("Cancellation fee limit would be exceeded.")
-                self.idempotency[key] = (command, None)
                 return self._checked_snapshot()
         self.add_event(
             EventType.SWITCH_APPROVED,
             {"new_provider": candidate.provider, "cancellation_fee_notice": self.cancellation_fee_notice},
         )
         if self.ride:
-            try:
-                self._cancel_active_ride(self.ride)
-            except SimulationError as exc:
-                self.idempotency[key] = (command, (exc.code, str(exc)))
-                raise
+            self._cancel_active_ride(self.ride)
 
         # A refreshed quote is not a reservation. Providers may still reject confirm.
         if self.scenario == "S15":
@@ -693,11 +750,8 @@ class Session:
                 {"reason": "Illustrative race after confirmed original cancellation"},
             )
             self._clear_proposal("Replacement quote was lost after cancellation.")
-            self.idempotency[key] = (command, None)
             return self._checked_snapshot()
-        result = self._confirm_replacement(candidate)
-        self.idempotency[key] = (command, None)
-        return result
+        return self._confirm_replacement(candidate)
 
     def _clear_proposal(self, reason: str) -> None:
         self.pending_backup = None
@@ -725,26 +779,22 @@ class Session:
         self.add_event(EventType.RIDE_CANCEL_CONFIRMED, payload, ride.ride_id)
 
     def cancel(self, key: str, expected_version: int | None = None) -> JourneySnapshot:
-        command = ("cancel", None, expected_version)
-        if (replay := self._replay(key, command)) is not None:
-            return replay
+        return self._idempotent(
+            "cancel", key, {"expected_version": expected_version}, lambda: self._cancel(expected_version)
+        )
+
+    def _cancel(self, expected_version: int | None) -> JourneySnapshot:
         self._validate_version(expected_version)
         if self.state == JourneyState.USER_CANCELLED:
-            self.idempotency[key] = (command, None)
             return self._checked_snapshot()
         stopped_state = transition_journey(
             self.state, JourneyState.USER_CANCELLED, reason="Rider stopped the journey."
         )
         if self.ride and self.state != JourneyState.RECONCILING:
-            try:
-                self._cancel_active_ride(self.ride)
-            except SimulationError as exc:
-                self.idempotency[key] = (command, (exc.code, str(exc)))
-                raise
+            self._cancel_active_ride(self.ride)
         self.state = stopped_state
         self.pending_backup = None
         self.cancellation_fee_notice = None
-        self.idempotency[key] = (command, None)
         self.add_event(EventType.USER_CANCELLED, {"message": "Rider stopped the journey."})
         return self._checked_snapshot()
 
@@ -756,9 +806,19 @@ class Session:
         boarded_at: datetime | None = None,
         trip_duration: Callable[[Location, Location], timedelta] | None = None,
     ) -> JourneySnapshot:
-        command = ("confirm_pickup", None, expected_version)
-        if (replay := self._replay(key, command)) is not None:
-            return replay
+        return self._idempotent(
+            "confirm_pickup",
+            key,
+            {"expected_version": expected_version},
+            lambda: self._confirm_pickup(expected_version, boarded_at, trip_duration),
+        )
+
+    def _confirm_pickup(
+        self,
+        expected_version: int | None,
+        boarded_at: datetime | None,
+        trip_duration: Callable[[Location, Location], timedelta] | None,
+    ) -> JourneySnapshot:
         self._validate_version(expected_version)
         if not self.ride or self.ride.state != RideState.DRIVER_ARRIVED:
             raise SimulationError("INVALID_STATE", "Confirm pickup only after driver arrives.")
@@ -774,7 +834,6 @@ class Session:
         self.arrives_at = boarded_at + duration if boarded_at and duration else None
         self.pending_backup = None
         self.cancellation_fee_notice = None
-        self.idempotency[key] = (command, None)
         self.add_event(
             EventType.PICKUP_CONFIRMED, {"message": "Passenger boarded simulated ride."}, self.ride.ride_id
         )
@@ -786,9 +845,17 @@ class SimulationStore:
         self.sessions: dict[str, Session] = {}
         self.last_scenario: dict[str, str] = {}
         self.lock = RLock()
+        self.scenario_ids = IdFactory()
 
-    def create(self, request: JourneyCreate, scenario: str = "S01", seed: int = 2026):
-        session = Session(request, scenario, seed)
+    def create(
+        self,
+        request: JourneyCreate,
+        scenario: str = "S01",
+        seed: int = 2026,
+        *,
+        deterministic: bool = False,
+    ):
+        session = Session(request, scenario, seed, scenario_ids=self.scenario_ids if deterministic else None)
         self.sessions[session.id] = session
         return session
 

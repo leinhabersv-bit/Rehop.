@@ -53,6 +53,13 @@ paths:
           content:
             application/json:
               schema: {}
+        '409': &journey_mutation_conflict
+          description: The action conflicts with the current journey or reuses an idempotency key.
+          x-error-codes: [IDEMPOTENCY_KEY_REUSED]
+          content: &journey_conflict_content
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '422':
           description: Validation Error
           content:
@@ -199,7 +206,9 @@ paths:
             application/json:
               schema: {}
         '409':
-          description: The browser already has an active ride (including a boarded ride before arrives_at), or the booking conflicts with the current journey state.
+          description: The browser already has an active ride (including a boarded ride before arrives_at), or the booking conflicts with the current journey state or reuses an idempotency key.
+          x-error-codes: [IDEMPOTENCY_KEY_REUSED]
+          content: *journey_conflict_content
         '428':
           description: Browser booking identifier is missing on the hosted API.
         '422':
@@ -265,6 +274,7 @@ paths:
           content:
             application/json:
               schema: {}
+        '409': *journey_mutation_conflict
         '422':
           description: Validation Error
           content:
@@ -296,6 +306,7 @@ paths:
           content:
             application/json:
               schema: {}
+        '409': *journey_mutation_conflict
         '422':
           description: Validation Error
           content:
@@ -328,6 +339,7 @@ paths:
           content:
             application/json:
               schema: {}
+        '409': *journey_mutation_conflict
         '422':
           description: Validation Error
           content:
@@ -453,6 +465,21 @@ paths:
               schema: {}
 components:
   schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            retryable:
+              type: boolean
+              default: false
     ActionRequest:
       properties:
         idempotency_key:

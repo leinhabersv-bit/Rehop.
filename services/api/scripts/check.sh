@@ -2,6 +2,6 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-ruff check . &&
-    ruff format --check . &&
-    pytest -q --cov=app --cov-report=term-missing
+python -m ruff check . &&
+    python -m ruff format --check . &&
+    python -m pytest -q --cov=app --cov-report=term-missing

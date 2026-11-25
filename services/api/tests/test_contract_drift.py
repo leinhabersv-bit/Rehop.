@@ -30,3 +30,13 @@ def test_automatic_recovery_is_opt_in_in_live_and_checked_in_openapi():
     for document in (contract, app.openapi()):
         fields = document["components"]["schemas"]["RecoveryPolicy"]["properties"]
         assert fields["auto_rebook_on_confirmed_driver_cancel"]["default"] is False
+
+
+def test_journey_mutation_idempotency_errors_match_contract():
+    contract = yaml.safe_load(OPENAPI_CONTRACT.read_text(encoding="utf-8"))
+    for document in (contract, app.openapi()):
+        for operation in ("book", "rescue/approve", "cancel", "pickup/confirm", "driver-message"):
+            responses = document["paths"][f"/api/v1/journeys/{{journey_id}}/{operation}"]["post"]["responses"]
+            conflict = responses["409"]
+            assert conflict["x-error-codes"] == ["IDEMPOTENCY_KEY_REUSED"]
+            assert conflict["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorEnvelope")
