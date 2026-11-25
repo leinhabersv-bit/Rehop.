@@ -10,6 +10,7 @@ import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
 import PickupApproach from './PickupApproach';
+import { useActiveRide } from './ActiveRide';
 import DestinationTracking, { TripCompleted, useDestinationProgress } from './DestinationTracking';
 import { pickupActivity } from './pickup-activity';
 import styles from './journey.module.css';
@@ -83,6 +84,7 @@ function recoveryStatus(journey: Journey, event?: Event): string | null {
 }
 
 export default function JourneyPanel({ id }: { id: string }) {
+  const { active } = useActiveRide();
   const queryClient = useQueryClient();
   const queryKey = ['journey', id];
   const stream = useJourneyEvents(id, queryClient.getQueryData(queryKey) != null);
@@ -140,7 +142,7 @@ export default function JourneyPanel({ id }: { id: string }) {
             <p role="alert">{query.error.message}</p>
             <div className="button-row">
               <button className="btn secondary" onClick={() => void query.refetch()} disabled={query.isFetching}>Retry connection</button>
-              <Link className="btn ghost" href="/trips">Your rides</Link>
+              {!active && <Link className="btn ghost" href="/trips">Your rides</Link>}
             </div>
           </>
         ) : <p role="status">Loading your ride…</p>}
@@ -195,7 +197,7 @@ export default function JourneyPanel({ id }: { id: string }) {
       )}
       <header className={styles.heading}>
         <div>
-          <Link href="/trips" className="text-sm font-bold text-[#173ed7]">← Your rides</Link>
+          {!active && <Link href="/trips" className="text-sm font-bold text-[#173ed7]">← Your rides</Link>}
           <h1 className="mt-3">{boarded ? 'You’re on your way' : 'Your pickup'}</h1>
           <p className="lead">{data.pickup.label} → {data.dropoff.label}</p>
         </div>

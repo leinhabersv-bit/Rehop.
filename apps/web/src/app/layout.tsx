@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Providers from './providers';
+import { ActiveRideGate } from '@/components/journey/ActiveRide';
 import { Navbar, Footer } from '@/components/ui';
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default function RootLayout({
         <Providers>
           <Navbar />
           <main className="flex-1 w-full max-w-7xl mx-auto px-4 max-sm:px-3 sm:px-6 lg:px-8 py-5 max-sm:py-3 sm:py-8">
-            {children}
+            <ActiveRideGate>{children}</ActiveRideGate>
           </main>
           <Footer />
         </Providers>

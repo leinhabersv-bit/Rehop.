@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Route, Trash2 } from 'lucide-react';
-import { ActiveRideCard, useActiveRide } from '@/components/journey/ActiveRide';
+import { useActiveRide } from '@/components/journey/ActiveRide';
 import { ApiError } from '@/lib/api/client';
 import { deleteRecentRide } from '@/lib/recent-rides';
 
@@ -13,26 +13,24 @@ const status: Record<string, string> = {
 };
 
 export default function TripsPage() {
-  const { active, checking, entries, arrivals, now } = useActiveRide();
+  const { entries, arrivals, now } = useActiveRide();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
-  const history = entries.filter(({ id }) => id !== active?.id);
 
   return <div className="mx-auto max-w-3xl">
     <h1 className="mb-2 text-4xl font-black tracking-tight sm:text-5xl">Your rides</h1>
     <p className="mb-6 text-[#43536b]">Bookings made on this device.</p>
-    {active && <div className="mb-5"><ActiveRideCard ride={active} heading="h2" /></div>}
     {feedback && <p role="status" className="mb-3 text-sm text-[#43536b]">{feedback}</p>}
-    {!active && checking && entries.length === 0 ? <p role="status">Loading rides…</p> : !active && history.length === 0 ? (
+    {entries.length === 0 ? (
       <section className="rounded-3xl border border-[#d4dcec] bg-white p-6 sm:p-8">
         <Route size={27} className="mb-4 text-[#173ed7]" aria-hidden="true" />
         <h2 className="text-xl font-bold">No rides yet</h2>
         <Link className="btn mt-4 inline-flex" href="/book">Plan a ride</Link>
       </section>
-    ) : history.length > 0 && <>
+    ) : <>
       <h2 className="mb-3 text-lg font-extrabold">Recent rides</h2>
       <ul className="space-y-3">
-        {history.map(({ id, query }) => {
+        {entries.map(({ id, query }) => {
           const ride = query.data;
           const label = ride ? `${ride.pickup.label} → ${ride.dropoff.label}` : 'Ride status is unavailable';
           const arrived = ride?.state === 'PICKUP_CONFIRMED' && (arrivals[id] ?? Infinity) <= now;

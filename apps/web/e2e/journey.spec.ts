@@ -63,12 +63,9 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   await expect(page.getByText('Auto-rebooking is on for confirmed driver cancellations.')).toBeVisible();
 
   await bookRecommended(page);
-  const confirmation = page.getByRole('dialog');
-  await expect(confirmation.getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
   const original = await getJourney(request, id);
   expect(original).toMatchObject({ state: 'MONITORING', booking_uncertain: false, active_ride: { provider: 'PROVIDER_B', state: 'DRIVER_EN_ROUTE' } });
-  await confirmation.getByRole('button', { name: 'Track your ride' }).click();
-  await expect(page).toHaveURL(`${web}/journey/${id}`);
   await tick(request, id, 24);
   const stalledCab = page.locator('[data-pickup-cab]');
   await expect(stalledCab).toHaveAttribute('data-stalled', 'true');
@@ -148,7 +145,8 @@ test('reconciles a server error after booking from the authoritative journey', a
     new URL(response.url()).pathname.endsWith(`/journeys/${id}`) && response.request().method() === 'GET');
   await bookRecommended(page);
   expect(await (await readback).json()).toMatchObject({ active_ride: { provider: 'PROVIDER_B' } });
-  await expect(page.getByRole('dialog').getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
+  await expect(page.getByRole('heading', { name: 'Your pickup' })).toBeVisible();
   expect(mutations).toBe(1);
   expect(await getJourney(request, id)).toMatchObject({ active_ride: { provider: 'PROVIDER_B' }, booking_uncertain: false });
 });
@@ -167,7 +165,8 @@ test('retries an interrupted booking with the original idempotency key', async (
   expect(await getJourney(request, id)).toMatchObject({ state: 'WAITING_FOR_RIDE', active_ride: null });
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Retry original request' }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
+  await expect(page.getByRole('heading', { name: 'Your pickup' })).toBeVisible();
   expect(attempts).toHaveLength(2);
   expect(attempts[1]).toEqual(attempts[0]);
 });
@@ -176,13 +175,9 @@ test('S12 leaves an unresolved provider outcome visible with booking blocked', a
   await openScenario(page, request, 'S12', true);
   const id = await reachQuotes(page);
   await bookRecommended(page);
-  await expect(page.getByRole('alert').filter({ hasText: /unknown|has yet to confirm/i })).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  const tracking = page.getByRole('button', { name: 'Open journey tracking' });
-  await expect(tracking).toBeVisible();
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
   await expect(page.getByRole('button', { name: /^(Book|Retry original request)$/i })).toHaveCount(0);
   expect(await getJourney(request, id)).toMatchObject({ state: 'RECONCILING', booking_uncertain: true, active_ride: null });
-  await tracking.click();
   await expect(page.getByRole('status').filter({ hasText: /booking status is unknown/i })).toBeVisible();
 });
 
@@ -246,4 +241,19 @@ test('blocks approval when the journey changes while the rider is reviewing the 
   expect(await getJourney(request, id)).toMatchObject({
     state: 'AWAITING_APPROVAL', active_ride_id: observed.active_ride_id, recovery_attempts: 0,
   });
+});
+
+test('cancelling an active ride restores the normal navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await prepareManualBooking(page);
+  await bookRecommended(page);
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
+  const tabs = page.getByRole('navigation', { name: 'Mobile navigation' });
+  await expect(tabs.getByRole('link')).toHaveText(['Track ride']);
+  await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm cancellation' }).click();
+  await expect(tabs.getByRole('link')).toHaveText(['Home', 'Book', 'Your rides']);
+  await tabs.getByRole('link', { name: 'Home' }).click();
+  await expect(page).toHaveURL(web + '/');
+  await expect(page.getByRole('button', { name: 'Review trip details' })).toBeVisible();
 });
