@@ -15,10 +15,11 @@ const GoogleDrivingMap = dynamic(() => import('@/components/booking/GoogleDrivin
   loading: () => <div role="status" className="grid h-80 place-items-center bg-[#e8edf8] text-[#475673]">Loading destination map…</div>,
 });
 
-export default function DestinationTracking({ pickup, dropoff, boardedAt }: {
+export default function DestinationTracking({ pickup, dropoff, boardedAt, arrivesAt }: {
   pickup: Location;
   dropoff: Location;
   boardedAt?: string | null;
+  arrivesAt?: string | null;
 }) {
   const point = ({ lat, lng }: Location) => `${lng.toFixed(6)},${lat.toFixed(6)}`;
   const route = useDrivingRoute(point(pickup), point(dropoff), googleMapsKey ? 'google-map' : 'osm');
@@ -26,27 +27,32 @@ export default function DestinationTracking({ pickup, dropoff, boardedAt }: {
   const startedAt = Date.parse(boardedAt ?? '');
   const canTrack = Number.isFinite(startedAt);
   const duration = route.data?.durationSeconds;
+  const end = arrivesAt ? Date.parse(arrivesAt) :
+    canTrack && duration !== undefined ? startedAt + tripPlaybackLengthMs(duration) : undefined;
 
   useEffect(() => {
-    if (!canTrack || duration === undefined) return;
-    const end = startedAt + tripPlaybackLengthMs(duration);
+    if (end === undefined) return;
     const update = () => setNow(Date.now());
-    const timer = window.setInterval(() => {
+    const timer = window.setInterval(update, 1_000);
+    const finish = window.setTimeout(() => {
+      window.clearInterval(timer);
       update();
-      if (Date.now() >= end) window.clearInterval(timer);
-    }, 1_000);
-    return () => window.clearInterval(timer);
-  }, [canTrack, duration, startedAt]);
+    }, Math.max(0, end - Date.now()));
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(finish);
+    };
+  }, [end]);
 
-  const trip = canTrack && route.data ? tripPlayback(startedAt, now, route.data.durationSeconds, route.data.distanceMeters) : null;
-  const arrived = trip?.progress === 1;
+  const trip = canTrack && route.data ? tripPlayback(startedAt, now, route.data.durationSeconds, route.data.distanceMeters, end) : null;
+  const arrived = end !== undefined && now >= end;
   const result = route.data;
   const showMap = result?.provider === 'google' && result.coordinates.length >= 2;
   return (
     <div className={styles.pickupTracking}>
       <dl className={styles.stats}>
         <div><dt>Arrival ETA</dt><dd>{arrived ? 'Arrived' : trip ? formatDrivingDuration(trip.remainingSeconds) : '—'}</dd></div>
-        <div><dt>Remaining distance</dt><dd>{trip ? formatDrivingDistance(trip.remainingMeters) : '—'}</dd></div>
+        <div><dt>Remaining distance</dt><dd>{arrived ? formatDrivingDistance(0) : trip ? formatDrivingDistance(trip.remainingMeters) : '—'}</dd></div>
       </dl>
       {arrived && <p role="status" className="pb-3 text-sm font-bold text-[#ffcbab]">Arrived at {dropoff.label}</p>}
       {showMap ? (

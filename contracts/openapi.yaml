@@ -138,7 +138,7 @@ paths:
       - RideRescue simulation
       summary: Get Journey
       operationId: get_journey_api_v1_journeys__journey_id__get
-      description: Returns the journey snapshot. For newly boarded rides, boarded_at is the UTC wall-clock time of confirmed boarding.
+      description: Returns the journey snapshot. Newly boarded rides include boarded_at and arrives_at as UTC wall-clock timestamps for confirmed boarding and simulated destination arrival.
       parameters:
       - name: journey_id
         in: path
@@ -199,7 +199,7 @@ paths:
             application/json:
               schema: {}
         '409':
-          description: An active pickup journey exists, or the booking conflicts with the current journey state.
+          description: The browser already has an active ride (including a boarded ride before arrives_at), or the booking conflicts with the current journey state.
         '428':
           description: Browser booking identifier is missing on the hosted API.
         '422':
@@ -308,7 +308,7 @@ paths:
       - RideRescue simulation
       summary: Confirm Pickup
       operationId: confirm_pickup_api_v1_journeys__journey_id__pickup_confirm_post
-      description: Confirms boarding and returns the journey snapshot with boarded_at set to the UTC wall-clock time of confirmation. Retrying does not reset it.
+      description: Confirms boarding and returns the journey snapshot with boarded_at and arrives_at set. Retrying preserves both timestamps.
       parameters:
       - name: journey_id
         in: path

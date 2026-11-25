@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -23,6 +22,7 @@ from app.schemas.requests import (
 )
 from app.simulation.durable import HOSTED, create_ride, open_ride
 from app.simulation.engine import LOCATIONS, SCENARIOS, store
+from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
 
@@ -124,7 +124,7 @@ def cancel(journey_id: str, req: ActionRequest):
 def confirm_pickup(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
         return journey.confirm_pickup(
-            req.idempotency_key, expected_version=req.expected_version, boarded_at=datetime.now(UTC)
+            req.idempotency_key, expected_version=req.expected_version, trip_duration=destination_playback
         ).model_dump(mode="json")
 
 

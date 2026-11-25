@@ -26,14 +26,19 @@ const ActiveRideContext = createContext<{
 
 export function ActiveRideProvider({ children }: { children: ReactNode }) {
   const raw = useSyncExternalStore(subscribeToRides, recentRideSnapshot, serverSnapshot);
-  const [ids, arrivals] = useMemo(() => (raw ? JSON.parse(raw) : [[], {}]) as [string[], Record<string, number>], [raw]);
+  const [ids, localArrivals] = useMemo(() => (raw ? JSON.parse(raw) : [[], {}]) as [string[], Record<string, number>], [raw]);
   const [now, setNow] = useState(Date.now);
   const queries = useQueries({ queries: ids.map((id) => queryOptions({
     queryKey: ['journey', id], queryFn: () => api.journey(id), staleTime: 20_000,
     refetchInterval: (query) => pickupInProgress(query.state.data) ? 5_000 : false,
   })) });
-  const pickup = queries.map(({ data }) => data).find(pickupInProgress);
-  const boarded = pickup ? undefined : queries.map(({ data }) => data).find((ride) =>
+  const arrivals = { ...localArrivals };
+  const rides = queries.map(({ data }) => data);
+  for (const ride of rides) {
+    if (ride?.arrives_at) arrivals[ride.id] = Date.parse(ride.arrives_at);
+  }
+  const pickup = rides.find(pickupInProgress);
+  const boarded = pickup ? undefined : rides.find((ride) =>
     ride?.state === 'PICKUP_CONFIRMED' && !!ride.boarded_at && (arrivals[ride.id] ?? Infinity) > now);
   const recorded = boarded ? arrivals[boarded.id] : undefined;
   const route = useDrivingRoute(boarded ? point(boarded.pickup) : '', boarded ? point(boarded.dropoff) : '',

@@ -63,8 +63,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
     coordinates: [[80.153, 12.84], [80.167, 12.98]], distanceMeters: 2200,
     durationSeconds: 160, calculatedAt: '2026-11-23T08:30:00Z',
   } }));
-  await page.goto(web);
-  await page.getByRole('button', { name: 'Review trip details' }).click();
+  await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Egmore+Railway+Station`);
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
   await page.getByRole('spinbutton', { name: 'Max fare (₹)' }).fill('300');
   const getRecommendation = page.getByRole('button', { name: 'Find my ride' });

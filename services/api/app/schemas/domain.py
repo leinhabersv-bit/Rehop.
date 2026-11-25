@@ -160,10 +160,13 @@ class JourneySnapshot(BaseModel):
     simulated_time: Timestamp
     is_simulated: bool
     boarded_at: Timestamp | None = None
+    arrives_at: Timestamp | None = None
 
     @model_serializer(mode="wrap")
     def serialize(self, handler):
         data = handler(self)
         if self.boarded_at is None:
             data.pop("boarded_at", None)
+        if self.arrives_at is None:
+            data.pop("arrives_at", None)
         return data

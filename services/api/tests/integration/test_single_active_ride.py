@@ -1,10 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.simulation.engine import LOCATIONS
+from app.routes import journeys
+from app.simulation.engine import LOCATIONS, store
 
 
 def create_journey(client):
@@ -69,3 +71,42 @@ def test_existing_recent_ride_blocks_booking_for_a_new_browser_identifier():
         another = book(client, create_journey(client), str(uuid4()), recent=old["id"])
         assert another.status_code == 409
         assert another.json()["error"]["code"] == "ACTIVE_RIDE_EXISTS"
+
+
+def test_boarded_ride_keeps_the_booking_slot_until_destination(monkeypatch):
+    duration = timedelta(seconds=75)
+    route_requests = []
+
+    def playback(pickup, dropoff):
+        route_requests.append((pickup, dropoff))
+        return duration
+
+    monkeypatch.setattr(journeys, "destination_playback", playback)
+    with TestClient(app) as client:
+        rider = str(uuid4())
+        first, second = create_journey(client), create_journey(client)
+        assert book(client, first, rider).status_code == 200
+        endpoint = f"/api/v1/journeys/{first['id']}"
+        arrived = client.post(f"{endpoint}/tick", json={"steps": 24})
+        assert arrived.json()["active_ride"]["state"] == "DRIVER_ARRIVED"
+        action = {"idempotency_key": str(uuid4()), "expected_version": arrived.json()["version"]}
+        boarding = client.post(f"{endpoint}/pickup/confirm", json=action)
+        assert boarding.status_code == 200
+        boarded = boarding.json()
+        assert (
+            datetime.fromisoformat(boarded["arrives_at"]) - datetime.fromisoformat(boarded["boarded_at"])
+            == duration
+        )
+        assert (
+            client.post(f"{endpoint}/pickup/confirm", json=action).json()["arrives_at"]
+            == boarded["arrives_at"]
+        )
+        assert route_requests == [(LOCATIONS[0], LOCATIONS[1])]
+        assert client.get(endpoint).json()["arrives_at"] == boarded["arrives_at"]
+
+        blocked = book(client, second, rider)
+        assert blocked.status_code == 409
+        assert blocked.json()["error"]["code"] == "ACTIVE_RIDE_EXISTS"
+        with store.lock:
+            store.get(first["id"]).arrives_at = datetime.now(UTC) - timedelta(seconds=1)
+        assert book(client, second, rider).status_code == 200

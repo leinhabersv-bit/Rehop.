@@ -207,7 +207,7 @@ export default function JourneyPanel({ id }: { id: string }) {
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
             <p className={styles.pickupStatus}>{pickupStatus}</p>
-            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} boardedAt={data.boarded_at} /> : ride && (
+            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} boardedAt={data.boarded_at} arrivesAt={data.arrives_at} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
                   <dl className={styles.stats}>
