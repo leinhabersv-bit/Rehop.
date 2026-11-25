@@ -43,12 +43,17 @@ def test_boarding_timestamp_survives_storage_and_idempotent_retries():
     session.book(session.quotes[0].quote_id, "book-trip")
     session.tick(24)
     boarded_at = datetime(2026, 11, 24, tzinfo=UTC)
-    session.confirm_pickup("board-trip", boarded_at=boarded_at)
+    duration = timedelta(seconds=90)
+    session.confirm_pickup("board-trip", boarded_at=boarded_at, trip_duration=lambda *_: duration)
 
     payload = StoredSession.model_validate(vars(session)).model_dump()
     restored = StoredSession.model_validate(payload).restore()
     assert restored.snapshot().boarded_at == boarded_at
+    assert restored.snapshot().arrives_at == boarded_at + duration
     retry = restored.confirm_pickup("board-trip", boarded_at=boarded_at + timedelta(minutes=1))
     assert retry.boarded_at == boarded_at
+    assert retry.arrives_at == boarded_at + duration
     del payload["boarded_at"]
+    del payload["arrives_at"]
     assert StoredSession.model_validate(payload).restore().snapshot().boarded_at is None
+    assert StoredSession.model_validate(payload).restore().snapshot().arrives_at is None

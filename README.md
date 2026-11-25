@@ -34,7 +34,11 @@ project's build variables `NEXT_PUBLIC_API_BASE_URL=/ride-api` and
 `DATABASE_URL` and apply `services/api/deploy/schema.sql` before sending traffic.
 Cloud tracking reads saved journeys and advances the simulated clock from the
 time of the last update. Local development still uses the in-memory engine and
-WebSockets.
+WebSockets. Set `REHOP_ROUTE_ESTIMATE_URL` on the API project to the public
+website's `/api/maps` endpoint. Boarding uses that endpoint once to set the
+simulated arrival deadline. The browser's booking slot stays occupied until
+that deadline. Local development and map outages use a distance-based
+playback duration.
 
 For the existing Cloudflare Pages project, copy `deploy/pages-config.toml` as
 `wrangler.toml` into a staging directory and

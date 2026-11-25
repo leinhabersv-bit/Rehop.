@@ -55,6 +55,7 @@ class StoredSession(BaseModel):
     idempotency: dict[str, tuple[Command, tuple[str, str] | None]]
     booking_uncertain: bool
     boarded_at: datetime | None = None
+    arrives_at: datetime | None = None
 
     def restore(self) -> Session:
         session = Session.__new__(Session)
@@ -120,6 +121,8 @@ def create_ride(request, scenario="S01") -> Session:
 
 
 def occupies_booking(session: Session | StoredSession) -> bool:
+    if session.state == JourneyState.PICKUP_CONFIRMED and session.arrives_at is not None:
+        return session.arrives_at > datetime.now(UTC)
     return session.state not in TERMINAL_JOURNEY_STATES and bool(
         session.ride_count or session.booking_uncertain
     )

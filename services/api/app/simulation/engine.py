@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from threading import RLock
 from uuid import uuid4
@@ -137,6 +138,7 @@ class Session:
         self.idempotency: dict[str, tuple[Command, tuple[str, str] | None]] = {}
         self.booking_uncertain = False
         self.boarded_at: datetime | None = None
+        self.arrives_at: datetime | None = None
         self.add_event(EventType.JOURNEY_CREATED, {"scenario": scenario, "is_simulated": True})
         self.add_event(EventType.QUOTES_READY, {"quotes": self.quotes})
         self._transition_journey(JourneyState.WAITING_FOR_RIDE, reason="Initial quotes are ready.")
@@ -265,6 +267,7 @@ class Session:
             simulated_time=self.clock,
             is_simulated=True,
             boarded_at=self.boarded_at,
+            arrives_at=self.arrives_at,
         )
 
     def _checked_snapshot(self) -> JourneySnapshot:
@@ -746,7 +749,12 @@ class Session:
         return self._checked_snapshot()
 
     def confirm_pickup(
-        self, key: str, expected_version: int | None = None, *, boarded_at: datetime | None = None
+        self,
+        key: str,
+        expected_version: int | None = None,
+        *,
+        boarded_at: datetime | None = None,
+        trip_duration: Callable[[Location, Location], timedelta] | None = None,
     ) -> JourneySnapshot:
         command = ("confirm_pickup", None, expected_version)
         if (replay := self._replay(key, command)) is not None:
@@ -754,12 +762,16 @@ class Session:
         self._validate_version(expected_version)
         if not self.ride or self.ride.state != RideState.DRIVER_ARRIVED:
             raise SimulationError("INVALID_STATE", "Confirm pickup only after driver arrives.")
+        duration = trip_duration(self.pickup, self.dropoff) if trip_duration else None
+        if duration is not None and boarded_at is None:
+            boarded_at = datetime.now(UTC)
         ride_state = transition_ride(
             self.ride.state, RideState.IN_PROGRESS, reason="Passenger boarded the ride after arrival."
         )
         self._transition_journey(JourneyState.PICKUP_CONFIRMED, reason="Passenger boarded the arrived ride.")
         self.ride.state = ride_state
         self.boarded_at = boarded_at
+        self.arrives_at = boarded_at + duration if boarded_at and duration else None
         self.pending_backup = None
         self.cancellation_fee_notice = None
         self.idempotency[key] = (command, None)
