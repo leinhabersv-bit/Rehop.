@@ -3,7 +3,7 @@
 import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Route } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { api } from '@/lib/api/client';
 import { DEFAULT_PICKUP_WAIT } from '@/lib/pickup';
@@ -150,8 +150,8 @@ export function BookingForm({
   };
 
   return (
-    <div className={`mx-auto flex w-full max-w-3xl flex-col gap-4 max-sm:gap-3 ${className}`}>
-      <details className="rounded-2xl border border-[#dedce9] bg-[#f0edff] px-4 py-3 text-[#382b70] max-sm:px-3 max-sm:py-0 max-sm:open:pb-3">
+    <div className={`mx-auto flex w-full max-w-6xl flex-col gap-4 max-sm:gap-3 ${className}`}>
+      <details className="rounded-2xl border border-[#dedce9] bg-[#f0edff] px-4 py-3 text-[#382b70] max-sm:px-3 max-sm:py-0 max-sm:open:pb-3 lg:w-[min(100%,32rem)]">
         <summary className="cursor-pointer rounded-md py-1 text-sm font-bold max-sm:min-h-11 max-sm:py-3">Describe your trip with AI</summary>
         <div className="mt-3"><AiRequestInput onIntentParsed={handleIntentParsed} /></div>
       </details>
@@ -166,7 +166,7 @@ export function BookingForm({
         />
       )}
 
-      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="ride-planner grid min-w-0 gap-3 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-3 max-sm:rounded-3xl max-sm:shadow-[0_8px_24px_#171b370a] sm:gap-4 sm:p-6">
+      <form ref={form} tabIndex={-1} onSubmit={handleSubmit} className="ride-planner grid min-w-0 gap-3 rounded-[26px] border border-[#e0dceb] bg-[#fffdf8] p-3 max-sm:rounded-3xl max-sm:shadow-[0_8px_24px_#171b370a] sm:gap-4 sm:p-6 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6">
         <section aria-labelledby="trip-route" className="grid min-w-0 gap-2">
           <h2 id="trip-route" className="text-lg font-extrabold">Trip route</h2>
           {loadingLocations && <p role="status" className="text-sm text-[#475673]">Loading pickup points…</p>}
@@ -203,10 +203,18 @@ export function BookingForm({
               <span id="auto-rebook-detail" className="block text-xs leading-relaxed">If an eligible backup is available, RIDE &amp; SEEK books it and continues tracking. A delayed pickup still needs your approval to switch.</span>
             </span>
           </label>
-          {fromLoc && toLoc && !sameLocation && <TripRoute pickup={fromLoc} dropoff={toLoc} />}
         </section>
 
-        <div className="sticky bottom-0 z-20 -mx-1 rounded-2xl border border-[#d9dbe7] bg-[#fff9f0]/95 p-2 pb-[max(.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_#171b3710] backdrop-blur max-sm:static max-sm:mx-0 max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none sm:shadow-none">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+          {fromLoc && toLoc && !sameLocation ? <TripRoute pickup={fromLoc} dropoff={toLoc} /> : (
+            <div className="flex items-center gap-3 rounded-2xl bg-[#edf1ff] p-4 text-[#354569] lg:min-h-60 lg:flex-col lg:justify-center lg:text-center">
+              <Route size={24} className="shrink-0 text-[#173ed7]" aria-hidden="true" />
+              <p className="text-sm font-semibold">Choose a pickup and destination to see the route, time and distance.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
           {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
           <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
             Find my ride
