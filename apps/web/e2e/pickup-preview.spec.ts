@@ -65,14 +65,14 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   } }));
   await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Egmore+Railway+Station`);
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
-  await page.getByRole('spinbutton', { name: 'Max fare (₹)' }).fill('300');
+  await page.getByRole('spinbutton', { name: 'Max fare (â‚¹)' }).fill('300');
   const getRecommendation = page.getByRole('button', { name: 'Find my ride' });
   await getRecommendation.click();
 
   const recommendation = page.getByRole('region', { name: 'Recommended ride' });
   await expect(recommendation.getByText('Provider B', { exact: true })).toBeVisible();
   await expect(recommendation.getByText('4 min', { exact: true })).toBeVisible();
-  await expect(recommendation.getByText('₹285', { exact: true })).toBeVisible();
+  await expect(recommendation.getByText('â‚¹285', { exact: true })).toBeVisible();
   const alternatives = page.getByRole('region', { name: 'Other provider estimates' });
   await expect(alternatives.getByRole('listitem')).toHaveCount(3);
   await expect(alternatives.getByText('Above max fare')).toHaveCount(3);
@@ -81,15 +81,6 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(page.getByRole('radiogroup')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await recommendation.getByRole('button', { name: 'Book', exact: true }).click();
-  const confirmation = page.getByRole('dialog');
-  await expect(confirmation.getByRole('heading', { name: /booking confirmed/i })).toBeVisible();
-  const track = confirmation.getByRole('button', { name: 'Track your ride' });
-  await expect(track).toBeInViewport({ ratio: 1 });
-  const sheet = (await confirmation.boundingBox())!;
-  expect(sheet.x).toBe(0);
-  expect(sheet.width).toBe(320);
-  expect(sheet.y + sheet.height).toBe(690);
-  await track.click();
   await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
   const approach = page.getByRole('img', { name: /^Simulated driver approach/ });
   const cab = approach.locator('[data-pickup-cab]');
@@ -107,26 +98,31 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect.poll(() => cab.getAttribute('style')).not.toBe(initialPosition);
   await expect(page.getByRole('button', { name: /advance|simulate/i })).toHaveCount(0);
   const tabs = page.getByRole('navigation', { name: 'Mobile navigation' });
+  await expect(tabs.getByRole('link')).toHaveText(['Track ride']);
   await expect(tabs.getByRole('link', { name: 'Track ride' })).toHaveAttribute('href', `/journey/${id}`);
-  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toHaveCount(0);
-  await tabs.getByRole('link', { name: 'Your rides' }).click();
-  await expect(page.getByRole('heading', { name: 'Your ride is in progress' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /delete ride/i })).toHaveCount(0);
-  await page.goto(`${web}/book`);
-  await expect(page.getByRole('heading', { name: 'Your ride is in progress' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Find my ride' })).toHaveCount(0);
-  await page.getByRole('main').getByRole('link', { name: 'Track ride' }).click();
+  await expect(page.getByRole('navigation', { name: 'Page navigation' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /your rides|ride & seek home/i })).toHaveCount(0);
+  const otherTab = await page.context().newPage();
+  await otherTab.setViewportSize({ width: 1366, height: 768 });
+  for (const path of ['/', '/book', '/trips', '/compare']) {
+    await otherTab.goto(web + path);
+    await expect(otherTab).toHaveURL(`${web}/journey/${id}`);
+    await expect(otherTab.getByRole('heading', { name: 'Your pickup' })).toBeVisible();
+    await expect(otherTab.getByRole('navigation', { name: 'Main navigation' }).getByRole('link')).toHaveText(['Track ride']);
+  }
+  await otherTab.close();
   const arrived = await request.post(`${api}/api/v1/journeys/${id}/tick`, { data: { steps: 24 } });
   expect(arrived.ok()).toBe(true);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();
   await expect(page.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
-  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toHaveCount(0);
-  await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toBeVisible({ timeout: 12_000 });
+  await expect(tabs.getByRole('link')).toHaveText(['Track ride']);
+  await expect(tabs.getByRole('link')).toHaveText(['Home', 'Book', 'Your rides'], { timeout: 12_000 });
+  await expect(page.getByRole('navigation', { name: 'Page navigation' })).toBeVisible();
   const receipt = page.getByRole('region', { name: 'Trip completed' });
   const receiptTitle = receipt.getByRole('heading', { name: 'Trip completed' });
   await expect(receiptTitle).toBeFocused();
   await expect(receiptTitle).toHaveCSS('color', 'rgb(255, 253, 248)');
-  await expect(receipt.getByText('₹285', { exact: true })).toBeVisible();
+  await expect(receipt.getByText('â‚¹285', { exact: true })).toBeVisible();
   await expect(receipt.getByText('3 min', { exact: true })).toBeVisible();
   await expect(receipt.getByText('2.2 km', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Trip progress' })).toHaveCount(0);
@@ -149,7 +145,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
 
 test('a fare below every estimate prevents booking and can be edited', async ({ page }) => {
   await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Airport`);
-  const fare = page.getByRole('spinbutton', { name: 'Max fare (₹)' });
+  const fare = page.getByRole('spinbutton', { name: 'Max fare (â‚¹)' });
   await fare.fill('200');
   await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'No rides within your budget' })).toBeVisible();

@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { queryOptions, useQueries, type UseQueryResult } from '@tanstack/react-query';
-import Link from 'next/link';
-import { ArrowRight, CarFront } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { api } from '@/lib/api/client';
 import { googleMapsKey } from '@/lib/google-maps';
@@ -53,7 +52,7 @@ export function ActiveRideProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [boarded, end, recorded]);
 
-  const active = pickup ?? (end === undefined || end > now ? boarded : undefined);
+  const active = pickup ?? ((end === undefined && !route.isError) || (end !== undefined && end > now) ? boarded : undefined);
   const checking = raw === null || queries.some((query) => query.isPending);
   return <ActiveRideContext.Provider value={{
     active, checking, arrivals, now, entries: ids.map((id, i) => ({ id, query: queries[i] })),
@@ -62,11 +61,18 @@ export function ActiveRideProvider({ children }: { children: ReactNode }) {
 
 export const useActiveRide = () => useContext(ActiveRideContext);
 
-export function ActiveRideCard({ ride, heading: Heading = 'h1' }: { ride: Journey; heading?: 'h1' | 'h2' }) {
-  return <section className="mx-auto grid max-w-3xl gap-4 rounded-3xl border border-[#dce4ff] bg-[#edf1ff] p-6 sm:p-8">
-    <CarFront className="text-[#173ed7]" size={28} aria-hidden="true" />
-    <Heading className="text-2xl font-black sm:text-4xl">Your ride is in progress</Heading>
-    <p className="break-words text-[#475673]">{ride.pickup.label} → {ride.dropoff.label}</p>
-    <Link href={`/journey/${encodeURIComponent(ride.id)}`} className="btn w-fit">Track ride <ArrowRight size={17} aria-hidden="true" /></Link>
-  </section>;
+export function ActiveRideGate({ children }: { children: ReactNode }) {
+  const { active, checking } = useActiveRide();
+  const path = usePathname();
+  const router = useRouter();
+  const tracking = active ? `/journey/${encodeURIComponent(active.id)}` : undefined;
+  const redirectTo = tracking && path !== tracking ? tracking : undefined;
+
+  useEffect(() => {
+    if (redirectTo) router.replace(redirectTo);
+  }, [redirectTo, router]);
+
+  if (redirectTo) return <p role="status">Opening your ride…</p>;
+  if (checking && !tracking && !path.startsWith('/journey/')) return <p role="status">Checking ride status…</p>;
+  return children;
 }

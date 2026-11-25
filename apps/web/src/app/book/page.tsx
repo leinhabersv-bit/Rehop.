@@ -5,15 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { BookingForm } from '@/components/booking/BookingForm';
-import { ActiveRideCard, useActiveRide } from '@/components/journey/ActiveRide';
 import { api } from '@/lib/api/client';
-
-function BookingContent() {
-  const { active, checking } = useActiveRide();
-  if (active) return <ActiveRideCard ride={active} />;
-  if (checking) return <p role="status">Checking ride status…</p>;
-  return <TripSetup />;
-}
 
 function TripSetup() {
   const searchParams = useSearchParams();
@@ -58,7 +50,7 @@ export default function BookPage() {
         </div>
       }
     >
-      <BookingContent />
+      <TripSetup />
     </Suspense>
   );
 }

@@ -37,8 +37,9 @@ export function rememberRide(id: string) {
   try {
     localStorage.setItem(key, JSON.stringify([id, ...readRecentRides().filter((item) => item !== id)].slice(0, 8)));
     window.dispatchEvent(new Event(changed));
+    return true;
   } catch {
-    // The confirmed journey remains accessible via its tracking link.
+    return false;
   }
 }
 

@@ -24,3 +24,12 @@ export function recommendRide(journey: Pick<Journey, 'quotes' | 'policy' | 'simu
     isQuoteWithinPolicy(quote, journey.policy)
   ).sort((a, b) => a.estimated_fare_inr - b.estimated_fare_inr || a.pickup_eta_sec - b.pickup_eta_sec)[0];
 }
+
+export function hasConfirmedRide(journey: Journey, quoteId?: string): boolean {
+  const ride = journey.active_ride;
+  return journey.booking_uncertain === false &&
+    ['MONITORING', 'AT_RISK', 'AWAITING_APPROVAL', 'PICKUP_CONFIRMED'].includes(journey.state) &&
+    !!ride && ride.journey_id === journey.id && ride.ride_id === journey.active_ride_id &&
+    (quoteId === undefined || ride.quote_id === quoteId) &&
+    ['CONFIRMED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'IN_PROGRESS'].includes(ride.state);
+}
