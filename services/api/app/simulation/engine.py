@@ -8,12 +8,9 @@ from threading import RLock
 
 from app.domain.errors import SimulationError as SimulationError
 from app.domain.invariants import check_invariants
-from app.domain.state_machine import transition_journey, transition_ride
-from app.intelligence.decision import compare_wait_switch
-from app.intelligence.llm import classify_driver_message, explain_with_verified_numbers
-from app.intelligence.policy import ACTIVE_RIDE_STATES, STOPPED, may_rebook
-from app.intelligence.recovery import rank_backups
-from app.intelligence.risk import assess
+from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
+from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
+from app.intelligence.interface import DefaultIntelligence, IntelligencePort
 from app.schemas.domain import (
     ChatSignal,
     DeadlineDecision,
@@ -121,6 +118,8 @@ Command = tuple[str, str | bool | None, int | None]
 
 
 class Session:
+    intelligence: IntelligencePort = DefaultIntelligence()
+
     def __init__(
         self,
         request: JourneyCreate,
@@ -251,7 +250,7 @@ class Session:
     def _evaluate_backup(self, ride: Ride, candidate: Quote) -> DeadlineDecision:
         fee = self._fee_notice()
         current_fare = next((q.estimated_fare_inr for q in self.quotes if q.quote_id == ride.quote_id), 0)
-        return compare_wait_switch(
+        return self.intelligence.decide(
             now=self.clock,
             need_by=self.need_by,
             current_eta_sec=ride.eta_sec,
@@ -273,7 +272,7 @@ class Session:
     def _classify_driver_message(self, text: str) -> None:
         if not self.ride or self.state in STOPPED:
             raise SimulationError("INVALID_STATE", "No active driver conversation.")
-        self.driver_chat_signal = classify_driver_message(text, offline=self.deterministic)
+        self.driver_chat_signal = self.intelligence.classify_message(text, offline=self.deterministic)
         self.add_event(
             EventType.DRIVER_MESSAGE_CLASSIFIED,
             {"message": text[:300], "signal": self.driver_chat_signal},
@@ -495,7 +494,7 @@ class Session:
         provider = self.ride.provider if self.ride else (self.last_ride.provider if self.last_ride else None)
         if self.scenario == "S06":
             return []
-        return rank_backups(
+        return self.intelligence.rank_backups(
             self.quotes,
             excluding_provider=provider,
             max_fare_inr=self.policy.max_total_fare_inr,
@@ -503,7 +502,7 @@ class Session:
         )
 
     def _confirm_replacement(self, candidate: Quote) -> JourneySnapshot:
-        permitted, reason = may_rebook(
+        permitted, reason = self.intelligence.may_rebook(
             journey_state=self.state,
             active_ride_state=self.ride.state if self.ride else None,
             attempts=self.recovery_attempts,
@@ -622,7 +621,7 @@ class Session:
                 # Leave last_position_at unchanged: GPS freshness becomes unknown.
                 self.ride.gps_quality = GpsQuality.POOR
                 gps_age = (self.clock - self.ride.last_position_at).total_seconds()
-                self.risk = assess(
+                self.risk = self.intelligence.assess(
                     stationary_duration_s=self.stationary_ticks * 5,
                     eta_delta_s=self.eta_delta_s,
                     distance_to_pickup_m=self.ride.distance_to_pickup_m,
@@ -675,7 +674,7 @@ class Session:
                 },
                 sample.ride_id,
             )
-            self.risk = assess(
+            self.risk = self.intelligence.assess(
                 stationary_duration_s=self.stationary_ticks * 5,
                 eta_delta_s=self.eta_delta_s,
                 distance_to_pickup_m=sample.distance_to_pickup_m,
@@ -686,7 +685,7 @@ class Session:
                 self.risk.band in {RiskBand.MEDIUM, RiskBand.HIGH}
                 and self.risk.band not in self.explained_bands
             ):
-                checked = explain_with_verified_numbers(
+                checked = self.intelligence.explain(
                     self.risk.explanation,
                     [self.ride.eta_sec, self.ride.distance_to_pickup_m],
                     offline=self.deterministic,
