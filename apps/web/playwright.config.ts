@@ -9,7 +9,7 @@ export default defineConfig({
   use: { browserName: 'chromium', trace: 'retain-on-failure' },
   webServer: externalServers ? undefined : [
     {
-      command: 'python -m uvicorn app.main:app --port 8000',
+      command: 'python -m uvicorn --app-dir tests browser_server:app --port 8000',
       cwd: resolve(__dirname, '../../services/api'),
       url: 'http://127.0.0.1:8000/health',
       reuseExistingServer: !process.env.CI,
