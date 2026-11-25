@@ -207,7 +207,7 @@ paths:
               schema: {}
         '409':
           description: The browser already has an active ride (including a boarded ride before arrives_at), or the booking conflicts with the current journey state or reuses an idempotency key.
-          x-error-codes: [IDEMPOTENCY_KEY_REUSED]
+          x-error-codes: [IDEMPOTENCY_KEY_REUSED, BOOKING_FAILED]
           content: *journey_conflict_content
         '428':
           description: Browser booking identifier is missing on the hosted API.

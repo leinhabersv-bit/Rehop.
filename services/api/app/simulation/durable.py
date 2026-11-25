@@ -4,10 +4,10 @@ import os
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domain.errors import SimulationError
-from app.domain.state_machine import TERMINAL_JOURNEY_STATES
+from app.domain.state_machine import ACTIVE_RIDE_STATES, TERMINAL_JOURNEY_STATES
 from app.schemas.domain import (
     ChatSignal,
     DeadlineDecision,
@@ -20,6 +20,7 @@ from app.schemas.domain import (
 from app.schemas.enums import JourneyState, Provider, RideState, RiskBand
 from app.schemas.requests import Location, RecoveryPolicy
 from app.simulation.engine import Command, Session, store
+from app.simulation.providers import ProviderState, ScenarioOverrides
 from app.storage.event_store import PostgresEventStore
 from app.storage.idempotency import IdempotencyRecord, IdempotencyStore, PostgresIdempotencyStore
 
@@ -57,6 +58,10 @@ class StoredSession(BaseModel):
     idempotency: dict[str, tuple[Command, tuple[str, str] | None]] = {}
     idempotency_records: dict[str, IdempotencyRecord] = {}
     deterministic: bool = False
+    provider_states: dict[Provider, ProviderState] = Field(default_factory=dict)
+    provider_overrides: ScenarioOverrides = Field(default_factory=lambda: ScenarioOverrides(scripted=True))
+    stall_ticks_remaining: int = 0
+    unconfirmed_ride: Ride | None = None
     booking_uncertain: bool
     boarded_at: datetime | None = None
     arrives_at: datetime | None = None
@@ -65,6 +70,11 @@ class StoredSession(BaseModel):
         session = Session.__new__(Session)
         session.__dict__.update(self.__dict__)
         session.restore_stores(idempotency_store)
+        session.restore_providers()
+        # Payloads written before P04 only recorded rides on the journey.
+        for ride in (session.last_ride, session.ride):
+            if ride is not None:
+                session.provider_states[ride.provider].rides.setdefault(ride.ride_id, ride.state)
         return session
 
 
@@ -110,12 +120,13 @@ def database():
 
 
 def create_ride(request, scenario="S01") -> Session:
+    profiled = scenario == "S01"
     if not HOSTED:
         with store.lock:
-            return store.create(request, scenario=scenario)
+            return store.create(request, scenario=scenario, profiled=profiled)
     from psycopg.types.json import Jsonb
 
-    session = Session(request, scenario)
+    session = Session(request, scenario, profiled=profiled)
     payload = StoredSession.model_validate(vars(session)).model_dump(mode="json")
     with database() as connection:
         connection.execute(
@@ -148,6 +159,10 @@ def read_event_log(journey_id: str) -> list[JourneyEvent]:
 def occupies_booking(session: Session | StoredSession) -> bool:
     if session.state == JourneyState.PICKUP_CONFIRMED and session.arrives_at is not None:
         return session.arrives_at > datetime.now(UTC)
+    if session.state == JourneyState.USER_CANCELLED and session.ride is not None:
+        provider = session.provider_states.get(session.ride.provider)
+        true_state = provider.rides.get(session.ride.ride_id) if provider is not None else None
+        return (true_state or session.ride.state) in ACTIVE_RIDE_STATES
     return session.state not in TERMINAL_JOURNEY_STATES and bool(
         session.ride_count or session.booking_uncertain
     )

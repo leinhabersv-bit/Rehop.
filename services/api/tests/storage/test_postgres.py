@@ -18,7 +18,7 @@ SCHEMA = Path(__file__).resolve().parents[2] / "deploy" / "schema.sql"
 
 
 @pytest.fixture
-def hosted_database(monkeypatch):
+def hosted_database(monkeypatch, steady_provider_profiles):
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
         pytest.skip("TEST_DATABASE_URL is unset; a Postgres test database is required")

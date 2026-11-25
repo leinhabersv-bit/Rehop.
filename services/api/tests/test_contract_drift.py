@@ -38,5 +38,10 @@ def test_journey_mutation_idempotency_errors_match_contract():
         for operation in ("book", "rescue/approve", "cancel", "pickup/confirm", "driver-message"):
             responses = document["paths"][f"/api/v1/journeys/{{journey_id}}/{operation}"]["post"]["responses"]
             conflict = responses["409"]
-            assert conflict["x-error-codes"] == ["IDEMPOTENCY_KEY_REUSED"]
+            codes = (
+                ["IDEMPOTENCY_KEY_REUSED", "BOOKING_FAILED"]
+                if operation == "book"
+                else ["IDEMPOTENCY_KEY_REUSED"]
+            )
+            assert conflict["x-error-codes"] == codes
             assert conflict["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorEnvelope")

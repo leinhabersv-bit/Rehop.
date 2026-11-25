@@ -16,7 +16,6 @@ from app.schemas.domain import OperationResult
 from app.schemas.enums import EventType, JourneyState, OpStatus, Provider, RideState
 from app.schemas.requests import JourneyCreate, RecoveryPolicy
 from app.simulation.engine import LOCATIONS, Session
-from app.simulation.providers import ADAPTERS
 
 TERMINAL = (JourneyState.PICKUP_CONFIRMED, JourneyState.USER_CANCELLED, JourneyState.EXHAUSTED)
 
@@ -129,7 +128,9 @@ def test_unknown_cancellation_preserves_original_ride(monkeypatch):
     original = session.book(session.quotes[0].quote_id, "book").active_ride
     session.tick(25)
     monkeypatch.setattr(
-        ADAPTERS[Provider.PROVIDER_A], "cancel", lambda ride: OperationResult(status=OpStatus.UNKNOWN)
+        session.adapters[Provider.PROVIDER_A],
+        "cancel",
+        lambda ride_id: OperationResult(status=OpStatus.UNKNOWN),
     )
     with pytest.raises(SimulationError) as error:
         session.approve_switch(True, "approve")
@@ -154,9 +155,9 @@ def test_unknown_replacement_booking_stays_reconciling(monkeypatch):
     session.book(session.quotes[0].quote_id, "book")
     session.tick(25)
     monkeypatch.setattr(
-        ADAPTERS[session.pending_backup.provider],
+        session.adapters[session.pending_backup.provider],
         "confirm",
-        lambda quote, now: OperationResult(status=OpStatus.UNKNOWN),
+        lambda quote, now, ride: OperationResult(status=OpStatus.UNKNOWN),
     )
     result = session.approve_switch(True, "approve")
     assert result.state is JourneyState.RECONCILING
@@ -177,10 +178,10 @@ def test_retry_limit_keeps_original_ride_and_blocks_preemptive_switch(monkeypatc
     assert session.tick(1).pending_backup is not None
     session.policy.max_recovery_attempts = 0
 
-    def should_not_cancel(ride):
-        pytest.fail(f"Retry limit cannot cancel {ride.ride_id}")
+    def should_not_cancel(ride_id):
+        pytest.fail(f"Retry limit cannot cancel {ride_id}")
 
-    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_A], "cancel", should_not_cancel)
+    monkeypatch.setattr(session.adapters[Provider.PROVIDER_A], "cancel", should_not_cancel)
     blocked = session.approve_switch(True, "approve")
     assert blocked.active_ride_id == original
     assert blocked.state is JourneyState.MONITORING
@@ -215,7 +216,7 @@ def test_default_recovery_requires_approval_and_declining_closes_unbooked_journe
 def test_driver_cancellation_tries_next_ranked_quote_when_fastest_is_unavailable(monkeypatch):
     session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True)
     original = session.book(session.quotes[0].quote_id, "book").active_ride_id
-    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_B], "init", lambda quote, now: False)
+    monkeypatch.setattr(session.adapters[Provider.PROVIDER_B], "init", lambda quote, now: False)
 
     result = session.tick(8)
 
@@ -235,11 +236,11 @@ def test_direct_cancel_requires_provider_confirmation_and_replays_uncertainty(mo
     original = session.book(session.quotes[0].quote_id, "book").active_ride_id
     calls = []
 
-    def provider_cancel(ride):
-        calls.append(ride.ride_id)
+    def provider_cancel(ride_id):
+        calls.append(ride_id)
         return OperationResult(status=OpStatus.UNKNOWN)
 
-    monkeypatch.setattr(ADAPTERS[Provider.PROVIDER_A], "cancel", provider_cancel)
+    monkeypatch.setattr(session.adapters[Provider.PROVIDER_A], "cancel", provider_cancel)
     version = session.version
     for _ in range(2):
         with pytest.raises(SimulationError) as error:
@@ -268,7 +269,9 @@ def test_automatic_replacement_failure_does_not_stick_in_recovering(monkeypatch,
     session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True)
     session.book(session.quotes[0].quote_id, "book")
     monkeypatch.setattr(
-        ADAPTERS[Provider.PROVIDER_B], "confirm", lambda quote, now: OperationResult(status=status)
+        session.adapters[Provider.PROVIDER_B],
+        "confirm",
+        lambda quote, now, ride: OperationResult(status=status),
     )
     result = session.tick(10)
     assert result.state is state
