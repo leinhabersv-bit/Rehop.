@@ -102,7 +102,7 @@ export function TripCompleted({ pickup, dropoff, fare, route, loading }: {
         <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-[#ffcbab] text-[#111a42]">
           <Check size={26} strokeWidth={3} aria-hidden="true" />
         </div>
-        <h1 id="trip-completed" ref={heading} tabIndex={-1} className="scroll-mt-24 text-3xl font-black tracking-tight focus:outline-none sm:text-4xl">Trip completed</h1>
+        <h1 id="trip-completed" ref={heading} tabIndex={-1} className="scroll-mt-24 text-3xl font-black tracking-tight !text-[#fffdf8] focus:outline-none sm:text-4xl">Trip completed</h1>
         <p className="mt-2 break-words text-sm leading-relaxed text-[#dce5ff]">You’ve arrived at <strong className="text-white">{dropoff.label}</strong>.</p>
       </header>
 
