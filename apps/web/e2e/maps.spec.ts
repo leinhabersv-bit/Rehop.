@@ -10,6 +10,7 @@ test('popular Chennai locations route to the selected airport terminal', async (
     durationSeconds: 2100,
     calculatedAt: '2026-11-23T13:30:00.000Z',
   } }));
+  await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(web);
   const pickup = page.getByRole('combobox', { name: 'Pickup point' });
   const destination = page.getByRole('combobox', { name: 'Destination' });
@@ -19,6 +20,11 @@ test('popular Chennai locations route to the selected airport terminal', async (
   await expect(destination.locator('optgroup[label="Parks, beaches & landmarks"] option', { hasText: 'Shore Temple Parking' })).toHaveCount(1);
   await pickup.selectOption('Chennai Central Railway Station');
   await destination.selectOption('Chennai Airport T2 (International)');
+  const swap = page.getByRole('button', { name: 'Swap pickup and destination' });
+  await swap.click();
+  await expect(pickup).toHaveValue('Chennai Airport T2 (International)');
+  await expect(destination).toHaveValue('Chennai Central Railway Station');
+  await swap.click();
   const requestedRoute = page.waitForRequest((request) => request.url().endsWith('/api/maps'));
   await page.getByRole('button', { name: 'Review trip details' }).click();
   expect((await requestedRoute).postDataJSON()).toMatchObject({
@@ -29,6 +35,17 @@ test('popular Chennai locations route to the selected airport terminal', async (
   await expect(report.getByText('19.2 km', { exact: true })).toBeVisible();
   await expect(report.getByText(/Traffic excluded/)).toBeVisible();
   await expect(report.getByRole('region', { name: 'Driving route map' })).toBeVisible();
+  const controls = await page.getByRole('region', { name: 'Trip route', exact: true }).boundingBox();
+  const timing = await report.boundingBox();
+  expect(controls!.x + controls!.width).toBeLessThan(timing!.x);
+  expect(Math.abs(controls!.y - timing!.y)).toBeLessThan(12);
+  await page.getByRole('button', { name: 'Find my ride' }).click();
+  const recommendation = page.getByRole('region', { name: 'Recommended ride' });
+  const estimates = page.getByRole('region', { name: 'Other provider estimates' });
+  await expect(recommendation).toBeVisible();
+  await expect(estimates).toBeVisible();
+  expect((await recommendation.boundingBox())!.x).toBeLessThan((await estimates.boundingBox())!.x);
+  await expect(page.getByRole('button', { name: 'Book', exact: true })).toHaveCount(1);
 });
 
 test('a rider can search, copy the map timing report and review the pickup ETA separately', async ({ page, request, context }) => {

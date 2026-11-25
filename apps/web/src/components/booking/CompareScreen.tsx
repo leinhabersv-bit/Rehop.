@@ -174,8 +174,8 @@ export function CompareScreen() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5 pb-10 max-sm:space-y-3 max-sm:pb-5">
-      <header className="space-y-3">
+    <div className="mx-auto w-full max-w-6xl pb-10 max-sm:pb-5">
+      <header className="mb-5 space-y-3 max-sm:mb-3">
         <button
           type="button"
           onClick={() => router.push(editTrip)}
@@ -184,7 +184,7 @@ export function CompareScreen() {
           <ArrowLeft size={17} aria-hidden="true" /> Edit trip
         </button>
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#173ed7]">Simulated booking</p>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#173ed7]">Step 2 of 2 · Simulated booking</p>
           <h1 className="text-3xl font-black tracking-tight sm:text-5xl">{canBook ? 'Review your ride' : 'Your ride'}</h1>
         </div>
         {journey && (
@@ -197,90 +197,91 @@ export function CompareScreen() {
         )}
       </header>
 
-      {isLoading && <p role="status" className="rounded-2xl border border-[#d9dbe7] p-5 text-[#475673]">Checking simulated fares and pickup times…</p>}
+      <div className={`grid min-w-0 items-start gap-3 sm:gap-5 ${canBook && listedQuotes.length > 0 ? 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,.9fr)]' : ''}`}>
+        {isLoading && <p role="status" className="rounded-2xl border border-[#d9dbe7] p-5 text-[#475673]">Checking simulated fares and pickup times…</p>}
 
-      {journey && (
-        <section aria-labelledby="ride-choice" id="book-recommendation" className="scroll-mt-24 rounded-3xl border border-[#173ed7]/40 bg-white p-5 max-sm:border-[#d9e0f6] max-sm:p-4 max-sm:shadow-[0_8px_24px_#171b370a] sm:p-7">
-          {canBook && recommended ? (
-            <>
-              <h2 id="ride-choice" className="flex items-center gap-2 text-lg font-bold max-sm:text-[#173ed7]">
-                <Sparkles size={18} aria-hidden="true" /> Recommended ride
-              </h2>
-              <p className="mt-2 text-sm text-[#475673]"><strong className="text-[#171b37]">{providerName[recommended.provider]}</strong> · Lowest eligible fare within your ₹{journey.policy.max_total_fare_inr.toLocaleString('en-IN')} limit.</p>
-              <dl className="my-4 grid grid-cols-2 divide-x divide-[#415467] border-y border-[#d9dbe7] py-3 max-sm:gap-2 max-sm:divide-x-0 max-sm:border-y-0 max-sm:py-0">
-                <div className="max-sm:rounded-2xl max-sm:bg-[#edf1ff] max-sm:p-3">
-                  <dt className="text-sm text-[#475673]">Pickup in</dt>
-                  <dd className="text-2xl font-black max-sm:text-[#173ed7]">{Math.max(1, Math.ceil(recommended.pickup_eta_sec / 60))} min</dd>
-                </div>
-                <div className="pl-4 max-sm:rounded-2xl max-sm:bg-[#fff0e3] max-sm:p-3">
-                  <dt className="text-sm text-[#475673]">Estimated fare</dt>
-                  <dd className="text-2xl font-black">₹{recommended.estimated_fare_inr.toLocaleString('en-IN')}</dd>
-                </div>
-              </dl>
-            </>
-          ) : (
-            <div className="mb-4">
-              <h2 id="ride-choice" className="text-xl font-black">
-                {canBook ? allOverBudget ? 'No rides within your budget' : 'No recommended ride available' : 'Check your journey status'}
-              </h2>
-              <p className="mt-1 text-sm text-[#475673]">
-                {canBook ? allOverBudget ? `Every estimate is above your ₹${journey.policy.max_total_fare_inr.toLocaleString('en-IN')} max fare.` : 'Try again to check for a ride.' : 'Open tracking for the latest provider status.'}
+        {journey && (
+          <section aria-labelledby="ride-choice" id="book-recommendation" className="min-w-0 scroll-mt-24 rounded-3xl border border-[#173ed7]/40 bg-white p-5 max-sm:border-[#d9e0f6] max-sm:p-4 max-sm:shadow-[0_8px_24px_#171b370a] sm:p-7">
+            {canBook && recommended ? (
+              <>
+                <h2 id="ride-choice" className="flex items-center gap-2 text-lg font-bold max-sm:text-[#173ed7]">
+                  <Sparkles size={18} aria-hidden="true" /> Recommended ride
+                </h2>
+                <p className="mt-2 text-sm text-[#475673]"><strong className="text-[#171b37]">{providerName[recommended.provider]}</strong> · Lowest eligible fare within your ₹{journey.policy.max_total_fare_inr.toLocaleString('en-IN')} limit.</p>
+                <dl className="my-4 grid grid-cols-2 divide-x divide-[#6174a3] rounded-2xl bg-[#111a42] px-3 py-3 sm:px-5 sm:py-4">
+                  <div className="min-w-0 pr-2">
+                    <dt className="text-xs font-semibold text-[#e4eaff] sm:text-sm">Pickup in</dt>
+                    <dd className="mt-1 break-words text-2xl font-black !text-[#ffcbab] sm:text-3xl">{Math.max(1, Math.ceil(recommended.pickup_eta_sec / 60))} min</dd>
+                  </div>
+                  <div className="min-w-0 pl-3 sm:pl-5">
+                    <dt className="text-xs font-semibold text-[#e4eaff] sm:text-sm">Estimated fare</dt>
+                    <dd className="mt-1 break-words text-2xl font-black !text-white sm:text-3xl">₹{recommended.estimated_fare_inr.toLocaleString('en-IN')}</dd>
+                  </div>
+                </dl>
+              </>
+            ) : (
+              <div className="mb-4">
+                <h2 id="ride-choice" className="text-xl font-black">
+                  {canBook ? allOverBudget ? 'No rides within your budget' : 'No recommended ride available' : 'Check your journey status'}
+                </h2>
+                <p className="mt-1 text-sm text-[#475673]">
+                  {canBook ? allOverBudget ? `Every estimate is above your ₹${journey.policy.max_total_fare_inr.toLocaleString('en-IN')} max fare.` : 'Try again to check for a ride.' : 'Open tracking for the latest provider status.'}
+                </p>
+              </div>
+            )}
+
+            {canBook && recommended && journey.policy.auto_rebook_on_confirmed_driver_cancel && journey.policy.max_recovery_attempts > 0 && (
+              <p className="mb-3 text-sm text-[#475673]">
+                Auto-rebooking is on for confirmed driver cancellations.
               </p>
-            </div>
-          )}
+            )}
+            {bookingError && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]">
+              <AlertCircle size={17} className="shrink-0" aria-hidden="true" />
+              <div>
+                <p>{bookingError}</p>
+                {hasOtherRide && <Link href="/trips" className="mt-1 inline-block font-bold text-[#173ed7] underline">View your rides</Link>}
+              </div>
+            </div>}
 
-          {canBook && recommended && journey.policy.auto_rebook_on_confirmed_driver_cancel && journey.policy.max_recovery_attempts > 0 && (
-            <p className="mb-3 text-sm text-[#475673]">
-              Auto-rebooking is on for confirmed driver cancellations.
-            </p>
-          )}
-          {bookingError && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-[#d9dbe7]/40 bg-[#edf1ff] p-3 text-sm text-[#475673]">
-            <AlertCircle size={17} className="shrink-0" aria-hidden="true" />
-            <div>
-              <p>{bookingError}</p>
-              {hasOtherRide && <Link href="/trips" className="mt-1 inline-block font-bold text-[#173ed7] underline">View your rides</Link>}
-            </div>
-          </div>}
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={isBooking}
+              loadingText="Confirming simulated ride…"
+              disabled={canBook && !attempt && (isFetching || (!!recommended && !!error))}
+              onClick={() => {
+                if (attempt || (canBook && recommended)) void handleConfirmBooking();
+                else if (canBook && allOverBudget) router.push(editTrip);
+                else if (canBook) void refetch();
+                else router.push(`/journey/${journey.id}`);
+              }}
+              rightIcon={<ArrowRight size={18} aria-hidden="true" />}
+            >
+              {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : allOverBudget ? 'Edit max fare' : 'Try again'}
+            </Button>
+          </section>
+        )}
 
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={isBooking}
-            loadingText="Confirming simulated ride…"
-            disabled={canBook && !attempt && (isFetching || (!!recommended && !!error))}
-            onClick={() => {
-              if (attempt || (canBook && recommended)) void handleConfirmBooking();
-              else if (canBook && allOverBudget) router.push(editTrip);
-              else if (canBook) void refetch();
-              else router.push(`/journey/${journey.id}`);
-            }}
-            rightIcon={<ArrowRight size={18} aria-hidden="true" />}
-          >
-            {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : allOverBudget ? 'Edit max fare' : 'Try again'}
-          </Button>
-        </section>
-      )}
-
-      {journey && canBook && listedQuotes.length > 0 && (
-        <section aria-labelledby="provider-estimates" className="rounded-3xl border border-[#d9e0f6] bg-[#fffdf8] p-4 sm:p-6">
-          <h2 id="provider-estimates" className="text-base font-extrabold text-[#171b37]">{recommended ? 'Other provider estimates' : 'Provider estimates'}</h2>
-          <ul className="mt-2 divide-y divide-[#d9e0f6]">
-            {listedQuotes.map((quote) => (
-              <li key={quote.quote_id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 py-3 text-sm sm:gap-x-6">
-                <span className="font-bold text-[#171b37]">
-                  {providerName[quote.provider]}
-                  {isQuoteExpired(quote, Date.parse(journey.simulated_time)) ? <span className="block text-xs font-medium text-[#475673]">Expired</span> :
-                    !isQuoteWithinPolicy(quote, journey.policy) && <span className="block text-xs font-medium text-[#8c3651]">Above max fare</span>}
-                </span>
-                <span className="text-[#475673]">{Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))} min pickup</span>
-                <span className="text-right font-bold tabular-nums text-[#171b37]">₹{quote.estimated_fare_inr.toLocaleString('en-IN')}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
+        {journey && canBook && listedQuotes.length > 0 && (
+          <section aria-labelledby="provider-estimates" className="min-w-0 rounded-3xl border border-[#d9e0f6] bg-[#fffdf8] p-4 sm:p-6">
+            <h2 id="provider-estimates" className="text-base font-extrabold text-[#171b37]">{recommended ? 'Other provider estimates' : 'Provider estimates'}</h2>
+            <ul className="mt-2 divide-y divide-[#d9e0f6]">
+              {listedQuotes.map((quote) => (
+                <li key={quote.quote_id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 py-3 text-sm sm:gap-x-6">
+                  <span className="font-bold text-[#171b37]">
+                    {providerName[quote.provider]}
+                    {isQuoteExpired(quote, Date.parse(journey.simulated_time)) ? <span className="block text-xs font-medium text-[#475673]">Expired</span> :
+                      !isQuoteWithinPolicy(quote, journey.policy) && <span className="block text-xs font-medium text-[#8c3651]">Above max fare</span>}
+                  </span>
+                  <span className="text-[#475673]">{Math.max(1, Math.ceil(quote.pickup_eta_sec / 60))} min pickup</span>
+                  <span className="text-right font-bold tabular-nums text-[#171b37]">₹{quote.estimated_fare_inr.toLocaleString('en-IN')}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
