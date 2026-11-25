@@ -123,7 +123,9 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toHaveCount(0);
   await expect(tabs.getByRole('link', { name: 'Book', exact: true })).toBeVisible({ timeout: 12_000 });
   const receipt = page.getByRole('region', { name: 'Trip completed' });
-  await expect(receipt.getByRole('heading', { name: 'Trip completed' })).toBeFocused();
+  const receiptTitle = receipt.getByRole('heading', { name: 'Trip completed' });
+  await expect(receiptTitle).toBeFocused();
+  await expect(receiptTitle).toHaveCSS('color', 'rgb(255, 253, 248)');
   await expect(receipt.getByText('₹285', { exact: true })).toBeVisible();
   await expect(receipt.getByText('3 min', { exact: true })).toBeVisible();
   await expect(receipt.getByText('2.2 km', { exact: true })).toBeVisible();
