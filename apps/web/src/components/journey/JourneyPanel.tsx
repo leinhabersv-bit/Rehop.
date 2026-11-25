@@ -10,7 +10,7 @@ import { useJourneyEvents, type Connection } from '@/hooks/useJourneyEvents';
 import { TripRoute } from '@/components/booking/TripRoute';
 import SwitchReview from './SwitchReview';
 import PickupApproach from './PickupApproach';
-import DestinationTracking from './DestinationTracking';
+import DestinationTracking, { TripCompleted, useDestinationProgress } from './DestinationTracking';
 import { pickupActivity } from './pickup-activity';
 import styles from './journey.module.css';
 
@@ -92,6 +92,7 @@ export default function JourneyPanel({ id }: { id: string }) {
     refetchInterval: stream.connection === 'live' ? false : 5000,
   });
   const data = query.data;
+  const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined);
   const [reviewed, setReviewed] = useState<Journey | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -157,7 +158,12 @@ export default function JourneyPanel({ id }: { id: string }) {
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
   const canBoard = canAct && ride?.state === 'DRIVER_ARRIVED';
   const backup = data.state === 'AWAITING_APPROVAL' && !reconciling ? data.pending_backup : null;
-  const bookedQuote = ride ? data.quotes.find((quote) => quote.quote_id === ride.quote_id) : undefined;
+  const bookedQuote = data.quotes.find((quote) => quote.quote_id === ride?.quote_id);
+  if (destination.arrived) {
+    return <TripCompleted pickup={data.pickup} dropoff={data.dropoff} fare={bookedQuote?.estimated_fare_inr}
+      route={destination.route.data} loading={destination.route.isPending && destination.route.isFetching} />;
+  }
+
   const cancellationFee = data.cancellation_fee_notice?.potential_fee_upper_bound_inr ?? (
     bookedQuote ? Math.min(Math.ceil(bookedQuote.estimated_fare_inr / 10), 100) : null
   );
@@ -207,7 +213,7 @@ export default function JourneyPanel({ id }: { id: string }) {
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
             <p className={styles.pickupStatus}>{pickupStatus}</p>
-            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} boardedAt={data.boarded_at} arrivesAt={data.arrives_at} /> : ride && (
+            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} progress={destination} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
                   <dl className={styles.stats}>
