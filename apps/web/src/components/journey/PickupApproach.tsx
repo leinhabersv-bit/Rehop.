@@ -36,6 +36,7 @@ export default function PickupApproach({ pickup, dropoff, startDistance, distanc
   const route = useDrivingRoute(from, to, 'google-map', Boolean(googleMapsKey && origin));
   const coordinates = route.data?.provider === 'google' ? route.data.coordinates : undefined;
   const showMap = !!(coordinates && coordinates.length >= 2);
+  const hasPosition = startDistance > 0 || progress === 1;
   const cab = <RideCab stalled={stalled} progress={showMap ? undefined : progress} />;
 
   if (showMap) {
@@ -53,11 +54,11 @@ export default function PickupApproach({ pickup, dropoff, startDistance, distanc
     <div className={styles.approach} role="img" aria-label={`Simulated driver approach. ${status}. ${stalled ? 'Driver position unchanged. ' : ''}${distance} to pickup.`}>
       <div className={styles.approachHeading} aria-hidden="true">
         <span>Driver location</span>
-        <span>{loading ? 'Loading Google Maps pickup route…' : 'Simulated pickup route'}</span>
+        <span>{!hasPosition ? 'Loading driver position…' : loading ? 'Loading Google Maps pickup route…' : 'Simulated pickup route'}</span>
       </div>
       <div className={styles.approachTrack} aria-hidden="true">
         <span className={styles.approachPin}><MapPin size={23} /></span>
-        {cab}
+        {hasPosition && cab}
       </div>
       <div className={styles.approachFooter} aria-hidden="true">
         <span>{stalled ? 'Position unchanged' : status}</span>

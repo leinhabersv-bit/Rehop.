@@ -84,7 +84,7 @@ function recoveryStatus(journey: Journey, event?: Event): string | null {
 }
 
 export default function JourneyPanel({ id }: { id: string }) {
-  const { active } = useActiveRide();
+  const { active, arrivals } = useActiveRide();
   const queryClient = useQueryClient();
   const queryKey = ['journey', id];
   const stream = useJourneyEvents(id, queryClient.getQueryData(queryKey) != null);
@@ -94,7 +94,8 @@ export default function JourneyPanel({ id }: { id: string }) {
     refetchInterval: stream.connection === 'live' ? false : 5000,
   });
   const data = query.data;
-  const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined);
+  const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined,
+    data?.arrives_at ? Date.parse(data.arrives_at) : arrivals[id]);
   const [reviewed, setReviewed] = useState<Journey | null>(null);
   const [action, setAction] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -162,7 +163,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const backup = data.state === 'AWAITING_APPROVAL' && !reconciling ? data.pending_backup : null;
   const bookedQuote = data.quotes.find((quote) => quote.quote_id === ride?.quote_id);
   if (destination.arrived) {
-    return <TripCompleted pickup={data.pickup} dropoff={data.dropoff} fare={bookedQuote?.estimated_fare_inr}
+    return <TripCompleted journeyId={data.id} pickup={data.pickup} dropoff={data.dropoff} fare={bookedQuote?.estimated_fare_inr}
       route={destination.route.data} loading={destination.route.isPending && destination.route.isFetching} />;
   }
 

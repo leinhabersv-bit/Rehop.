@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { api } from '@/lib/api/client';
 import { googleMapsKey } from '@/lib/google-maps';
-import { recentRideSnapshot, rememberRideArrival, subscribeToRides } from '@/lib/recent-rides';
+import { clearPendingTrip, recentRideSnapshot, rememberPendingTrip, rememberRideArrival, subscribeToRides } from '@/lib/recent-rides';
 import { tripPlaybackLengthMs } from '@/lib/trip-playback';
 import type { Journey, Location } from '@/types';
 
@@ -17,6 +17,7 @@ const serverSnapshot = () => null;
 
 const ActiveRideContext = createContext<{
   active?: Journey;
+  receiptId?: string;
   checking: boolean;
   entries: { id: string; query: UseQueryResult<Journey> }[];
   arrivals: Record<string, number>;
@@ -25,7 +26,8 @@ const ActiveRideContext = createContext<{
 
 export function ActiveRideProvider({ children }: { children: ReactNode }) {
   const raw = useSyncExternalStore(subscribeToRides, recentRideSnapshot, serverSnapshot);
-  const [ids, localArrivals] = useMemo(() => (raw ? JSON.parse(raw) : [[], {}]) as [string[], Record<string, number>], [raw]);
+  const [ids, localArrivals, pendingId] = useMemo(() =>
+    (raw ? JSON.parse(raw) : [[], {}, null]) as [string[], Record<string, number>, string | null], [raw]);
   const [now, setNow] = useState(Date.now);
   const queries = useQueries({ queries: ids.map((id) => queryOptions({
     queryKey: ['journey', id], queryFn: () => api.journey(id), staleTime: 20_000,
@@ -53,19 +55,45 @@ export function ActiveRideProvider({ children }: { children: ReactNode }) {
   }, [boarded, end, recorded]);
 
   const active = pickup ?? ((end === undefined && !route.isError) || (end !== undefined && end > now) ? boarded : undefined);
+  const activeId = active?.id;
+  const pending = pendingId ? rides.find((ride) => ride?.id === pendingId) : undefined;
+  const pendingState = pending?.state;
+  const receiptId = pending?.state === 'PICKUP_CONFIRMED' && arrivals[pending.id] <= now ? pending.id : undefined;
+
+  useEffect(() => {
+    if (activeId) rememberPendingTrip(activeId);
+  }, [activeId]);
+
+  useEffect(() => {
+    if (pendingId && (pendingState === 'USER_CANCELLED' || pendingState === 'EXHAUSTED')) {
+      clearPendingTrip(pendingId);
+    }
+  }, [pendingId, pendingState]);
+
+  useEffect(() => {
+    const updateClock = () => setNow(Date.now());
+    window.addEventListener('pageshow', updateClock);
+    document.addEventListener('visibilitychange', updateClock);
+    return () => {
+      window.removeEventListener('pageshow', updateClock);
+      document.removeEventListener('visibilitychange', updateClock);
+    };
+  }, []);
+
   const checking = raw === null || queries.some((query) => query.isPending);
   return <ActiveRideContext.Provider value={{
-    active, checking, arrivals, now, entries: ids.map((id, i) => ({ id, query: queries[i] })),
+    active, receiptId, checking, arrivals, now, entries: ids.map((id, i) => ({ id, query: queries[i] })),
   }}>{children}</ActiveRideContext.Provider>;
 }
 
 export const useActiveRide = () => useContext(ActiveRideContext);
 
 export function ActiveRideGate({ children }: { children: ReactNode }) {
-  const { active, checking } = useActiveRide();
+  const { active, receiptId, checking } = useActiveRide();
   const path = usePathname();
   const router = useRouter();
-  const tracking = active ? `/journey/${encodeURIComponent(active.id)}` : undefined;
+  const rideId = active?.id ?? receiptId;
+  const tracking = rideId ? `/journey/${encodeURIComponent(rideId)}` : undefined;
   const redirectTo = tracking && path !== tracking ? tracking : undefined;
 
   useEffect(() => {
