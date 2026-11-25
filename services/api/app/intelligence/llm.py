@@ -68,12 +68,16 @@ def _llm_json(instruction: str, text: str) -> dict[str, Any] | None:
         return None
 
 
-def classify_driver_message(text: str) -> ChatSignal:
-    data = _llm_json(
-        "Classify a driver's text message into exactly one label: "
-        "TRAFFIC_DELAY, REQUEST_RIDER_CANCEL, ARRIVING, OTHER, UNKNOWN."
-        ' Output {"label": one_enum, "evidence": a short quotation from the original message}.',
-        text,
+def classify_driver_message(text: str, *, offline: bool = False) -> ChatSignal:
+    data = (
+        None
+        if offline
+        else _llm_json(
+            "Classify a driver's text message into exactly one label: "
+            "TRAFFIC_DELAY, REQUEST_RIDER_CANCEL, ARRIVING, OTHER, UNKNOWN."
+            ' Output {"label": one_enum, "evidence": a short quotation from the original message}.',
+            text,
+        )
     )
     if (
         data
@@ -154,12 +158,18 @@ def parse_ride_intent(text: str, locations: list[Location]) -> RideIntent:
     )
 
 
-def explain_with_verified_numbers(template: str, numbers: list[int]) -> VerifiedExplanation:
+def explain_with_verified_numbers(
+    template: str, numbers: list[int], *, offline: bool = False
+) -> VerifiedExplanation:
     """LLM may rephrase prose but cannot introduce any new numeric claim."""
-    data = _llm_json(
-        "Rephrase the explanation in clear English. Do not introduce numbers, currencies, new claims, "
-        "or instructions. Return JSON with one field: explanation.",
-        template,
+    data = (
+        None
+        if offline
+        else _llm_json(
+            "Rephrase the explanation in clear English. Do not introduce numbers, currencies, new claims, "
+            "or instructions. Return JSON with one field: explanation.",
+            template,
+        )
     )
     if data and isinstance(data.get("explanation"), str):
         explanation = data["explanation"][:400]

@@ -20,6 +20,8 @@ from app.schemas.domain import (
 from app.schemas.enums import JourneyState, Provider, RideState, RiskBand
 from app.schemas.requests import Location, RecoveryPolicy
 from app.simulation.engine import Command, Session, store
+from app.storage.event_store import PostgresEventStore
+from app.storage.idempotency import IdempotencyRecord, IdempotencyStore, PostgresIdempotencyStore
 
 HOSTED = os.getenv("REHOP_HOSTED") == "1" or os.getenv("VERCEL") == "1"
 local_booking_slots: dict[str, str] = {}
@@ -52,14 +54,17 @@ class StoredSession(BaseModel):
     stationary_ticks: int
     eta_delta_s: int
     attempted_providers: set[Provider]
-    idempotency: dict[str, tuple[Command, tuple[str, str] | None]]
+    idempotency: dict[str, tuple[Command, tuple[str, str] | None]] = {}
+    idempotency_records: dict[str, IdempotencyRecord] = {}
+    deterministic: bool = False
     booking_uncertain: bool
     boarded_at: datetime | None = None
     arrives_at: datetime | None = None
 
-    def restore(self) -> Session:
+    def restore(self, idempotency_store: IdempotencyStore | None = None) -> Session:
         session = Session.__new__(Session)
         session.__dict__.update(self.__dict__)
+        session.restore_stores(idempotency_store)
         return session
 
 
@@ -117,7 +122,27 @@ def create_ride(request, scenario="S01") -> Session:
             "INSERT INTO ride_journeys (id, payload) VALUES (%s, %s)",
             (session.id, Jsonb(payload)),
         )
+        PostgresEventStore(connection).sync_payload(session.id, session.events)
     return session
+
+
+def read_event_log(journey_id: str) -> list[JourneyEvent]:
+    if not HOSTED:
+        with store.lock:
+            return store.get(journey_id).list_events()
+    with database() as connection:
+        event_store = PostgresEventStore(connection)
+        events = event_store.list(journey_id)
+        if events:
+            return events
+        # A journey created before the table was added may still have only the payload copy.
+        row = connection.execute(
+            "SELECT payload FROM ride_journeys WHERE id = %s FOR UPDATE", (journey_id,)
+        ).fetchone()
+        if row is None:
+            raise SimulationError("JOURNEY_NOT_FOUND", "Unknown journey.", status=404)
+        event_store.sync_payload(journey_id, StoredSession.model_validate(row[0]).events)
+        return event_store.list(journey_id)
 
 
 def occupies_booking(session: Session | StoredSession) -> bool:
@@ -145,11 +170,12 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
                 return
             known = (*recent_ids, local_booking_slots.get(rider_id))
             candidates = [store.sessions[known_id] for known_id in known if known_id in store.sessions]
-            check_booking_slot(journey_id, candidates)
+            session._booking_guard = lambda: check_booking_slot(journey_id, candidates)
             previously_occupied = occupies_booking(session)
             try:
                 yield session
             finally:
+                session._booking_guard = None
                 if not previously_occupied and occupies_booking(session):
                     local_booking_slots[rider_id] = journey_id
         return
@@ -157,6 +183,7 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
 
     failure = None
     with database() as connection:
+        candidates = []
         if rider_id is not None:
             connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (rider_id,))
             candidates = connection.execute(
@@ -168,9 +195,7 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
                 """,
                 (journey_id, list(recent_ids), rider_id),
             )
-            check_booking_slot(
-                journey_id, [StoredSession.model_validate(payload) for (payload,) in candidates]
-            )
+            candidates = [StoredSession.model_validate(payload) for (payload,) in candidates]
         row = connection.execute(
             "SELECT payload, last_tick FROM ride_journeys WHERE id = %s FOR UPDATE", (journey_id,)
         ).fetchone()
@@ -178,7 +203,9 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
             raise SimulationError("JOURNEY_NOT_FOUND", "Unknown journey.", status=404)
 
         payload, old_tick = row
-        session = StoredSession.model_validate(payload).restore()
+        session = StoredSession.model_validate(payload).restore(PostgresIdempotencyStore(connection))
+        if rider_id is not None:
+            session._booking_guard = lambda: check_booking_slot(journey_id, candidates)
         now = datetime.now(UTC)
         last_tick = advance(session, old_tick, now)
         ride_id = session.ride.ride_id if session.ride else None
@@ -198,6 +225,7 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
                 "UPDATE ride_journeys SET payload = %s, last_tick = %s WHERE id = %s",
                 (Jsonb(updated), last_tick, journey_id),
             )
+        PostgresEventStore(connection).sync_payload(journey_id, session.events)
         if rider_id is not None and not previously_occupied and occupies_booking(session):
             connection.execute(
                 """

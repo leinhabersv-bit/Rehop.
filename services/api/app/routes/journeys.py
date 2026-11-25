@@ -8,7 +8,7 @@ from fastapi import APIRouter, Header, Query
 
 from app.intelligence.llm import parse_ride_intent
 from app.schemas.enums import Provider
-from app.schemas.errors import SimulationError
+from app.schemas.errors import ErrorEnvelope, SimulationError
 from app.schemas.requests import (
     ActionRequest,
     ApprovalRequest,
@@ -25,6 +25,13 @@ from app.simulation.engine import LOCATIONS, SCENARIOS, store
 from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
+IDEMPOTENCY_ERRORS = {
+    409: {
+        "model": ErrorEnvelope,
+        "description": "The action conflicts with the current journey or reuses an idempotency key.",
+        "x-error-codes": ["IDEMPOTENCY_KEY_REUSED"],
+    }
+}
 
 
 @router.post("/intent/parse")
@@ -32,7 +39,7 @@ def parse_intent(req: ParseIntentRequest):
     return parse_ride_intent(req.text, LOCATIONS).model_dump(mode="json")
 
 
-@router.post("/journeys/{journey_id}/driver-message")
+@router.post("/journeys/{journey_id}/driver-message", responses=IDEMPOTENCY_ERRORS)
 def driver_message(journey_id: str, req: DriverMessageRequest):
     with open_ride(journey_id) as journey:
         return journey.driver_message(req.text, req.idempotency_key).model_dump(mode="json")
@@ -69,7 +76,7 @@ def get_journey(journey_id: str):
         return journey.snapshot().model_dump(mode="json")
 
 
-@router.post("/journeys/{journey_id}/book")
+@router.post("/journeys/{journey_id}/book", responses=IDEMPOTENCY_ERRORS)
 def book(
     journey_id: str,
     req: BookRequest,
@@ -99,12 +106,12 @@ def events(journey_id: str, since_seq: int = 0):
     with open_ride(journey_id) as journey:
         return {
             "journey_id": journey.id,
-            "events": [e.model_dump(mode="json") for e in journey.events if e.seq > since_seq],
+            "events": [e.model_dump(mode="json") for e in journey.list_events(since_seq)],
             "last_event_seq": len(journey.events),
         }
 
 
-@router.post("/journeys/{journey_id}/rescue/approve")
+@router.post("/journeys/{journey_id}/rescue/approve", responses=IDEMPOTENCY_ERRORS)
 def approve(journey_id: str, req: ApprovalRequest):
     with open_ride(journey_id) as journey:
         return journey.approve_switch(
@@ -112,7 +119,7 @@ def approve(journey_id: str, req: ApprovalRequest):
         ).model_dump(mode="json")
 
 
-@router.post("/journeys/{journey_id}/cancel")
+@router.post("/journeys/{journey_id}/cancel", responses=IDEMPOTENCY_ERRORS)
 def cancel(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
         return journey.cancel(req.idempotency_key, expected_version=req.expected_version).model_dump(
@@ -120,7 +127,7 @@ def cancel(journey_id: str, req: ActionRequest):
         )
 
 
-@router.post("/journeys/{journey_id}/pickup/confirm")
+@router.post("/journeys/{journey_id}/pickup/confirm", responses=IDEMPOTENCY_ERRORS)
 def confirm_pickup(journey_id: str, req: ActionRequest):
     with open_ride(journey_id) as journey:
         return journey.confirm_pickup(
@@ -155,7 +162,7 @@ def run_scenario(scenario_id: str, seed: int = 2026):
             from app.simulation.engine import BASE_TIME
 
             request.need_by = BASE_TIME + timedelta(minutes=5)
-        journey = store.create(request, scenario=scenario_id, seed=seed)
+        journey = store.create(request, scenario=scenario_id, seed=seed, deterministic=True)
         if scenario_id != "S12":
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
             journey.book(primary.quote_id, f"scenario_initial_{scenario_id}")

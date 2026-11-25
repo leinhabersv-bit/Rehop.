@@ -4,16 +4,18 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'services'/'api'))
 from app.simulation.engine import Session, LOCATIONS, SCENARIOS, SimulationError, BASE_TIME
 from app.schemas.models import JourneyCreate, RecoveryPolicy
+from app.storage.ids import IdFactory
 
 
 def run(seed:int):
     results=[]
+    scenario_ids = IdFactory()
     for scenario_id in SCENARIOS:
         policy = RecoveryPolicy(
             auto_rebook_on_confirmed_driver_cancel=scenario_id in {'S04', 'S05', 'S06', 'S07'},
@@ -21,7 +23,7 @@ def run(seed:int):
         )
         request=JourneyCreate(pickup=LOCATIONS[0],dropoff=LOCATIONS[1],policy=policy)
         if scenario_id=='S16': request.need_by=BASE_TIME + timedelta(minutes=5)
-        session=Session(request, scenario_id, seed)
+        session=Session(request, scenario_id, seed, scenario_ids=scenario_ids)
         primary=next(q for q in session.quotes if q.provider=='PROVIDER_A')
         try:session.book(primary.quote_id,f'benchmark-{scenario_id}')
         except SimulationError:pass
