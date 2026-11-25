@@ -37,7 +37,14 @@ from app.schemas.enums import (
     RiskBand,
 )
 from app.schemas.requests import JourneyCreate, Location
-from app.simulation.providers import ADAPTERS, PROVIDERS
+from app.simulation.profiles import BASE_OFFERS, PROFILES
+from app.simulation.providers import (
+    ProviderRandom,
+    ProviderState,
+    ScenarioOverrides,
+    SimulatedMobilityAdapter,
+)
+from app.simulation.trip_duration import straight_line_distance_m
 from app.storage.event_store import MemoryEventStore
 from app.storage.idempotency import (
     FailureResponse,
@@ -89,6 +96,7 @@ LOCATIONS = [
     Location(label="Muttukadu Boat House", lat=12.8063999, lng=80.2422292),
     Location(label="Chetpet Eco Park", lat=13.0756583, lng=80.2434076),
 ]
+RANDOM_SCENARIO = "RANDOM"
 SCENARIOS = {
     "S01": "Healthy pickup",
     "S02": "Temporary traffic stop",
@@ -120,6 +128,7 @@ class Session:
         seed: int = 2026,
         *,
         scenario_ids: IdFactory | None = None,
+        profiled: bool = False,
     ):
         if request.need_by is not None and request.need_by <= BASE_TIME:
             raise SimulationError(
@@ -141,6 +150,13 @@ class Session:
         self.state = JourneyState.CREATED
         self.version = 0
         self.events: list[JourneyEvent] = []
+        self.provider_states: dict[Provider, ProviderState] = {}
+        self.provider_overrides = ScenarioOverrides(scripted=not (profiled or scenario == RANDOM_SCENARIO))
+        if scenario == "S12":
+            self.provider_overrides.next_confirm = dict.fromkeys(PROFILES, OpStatus.UNKNOWN)
+        self.stall_ticks_remaining = 0
+        self.unconfirmed_ride: Ride | None = None
+        self.restore_providers()
         self.quotes = self._make_quotes()
         self.ride: Ride | None = None
         self.last_ride: Ride | None = None
@@ -172,28 +188,44 @@ class Session:
             idempotency_store = memory
         self._idempotency_store = idempotency_store
 
+    def restore_providers(self) -> None:
+        self._distance_km = straight_line_distance_m(self.pickup, self.dropoff) / 1000
+        if self.provider_overrides.scripted and not self.provider_overrides.quote_offers:
+            self.provider_overrides.quote_offers = {
+                name: (fare + (120 if self.scenario == "S07" and name != Provider.PROVIDER_A else 0), eta)
+                for name, (fare, eta) in BASE_OFFERS.items()
+            }
+        self.adapters = {}
+        for name, profile in PROFILES.items():
+            state = self.provider_states.setdefault(name, ProviderState())
+            self.adapters[name] = SimulatedMobilityAdapter(
+                profile,
+                ProviderRandom(self.seed, self.id, name, state),
+                name=name,
+                state=state,
+                overrides=self.provider_overrides,
+            )
+
     def _make_quotes(self) -> list[Quote]:
-        quotes = [ADAPTERS[name].search(self.id, self.clock) for name in PROVIDERS]
-        if self.scenario == "S07":
-            for quote in quotes:
-                if quote.provider != Provider.PROVIDER_A:
-                    quote.estimated_fare_inr += 120
-        return quotes
+        return [self._search(name) for name in self.adapters]
+
+    def _search(self, name: Provider) -> Quote:
+        return self.adapters[name].search(self.id, self.clock, self._distance_km)
 
     def _refresh_backup(self, quote: Quote) -> Quote | None:
         """A fresh simulated search/select/init BEFORE touching the current booking."""
         if self.scenario == "S14":
-            self.add_event(
-                EventType.QUOTE_REFRESH_FAILED, {"reason": "Backup disappeared during search; original kept"}
-            )
-            return None
-        refreshed = ADAPTERS[quote.provider].search(
-            self.id, self.clock, fare=quote.estimated_fare_inr, eta=quote.pickup_eta_sec
-        )
-        if refreshed.estimated_fare_inr > self.policy.max_total_fare_inr or not ADAPTERS[quote.provider].init(
-            refreshed, self.clock
+            self.provider_overrides.reject_next_init.add(quote.provider)
+        refreshed = self._search(quote.provider)
+        if not self.adapters[quote.provider].init(refreshed, self.clock) or (
+            refreshed.estimated_fare_inr > self.policy.max_total_fare_inr
         ):
-            self.add_event(EventType.QUOTE_REFRESH_FAILED, {"reason": "Quote no longer eligible"})
+            reason = (
+                "Backup disappeared during search; original kept"
+                if self.scenario == "S14"
+                else "Quote no longer eligible"
+            )
+            self.add_event(EventType.QUOTE_REFRESH_FAILED, {"reason": reason})
             return None
         self.quotes = [refreshed if q.provider == refreshed.provider else q for q in self.quotes]
         self.add_event(EventType.QUOTE_REFRESHED, {"candidate": refreshed, "not_a_reservation": True})
@@ -346,7 +378,7 @@ class Session:
             response = action()
         except SimulationError as error:
             # Rejected preconditions can be corrected and retried. Preserve applied failures.
-            if self.version != before or error.code == "BOOKING_UNCONFIRMED":
+            if self.version != before or error.code in {"BOOKING_FAILED", "BOOKING_UNCONFIRMED"}:
                 record = IdempotencyRecord(
                     operation=operation, request_hash=request_hash, response=FailureResponse.from_error(error)
                 )
@@ -390,10 +422,36 @@ class Session:
             raise SimulationError("POLICY_FARE_LIMIT", "Ride exceeds the user-approved fare limit.")
         if self.clock >= quote.expires_at:
             raise SimulationError("QUOTE_EXPIRED", "Request an updated quote.", retryable=True)
-        result = ADAPTERS[quote.provider].confirm(quote, self.clock)
+        count = self.ride_count + 1
+        proposal = Ride(
+            ride_id=f"ride_{count}_{self.id}",
+            journey_id=self.id,
+            provider=quote.provider,
+            quote_id=quote_id,
+            state=transition_ride(
+                RideState.CONFIRMED, RideState.DRIVER_EN_ROUTE, reason="Provider confirmed the booking."
+            ),
+            booked_at=self.clock,
+            driver_id=f"SIM_DRIVER_{count}",
+            distance_to_pickup_m=(100 if self.scenario == "S09" else 2200),
+            eta_sec=quote.pickup_eta_sec,
+            last_position_at=self.clock,
+            cancellation_fee_inr=None,
+            gps_quality=GpsQuality.GOOD,
+            is_simulated=True,
+        )
+        adapter = self.adapters[quote.provider]
+        if not replacement and not adapter.init(quote, self.clock):
+            raise SimulationError(
+                "BOOKING_FAILED", "The simulated provider refused the booking.", retryable=True
+            )
+        result = adapter.confirm(quote, self.clock, proposal)
         if result.status == OpStatus.FAILED:
-            raise SimulationError("QUOTE_EXPIRED", "Request an updated quote.", retryable=True)
-        if result.status == OpStatus.UNKNOWN or (self.scenario == "S12" and self.ride_count == 0):
+            raise SimulationError(
+                "BOOKING_FAILED", "The simulated provider refused the booking.", retryable=True
+            )
+        if result.status == OpStatus.UNKNOWN:
+            self.unconfirmed_ride = proposal
             self.booking_uncertain = True
             self._transition_journey(JourneyState.RECONCILING, reason="Booking result is unknown.")
             self.add_event(
@@ -407,6 +465,7 @@ class Session:
             raise SimulationError("BOOKING_UNCONFIRMED", "Booking response timed out; verification required.")
         self.ride_count += 1
         self.ride_ticks = 0
+        self.stall_ticks_remaining = 0
         self.stationary_ticks = 0
         self.eta_delta_s = 0
         self.risk = None
@@ -415,23 +474,8 @@ class Session:
         self.driver_chat_signal = None
         self.explained_bands.clear()
         self.cancellation_fee_notice = None
-        self.ride = Ride(
-            ride_id=f"ride_{self.ride_count}_{self.id}",
-            journey_id=self.id,
-            provider=quote.provider,
-            quote_id=quote_id,
-            state=transition_ride(
-                RideState.CONFIRMED, RideState.DRIVER_EN_ROUTE, reason="Provider confirmed the booking."
-            ),
-            booked_at=self.clock,
-            driver_id=f"SIM_DRIVER_{self.ride_count}",
-            distance_to_pickup_m=(100 if self.scenario == "S09" else 2200),
-            eta_sec=quote.pickup_eta_sec,
-            last_position_at=self.clock,
-            cancellation_fee_inr=None,
-            gps_quality=GpsQuality.GOOD,
-            is_simulated=True,
-        )
+        self.ride = result.ride
+        assert self.ride is not None
         self._transition_journey(JourneyState.MONITORING, reason="Provider confirmed the booking.")
         self.attempted_providers.add(quote.provider)
         self.add_event(
@@ -541,6 +585,7 @@ class Session:
         self.ride.state = transition_ride(
             self.ride.state, RideState.DRIVER_CANCELLED, reason="Driver cancelled the ride."
         )
+        self.adapters[self.ride.provider].update_ride(self.ride)
         self.last_ride = self.ride.model_copy()
         self.add_event(EventType.DRIVER_CANCELLED, {"provider": cancelled.provider}, cancelled.ride_id)
         self.ride = None
@@ -558,18 +603,24 @@ class Session:
             if self.ride.state == RideState.DRIVER_ARRIVED:
                 continue
             self.ride_ticks += 1
-            if (
+            adapter = self.adapters[self.ride.provider]
+            profiled = not self.provider_overrides.scripted
+            scripted_cancel = (
                 self.scenario in {"S04", "S05", "S06", "S07"}
                 and self.ride_ticks >= 8
                 and self.ride_count <= (2 if self.scenario == "S05" else 1)
-            ):
+            )
+            if scripted_cancel or (profiled and adapter.hazard(adapter.profile.driver_cancel_hazard_per_min)):
                 self.driver_cancel()
                 continue
             if self.scenario == "S10" and self.ride_ticks >= 6:
                 self._arrive()
                 continue
-            if self.scenario == "S08" and self.ride_ticks >= 4:
+            if (self.scenario == "S08" and self.ride_ticks >= 4) or (
+                profiled and adapter.hazard(adapter.profile.gps_dropout_hazard_per_min)
+            ):
                 # Leave last_position_at unchanged: GPS freshness becomes unknown.
+                self.ride.gps_quality = GpsQuality.POOR
                 gps_age = (self.clock - self.ride.last_position_at).total_seconds()
                 self.risk = assess(
                     stationary_duration_s=self.stationary_ticks * 5,
@@ -585,16 +636,27 @@ class Session:
                 or (self.scenario == "S02" and 3 <= self.ride_ticks <= 7)
                 or self.scenario == "S09"
             )
+            if profiled:
+                if self.stall_ticks_remaining == 0 and adapter.hazard(adapter.profile.stall_hazard_per_min):
+                    self.stall_ticks_remaining = adapter.stall_ticks()
+                stationary = self.stall_ticks_remaining > 0
+                if stationary:
+                    self.stall_ticks_remaining -= 1
             if stationary:
                 self.stationary_ticks += 1
                 self.eta_delta_s += 15
                 self.ride.eta_sec += 15
             else:
+                progress = adapter.progress_m() if profiled else 150
+                detour = profiled and adapter.hazard(adapter.profile.detour_hazard_per_min)
                 self.stationary_ticks = 0
-                self.eta_delta_s = 0
-                self.ride.distance_to_pickup_m = max(0, self.ride.distance_to_pickup_m - 150)
-                self.ride.eta_sec = max(0, self.ride.eta_sec - 5)
+                self.eta_delta_s = 20 if detour else 0
+                self.ride.distance_to_pickup_m = max(
+                    0, self.ride.distance_to_pickup_m + (450 if detour else -progress)
+                )
+                self.ride.eta_sec = max(0, self.ride.eta_sec + (20 if detour else -5))
             self.ride.last_position_at = self.clock
+            self.ride.gps_quality = GpsQuality.GOOD
             sample = TelemetrySample(
                 ride_id=self.ride.ride_id,
                 observed_at=self.ride.last_position_at,
@@ -682,6 +744,7 @@ class Session:
         self.ride.state = transition_ride(
             self.ride.state, RideState.DRIVER_ARRIVED, reason="Driver reached the pickup point."
         )
+        self.adapters[self.ride.provider].update_ride(self.ride)
         self.ride.distance_to_pickup_m = 0
         self.ride.eta_sec = 0
         self.ride.last_position_at = self.clock
@@ -745,6 +808,12 @@ class Session:
 
         # A refreshed quote is not a reservation. Providers may still reject confirm.
         if self.scenario == "S15":
+            self.provider_overrides.next_confirm[candidate.provider] = OpStatus.FAILED
+            try:
+                return self._book(candidate.quote_id, replacement=True)
+            except SimulationError as error:
+                if error.code != "BOOKING_FAILED":
+                    raise
             self.add_event(
                 EventType.REPLACEMENT_QUOTE_LOST,
                 {"reason": "Illustrative race after confirmed original cancellation"},
@@ -766,17 +835,20 @@ class Session:
         )
         payload = {"old_provider": ride.provider}
         self.add_event(EventType.RIDE_CANCEL_REQUESTED, payload, ride.ride_id)
-        result = ADAPTERS[ride.provider].cancel(ride.model_copy())
+        result = self.adapters[ride.provider].cancel(ride.ride_id)
         if result.status == OpStatus.UNKNOWN:
             self._transition_journey(JourneyState.RECONCILING, reason="Cancellation result is unknown.")
             self.pending_backup = None
             self.cancellation_fee_notice = None
         if result.status != OpStatus.CONFIRMED:
             raise SimulationError("CANCEL_UNCONFIRMED", "Provider cancellation confirmation missing.")
+        self._record_confirmed_cancel(ride, ride_state)
+
+    def _record_confirmed_cancel(self, ride: Ride, ride_state: RideState = RideState.RIDER_CANCELLED) -> None:
         ride.state = ride_state
         self.last_ride = ride.model_copy()
         self.ride = None
-        self.add_event(EventType.RIDE_CANCEL_CONFIRMED, payload, ride.ride_id)
+        self.add_event(EventType.RIDE_CANCEL_CONFIRMED, {"old_provider": ride.provider}, ride.ride_id)
 
     def cancel(self, key: str, expected_version: int | None = None) -> JourneySnapshot:
         return self._idempotent(
@@ -790,9 +862,19 @@ class Session:
         stopped_state = transition_journey(
             self.state, JourneyState.USER_CANCELLED, reason="Rider stopped the journey."
         )
-        if self.ride and self.state != JourneyState.RECONCILING:
-            self._cancel_active_ride(self.ride)
+        ride = self.ride or self.unconfirmed_ride
+        if ride:
+            if self.state != JourneyState.RECONCILING:
+                self._cancel_active_ride(ride)
+            else:
+                status = self.adapters[ride.provider].status(ride.ride_id)
+                if status and status.state == RideState.RIDER_CANCELLED:
+                    self._record_confirmed_cancel(ride)
+                elif self.unconfirmed_ride is not None and status and status.state in ACTIVE_RIDE_STATES:
+                    self._cancel_active_ride(ride)
         self.state = stopped_state
+        self.unconfirmed_ride = None
+        self.booking_uncertain = False
         self.pending_backup = None
         self.cancellation_fee_notice = None
         self.add_event(EventType.USER_CANCELLED, {"message": "Rider stopped the journey."})
@@ -830,6 +912,7 @@ class Session:
         )
         self._transition_journey(JourneyState.PICKUP_CONFIRMED, reason="Passenger boarded the arrived ride.")
         self.ride.state = ride_state
+        self.adapters[self.ride.provider].update_ride(self.ride)
         self.boarded_at = boarded_at
         self.arrives_at = boarded_at + duration if boarded_at and duration else None
         self.pending_backup = None
@@ -854,8 +937,15 @@ class SimulationStore:
         seed: int = 2026,
         *,
         deterministic: bool = False,
+        profiled: bool = False,
     ):
-        session = Session(request, scenario, seed, scenario_ids=self.scenario_ids if deterministic else None)
+        session = Session(
+            request,
+            scenario,
+            seed,
+            scenario_ids=self.scenario_ids if deterministic else None,
+            profiled=profiled,
+        )
         self.sessions[session.id] = session
         return session
 

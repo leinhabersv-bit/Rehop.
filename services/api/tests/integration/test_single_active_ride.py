@@ -1,12 +1,18 @@
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routes import journeys
+from app.schemas.enums import Provider
 from app.simulation.engine import LOCATIONS, store
+from app.simulation.profiles import PROFILES
+
+pytestmark = pytest.mark.usefixtures("steady_provider_profiles")
 
 
 def create_journey(client):
@@ -73,6 +79,14 @@ def test_existing_recent_ride_blocks_booking_for_a_new_browser_identifier():
         assert another.json()["error"]["code"] == "ACTIVE_RIDE_EXISTS"
 
 
+@pytest.fixture
+def fast_boarded_pickup(monkeypatch, steady_provider_profiles):
+    # This slot test advances 24 ticks before boarding. Script the pickup at 150 m per tick.
+    provider = Provider.PROVIDER_A
+    monkeypatch.setitem(PROFILES, provider, replace(PROFILES[provider], speed_mps_range=(30.0, 30.0)))
+
+
+@pytest.mark.usefixtures("fast_boarded_pickup")
 def test_boarded_ride_keeps_the_booking_slot_until_destination(monkeypatch):
     duration = timedelta(seconds=75)
     route_requests = []

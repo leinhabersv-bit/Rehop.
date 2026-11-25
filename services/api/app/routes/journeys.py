@@ -21,7 +21,7 @@ from app.schemas.requests import (
     TickRequest,
 )
 from app.simulation.durable import HOSTED, create_ride, open_ride
-from app.simulation.engine import LOCATIONS, SCENARIOS, store
+from app.simulation.engine import LOCATIONS, RANDOM_SCENARIO, SCENARIOS, store
 from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
@@ -76,7 +76,12 @@ def get_journey(journey_id: str):
         return journey.snapshot().model_dump(mode="json")
 
 
-@router.post("/journeys/{journey_id}/book", responses=IDEMPOTENCY_ERRORS)
+@router.post(
+    "/journeys/{journey_id}/book",
+    responses={
+        409: {**IDEMPOTENCY_ERRORS[409], "x-error-codes": ["IDEMPOTENCY_KEY_REUSED", "BOOKING_FAILED"]}
+    },
+)
 def book(
     journey_id: str,
     req: BookRequest,
@@ -143,12 +148,13 @@ def tick_journey(journey_id: str, req: TickRequest):
 
 @router.get("/scenarios")
 def scenarios():
-    return {"scenarios": [{"id": sid, "name": name} for sid, name in SCENARIOS.items()], "is_simulated": True}
+    available = {**SCENARIOS, RANDOM_SCENARIO: "Randomized pickup"}
+    return {"scenarios": [{"id": sid, "name": name} for sid, name in available.items()], "is_simulated": True}
 
 
 @router.post("/scenarios/{scenario_id}/run")
 def run_scenario(scenario_id: str, seed: int = 2026):
-    if scenario_id not in SCENARIOS:
+    if scenario_id not in SCENARIOS and scenario_id != RANDOM_SCENARIO:
         raise SimulationError("SCENARIO_NOT_FOUND", "Unknown simulator scenario.", status=404)
     with store.lock:
         policy = RecoveryPolicy(
@@ -163,7 +169,7 @@ def run_scenario(scenario_id: str, seed: int = 2026):
 
             request.need_by = BASE_TIME + timedelta(minutes=5)
         journey = store.create(request, scenario=scenario_id, seed=seed, deterministic=True)
-        if scenario_id != "S12":
+        if scenario_id not in {"S12", RANDOM_SCENARIO}:
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
             journey.book(primary.quote_id, f"scenario_initial_{scenario_id}")
         store.last_scenario[scenario_id] = journey.id

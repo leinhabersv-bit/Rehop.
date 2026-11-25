@@ -35,5 +35,14 @@
       "on_track"
     ]
   },
+  "local_signatures": {
+    "search": "search(journey_id, now, distance_km) -> Quote",
+    "select": "select(quote, now) -> bool",
+    "init": "init(quote, now) -> bool",
+    "confirm": "confirm(quote, now, ride) -> OperationResult",
+    "cancel": "cancel(ride_id) -> OperationResult",
+    "status": "status(ride_id) -> RideStatus | None",
+    "track": "track(ride) -> RideTracking"
+  },
   "note": "The local simulator is synchronous; real network semantics are authenticated asynchronous requests/callbacks."
 }

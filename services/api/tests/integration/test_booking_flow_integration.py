@@ -9,6 +9,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.main import app
 
+pytestmark = pytest.mark.usefixtures("steady_provider_profiles")
 client = TestClient(app)
 
 BASE_TIME = datetime(2026, 11, 23, 8, 30, tzinfo=UTC)

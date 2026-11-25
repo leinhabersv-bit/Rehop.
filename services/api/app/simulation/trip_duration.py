@@ -31,8 +31,11 @@ def destination_playback(pickup: Location, dropoff: Location) -> timedelta:
 
     # Offline playback uses straight-line distance at 43.2 km/h. The map
     # never displays this fallback as a Google traffic estimate.
+    return timedelta(seconds=max(8, straight_line_distance_m(pickup, dropoff) / 12 / 20))
+
+
+def straight_line_distance_m(pickup: Location, dropoff: Location) -> float:
     lat1, lat2 = math.radians(pickup.lat), math.radians(dropoff.lat)
     delta_lng = math.radians(dropoff.lng - pickup.lng)
     a = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lng / 2) ** 2
-    distance_m = 2 * 6_371_000 * math.asin(math.sqrt(min(1.0, a)))
-    return timedelta(seconds=max(8, distance_m / 12 / 20))
+    return 2 * 6_371_000 * math.asin(math.sqrt(min(1.0, a)))
