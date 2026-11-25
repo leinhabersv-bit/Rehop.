@@ -43,7 +43,7 @@ test('interprets, books, switches and confirms pickup on one simulated journey',
   await page.goto(`${web}/book`);
   await page.route('**/api/v1/journeys', (route) => route.continue({ url: route.request().url() + '?scenario=S03' }));
   await page.getByText('Describe your trip with AI', { exact: true }).click();
-  await page.locator('textarea').fill('From VIT Chennai to Chennai Airport, pickup within 15 minutes, under â‚¹650.');
+  await page.locator('textarea').fill('From VIT Chennai to Chennai Airport, pickup within 15 minutes, under ₹650.');
   const interpretation = page.waitForResponse((response) => response.url().endsWith('/intent/parse') && response.request().method() === 'POST');
   await page.getByRole('button', { name: /interpret/i }).click();
   expect(await (await interpretation).json()).toMatchObject({
@@ -215,7 +215,7 @@ test('tracking shows an automatically booked replacement after confirmed driver 
 
   await tick(request, id, 24);
   await page.getByRole('button', { name: 'Confirm boarding' }).click();
-  await expect(page.getByRole('heading', { name: 'Youâ€™re on your way' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You’re on your way' })).toBeVisible();
   expect(await getJourney(request, id)).toMatchObject({ state: 'PICKUP_CONFIRMED', active_ride: { provider: 'PROVIDER_B' } });
 });
 

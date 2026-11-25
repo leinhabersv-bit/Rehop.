@@ -65,14 +65,14 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   } }));
   await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Egmore+Railway+Station`);
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
-  await page.getByRole('spinbutton', { name: 'Max fare (â‚¹)' }).fill('300');
+  await page.getByRole('spinbutton', { name: 'Max fare (₹)' }).fill('300');
   const getRecommendation = page.getByRole('button', { name: 'Find my ride' });
   await getRecommendation.click();
 
   const recommendation = page.getByRole('region', { name: 'Recommended ride' });
   await expect(recommendation.getByText('Provider B', { exact: true })).toBeVisible();
   await expect(recommendation.getByText('4 min', { exact: true })).toBeVisible();
-  await expect(recommendation.getByText('â‚¹285', { exact: true })).toBeVisible();
+  await expect(recommendation.getByText('₹285', { exact: true })).toBeVisible();
   const alternatives = page.getByRole('region', { name: 'Other provider estimates' });
   await expect(alternatives.getByRole('listitem')).toHaveCount(3);
   await expect(alternatives.getByText('Above max fare')).toHaveCount(3);
@@ -122,7 +122,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   const receiptTitle = receipt.getByRole('heading', { name: 'Trip completed' });
   await expect(receiptTitle).toBeFocused();
   await expect(receiptTitle).toHaveCSS('color', 'rgb(255, 253, 248)');
-  await expect(receipt.getByText('â‚¹285', { exact: true })).toBeVisible();
+  await expect(receipt.getByText('₹285', { exact: true })).toBeVisible();
   await expect(receipt.getByText('3 min', { exact: true })).toBeVisible();
   await expect(receipt.getByText('2.2 km', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Trip progress' })).toHaveCount(0);
@@ -145,7 +145,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
 
 test('a fare below every estimate prevents booking and can be edited', async ({ page }) => {
   await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Airport`);
-  const fare = page.getByRole('spinbutton', { name: 'Max fare (â‚¹)' });
+  const fare = page.getByRole('spinbutton', { name: 'Max fare (₹)' });
   await fare.fill('200');
   await page.getByRole('button', { name: 'Find my ride' }).click();
   await expect(page.getByRole('heading', { name: 'No rides within your budget' })).toBeVisible();
