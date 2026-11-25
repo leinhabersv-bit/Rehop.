@@ -156,3 +156,54 @@ test('a fare below every estimate prevents booking and can be edited', async ({ 
   await expect(page.getByRole('textbox', { name: 'Pickup location' })).toHaveValue('Chennai Central Railway Station');
   await expect(page.getByRole('textbox', { name: 'Destination' })).toHaveValue('Chennai Airport');
 });
+
+
+test('a closed tab restores the same ride and opens an unseen receipt once', async ({ context, page, request }) => {
+  await context.route('**/api/maps', (route) => route.fulfill({ json: {
+    coordinates: [[80.276308, 13.082590], [80.262770, 13.079400]],
+    distanceMeters: 2200, durationSeconds: 160, calculatedAt: '2026-11-23T08:30:00Z',
+  } }));
+  await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Egmore+Railway+Station`);
+  await page.getByRole('button', { name: 'Find my ride' }).click();
+  await page.getByRole('button', { name: 'Book', exact: true }).click();
+  await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
+  const tracking = page.url();
+  const id = new URL(tracking).pathname.split('/').at(-1)!;
+  const endpoint = `${api}/api/v1/journeys/${id}`;
+  await expect(page.getByRole('heading', { name: 'Your pickup' })).toBeVisible();
+  await page.close();
+
+  const advanced = await request.post(`${endpoint}/tick`, { data: { steps: 24 } });
+  expect(advanced.ok()).toBe(true);
+  const reopened = await context.newPage();
+  await reopened.goto(web);
+  await expect(reopened).toHaveURL(tracking);
+  await expect(reopened.getByRole('button', { name: 'Confirm boarding' })).toBeVisible();
+  const confirmed = reopened.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().endsWith('/pickup/confirm'));
+  await reopened.getByRole('button', { name: 'Confirm boarding' }).click();
+  const boarded: Journey = await (await confirmed).json();
+  const arrival = Date.parse(boarded.arrives_at ?? '');
+  expect(arrival).toBeGreaterThan(Date.now());
+  await expect(reopened.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
+  await reopened.reload();
+  await expect(reopened).toHaveURL(tracking);
+  await expect(reopened.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
+  const saved: Journey = await (await request.get(endpoint)).json();
+  expect(saved.arrives_at).toBe(boarded.arrives_at);
+  await reopened.close();
+
+  await expect.poll(Date.now, { timeout: 12_000 }).toBeGreaterThan(arrival);
+  const returned = await context.newPage();
+  await returned.goto(web);
+  await expect(returned).toHaveURL(tracking);
+  await expect(returned.getByRole('heading', { name: 'Trip completed' })).toBeVisible();
+  await expect(returned.getByText('2.2 km', { exact: true })).toBeVisible();
+  await returned.getByRole('link', { name: 'Book another ride' }).click();
+  await expect(returned).toHaveURL(`${web}/book`);
+  await returned.close();
+  const home = await context.newPage();
+  await home.goto(web);
+  await expect(home.getByRole('button', { name: 'Review trip details' })).toBeVisible();
+  await expect(home).toHaveURL(web + '/');
+});

@@ -1,5 +1,6 @@
 const key = 'rehop.recent-rides';
 const arrivalKey = 'rehop.ride-arrivals';
+const pendingKey = 'rehop.pending-trip';
 const changed = 'rehop:rides-changed';
 
 export function subscribeToRides(update: () => void) {
@@ -12,7 +13,15 @@ export function subscribeToRides(update: () => void) {
 }
 
 export function recentRideSnapshot() {
-  return JSON.stringify([readRecentRides(), readRideArrivals()]);
+  const ids = readRecentRides();
+  let pending = null;
+  try {
+    const id = localStorage.getItem(pendingKey);
+    if (id && ids.includes(id)) pending = id;
+  } catch {
+    // Tracking links still work when browser storage is unavailable.
+  }
+  return JSON.stringify([ids, readRideArrivals(), pending]);
 }
 
 function readRideArrivals(): Record<string, number> {
@@ -36,10 +45,31 @@ export function readRecentRides(): string[] {
 export function rememberRide(id: string) {
   try {
     localStorage.setItem(key, JSON.stringify([id, ...readRecentRides().filter((item) => item !== id)].slice(0, 8)));
+    localStorage.setItem(pendingKey, id);
     window.dispatchEvent(new Event(changed));
     return true;
   } catch {
     return false;
+  }
+}
+
+export function rememberPendingTrip(id: string) {
+  try {
+    if (localStorage.getItem(pendingKey)) return;
+    localStorage.setItem(pendingKey, id);
+    window.dispatchEvent(new Event(changed));
+  } catch {
+    // The tracking URL still opens the trip.
+  }
+}
+
+export function clearPendingTrip(id: string) {
+  try {
+    if (localStorage.getItem(pendingKey) !== id) return;
+    localStorage.removeItem(pendingKey);
+    window.dispatchEvent(new Event(changed));
+  } catch {
+    // The receipt can still be opened directly.
   }
 }
 
@@ -60,6 +90,7 @@ export function deleteRecentRide(id: string) {
     delete arrivals[id];
     localStorage.setItem(arrivalKey, JSON.stringify(arrivals));
     localStorage.setItem(key, JSON.stringify(readRecentRides().filter((ride) => ride !== id)));
+    if (localStorage.getItem(pendingKey) === id) localStorage.removeItem(pendingKey);
     window.dispatchEvent(new Event(changed));
     return true;
   } catch {

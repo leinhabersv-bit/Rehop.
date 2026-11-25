@@ -7,6 +7,7 @@ import { ArrowRight, Check, Clock3, Route } from 'lucide-react';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { googleMapsKey } from '@/lib/google-maps';
 import { formatDrivingDistance, formatDrivingDuration, type DrivingRoute } from '@/lib/maps';
+import { clearPendingTrip } from '@/lib/recent-rides';
 import { tripPlayback, tripPlaybackLengthMs } from '@/lib/trip-playback';
 import type { Journey, Location } from '@/types';
 import { RideCab } from './RideCab';
@@ -19,7 +20,7 @@ const GoogleDrivingMap = dynamic(() => import('@/components/booking/GoogleDrivin
 
 const point = ({ lat, lng }: Location) => `${lng.toFixed(6)},${lat.toFixed(6)}`;
 
-export function useDestinationProgress(journey?: Journey) {
+export function useDestinationProgress(journey?: Journey, recordedArrival?: number) {
   const route = useDrivingRoute(
     journey ? point(journey.pickup) : '',
     journey ? point(journey.dropoff) : '',
@@ -28,21 +29,25 @@ export function useDestinationProgress(journey?: Journey) {
   );
   const [now, setNow] = useState(Date.now);
   const startedAt = Date.parse(journey?.boarded_at ?? '');
-  const arrivesAt = journey?.arrives_at;
   const canTrack = Number.isFinite(startedAt);
   const duration = route.data?.durationSeconds;
-  const end = arrivesAt ? Date.parse(arrivesAt) :
-    canTrack && duration !== undefined ? startedAt + tripPlaybackLengthMs(duration) : undefined;
+  const end = canTrack ? recordedArrival ?? (duration === undefined
+    ? undefined : startedAt + tripPlaybackLengthMs(duration)) : undefined;
 
   useEffect(() => {
     if (end === undefined) return;
     const update = () => setNow(Date.now());
+    update();
+    window.addEventListener('pageshow', update);
+    document.addEventListener('visibilitychange', update);
     const timer = window.setInterval(update, 1_000);
     const finish = window.setTimeout(() => {
       window.clearInterval(timer);
       update();
     }, Math.max(0, end - Date.now()));
     return () => {
+      window.removeEventListener('pageshow', update);
+      document.removeEventListener('visibilitychange', update);
       window.clearInterval(timer);
       window.clearTimeout(finish);
     };
@@ -82,7 +87,8 @@ export default function DestinationTracking({ pickup, dropoff, progress }: {
   );
 }
 
-export function TripCompleted({ pickup, dropoff, fare, route, loading }: {
+export function TripCompleted({ journeyId, pickup, dropoff, fare, route, loading }: {
+  journeyId: string;
   pickup: Location;
   dropoff: Location;
   fare?: number;
@@ -91,9 +97,17 @@ export function TripCompleted({ pickup, dropoff, fare, route, loading }: {
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    heading.current?.focus({ preventScroll: true });
-    heading.current?.scrollIntoView({ block: 'nearest' });
-  }, []);
+    const showReceipt = () => {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', showReceipt);
+      clearPendingTrip(journeyId);
+      heading.current?.focus({ preventScroll: true });
+      heading.current?.scrollIntoView({ block: 'nearest' });
+    };
+    document.addEventListener('visibilitychange', showReceipt);
+    showReceipt();
+    return () => document.removeEventListener('visibilitychange', showReceipt);
+  }, [journeyId]);
 
   const unavailable = loading ? 'Loading…' : 'Unavailable';
   return (
