@@ -90,7 +90,7 @@ export function CompareScreen() {
     setBookingHandoff(true);
     router.prefetch(`/journey/${encodeURIComponent(request.journeyId)}`);
     const started = performance.now();
-    const minDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 550 : 2_700;
+    const minDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1_000;
     const bookingUrl = window.location.href;
     let handoff: string | undefined;
     const acceptSnapshot = (snapshot: Journey) => {

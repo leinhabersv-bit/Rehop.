@@ -216,6 +216,9 @@ export default function JourneyPanel({ id }: { id: string }) {
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
             <p className={styles.pickupStatus}>{pickupStatus}</p>
+            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
+              <button id="confirm-boarding" className="btn scroll-mt-24" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
+            </div>}
             {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} progress={destination} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
@@ -246,9 +249,6 @@ export default function JourneyPanel({ id }: { id: string }) {
               </>
             )}
             {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Review ride</Link></div>}
-            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
-              <button id="confirm-boarding" className="btn scroll-mt-24" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
-            </div>}
           </section>
 
         <div className={styles.trackColumn}>

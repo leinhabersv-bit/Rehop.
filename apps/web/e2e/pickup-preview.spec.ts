@@ -76,6 +76,9 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
   await page.getByRole('spinbutton', { name: 'Max fare (₹)' }).fill('300');
   const getRecommendation = page.getByRole('button', { name: 'Find my ride' });
+  await expect(getRecommendation).toBeVisible();
+  const timing = page.getByRole('heading', { name: 'Trip timing report' });
+  expect((await getRecommendation.boundingBox())!.y).toBeLessThan((await timing.boundingBox())!.y);
   await getRecommendation.click();
 
   const recommendation = page.getByRole('region', { name: 'Recommended ride' });
@@ -96,7 +99,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   await expect(progress.locator('video')).toHaveAttribute('src', '/images/booking-background.mp4');
   await expect(progress.getByRole('heading', { name: 'Ride booked' })).toBeVisible();
   await expect(page).toHaveURL(/\/journey\/[^/?]+$/);
-  expect(Date.now() - started).toBeGreaterThanOrEqual(2500);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(900);
   const approach = page.getByRole('img', { name: /^Simulated driver approach/ });
   const cab = approach.locator('[data-pickup-cab]');
   await expect(cab).toBeVisible();
@@ -135,7 +138,9 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   expect(arrived.ok()).toBe(true);
   await expect(update.getByRole('status')).toContainText('Your driver has arrived');
   await update.getByRole('link', { name: 'Confirm boarding' }).click();
-  await page.getByRole('button', { name: 'Confirm boarding' }).click();
+  const boarding = page.getByRole('button', { name: 'Confirm boarding' });
+  await expect(boarding).toBeInViewport({ ratio: 1 });
+  await boarding.click();
   await expect(page.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
   await expect(tabs.getByRole('link')).toHaveText(['Home', 'Track ride']);
   await tabs.getByRole('link', { name: 'Home' }).click();
