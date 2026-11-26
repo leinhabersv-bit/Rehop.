@@ -34,7 +34,7 @@ class RiskConfig:
     away_max_points: int = 25
     deadline_points_per_s: float = 1 / 30
     deadline_max_points: int = 3
-    chat_cancel_points: int = 3
+    chat_cancel_points: int = 20
 
     # Short waits near pickup and immediately after acceptance have band ceilings.
     near_pickup_m: int = 150
