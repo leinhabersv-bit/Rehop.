@@ -19,6 +19,7 @@ export type Journey = {id:string;pickup:Location;dropoff:Location;state:string;v
   risk:Risk|null;pending_backup:Quote|null;recovery_attempts:number;
   policy:RecoveryPolicy;scenario:string;simulated_time:string;is_simulated:true;
   booking_uncertain:boolean;last_event_seq:number;need_by:string;boarded_at?:string|null;arrives_at?:string|null;
+  destination_speed?:number;destination_started_at?:string;
   driver_chat_signal:{label:string;evidence:string;source:string}|null;
   deadline_decision:{seconds_until_deadline:number;wait_cost_points:number;switch_cost_points:number;recommendation:string}|null;
   cancellation_fee_notice:{potential_fee_upper_bound_inr:number;actual_fee_inr:number|null;fee_confirmed:boolean;caution:string}|null};

@@ -33,7 +33,7 @@ from app.schemas.enums import (
     RiskBand,
 )
 from app.schemas.requests import InjectRequest, JourneyCreate, Location, PlaybackSpeed
-from app.simulation.durable import create_ride, open_ride
+from app.simulation.durable import clock_now, create_ride, open_ride
 from app.simulation.engine import Session, store
 from app.simulation.scenarios import script_for
 from app.simulation.world import DriverSim, MotionMode
@@ -142,6 +142,21 @@ class JourneyService:
 
     def play(self, journey_id: str, speed: PlaybackSpeed) -> PlaybackState:
         with open_ride(journey_id) as journey:
+            if journey.state == JourneyState.PICKUP_CONFIRMED:
+                start = journey.destination_started_at or journey.boarded_at
+                end = journey.arrives_at
+                now = clock_now()
+                if start is None or end is None or now >= end:
+                    raise SimulationError(
+                        "DESTINATION_PLAYBACK_UNAVAILABLE", "This trip is no longer available for playback."
+                    )
+                current_speed = journey.destination_speed or 20
+                if speed != current_speed:
+                    scale = current_speed / speed
+                    journey.destination_started_at = now - (now - start) * scale
+                    journey.arrives_at = now + (end - now) * scale
+                journey.destination_speed = speed
+                return PlaybackState(playing=True, speed=speed)
             if not journey.playing or journey.speed != speed:
                 journey.last_tick = None
             journey.playing = True
@@ -930,6 +945,7 @@ class JourneyService:
         journey.adapters[journey.ride.provider].update_ride(journey.ride)
         journey.boarded_at = boarded_at
         journey.arrives_at = boarded_at + duration if boarded_at and duration else None
+        journey.destination_speed = 20 if journey.arrives_at else None
         journey.pending_backup = None
         journey.cancellation_fee_notice = None
         journey.add_event(

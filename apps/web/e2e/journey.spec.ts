@@ -266,6 +266,18 @@ test('pickup speed controls advance the opt-in ride and its automatic replacemen
   expect((await getJourney(request, id)).active_ride_id).toBe(replacement.active_ride_id);
   await board.click();
   await expect(page.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
+  const tripSpeed = page.getByRole('region', { name: 'Simulated trip speed' });
+  await tripSpeed.getByRole('button', { name: 'Normal speed' }).click();
+  await expect(tripSpeed.getByRole('status')).toHaveText('Trip running at 1×.');
+  const slowed = await getJourney(request, id);
+  expect(slowed.destination_speed).toBe(1);
+  await page.reload();
+  await expect(tripSpeed.getByRole('button', { name: 'Normal speed' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Arrival ETA', { exact: true }).locator('..').locator('dd')).toHaveText(/\d/);
+  await expect(page.getByText('Remaining distance', { exact: true }).locator('..').locator('dd')).toHaveText(/\d/);
+  expect((await getJourney(request, id)).arrives_at).toBe(slowed.arrives_at);
+  await tripSpeed.getByRole('button', { name: /Fast-forward trip/ }).click();
+  await expect(tripSpeed.getByRole('status')).toHaveText('Trip running at 20×.');
   await expect(page.getByRole('heading', { name: 'Trip completed' })).toBeVisible({ timeout: 15_000 });
 });
 

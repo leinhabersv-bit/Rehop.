@@ -145,7 +145,7 @@ paths:
       - RideRescue simulation
       summary: Get Journey
       operationId: get_journey_api_v1_journeys__journey_id__get
-      description: Returns the journey snapshot. Newly boarded rides include boarded_at and arrives_at as UTC wall-clock timestamps for confirmed boarding and simulated destination arrival.
+      description: Returns the journey snapshot. Newly boarded rides include boarded_at, arrives_at, and destination_speed. After a destination speed change, destination_started_at is the effective route playback origin and boarded_at retains the original boarding timestamp.
       parameters:
       - name: journey_id
         in: path
@@ -274,6 +274,7 @@ paths:
       tags:
       - RideRescue simulation
       summary: Play
+      description: Sets the simulated pickup speed or, for a boarded trip with a future arrival, changes destination speed while preserving completed route progress.
       operationId: play_api_v1_journeys__journey_id__play_post
       parameters:
       - name: journey_id
@@ -295,6 +296,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlaybackState'
+        '409':
+          description: Destination playback has ended or the trip has no saved arrival.
         '422':
           description: Validation Error
           content:

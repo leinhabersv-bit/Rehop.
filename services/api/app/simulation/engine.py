@@ -26,7 +26,7 @@ from app.schemas.enums import (
     Provider,
     RiskBand,
 )
-from app.schemas.requests import JourneyCreate, Location
+from app.schemas.requests import JourneyCreate, Location, PlaybackSpeed
 from app.simulation.profiles import PROFILES
 from app.simulation.providers import (
     ProviderRandom,
@@ -149,6 +149,8 @@ class Session:
         self.booking_uncertain = False
         self.boarded_at: datetime | None = None
         self.arrives_at: datetime | None = None
+        self.destination_speed: PlaybackSpeed | None = None
+        self.destination_started_at: datetime | None = None
         self.add_event(EventType.JOURNEY_CREATED, {"scenario": scenario, "is_simulated": True})
         self.add_event(EventType.QUOTES_READY, {"quotes": self.quotes})
         self.state = transition_journey(
@@ -230,6 +232,8 @@ class Session:
             is_simulated=True,
             boarded_at=self.boarded_at,
             arrives_at=self.arrives_at,
+            destination_speed=self.destination_speed,
+            destination_started_at=self.destination_started_at,
         )
 
     def book(self, quote_id: str, key: str, *, expected_version: int | None = None) -> JourneySnapshot:
