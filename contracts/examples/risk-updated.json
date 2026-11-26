@@ -6,12 +6,17 @@
   "type":"RISK_UPDATED",
   "ride_id":"ride_demo",
   "payload": {
-    "score_0_100":85,
+    "score_0_100":70,
     "band":"HIGH",
-    "model_version":"rules-v1",
-    "signals":["low_net_progress_90s","eta_increase_90s"],
-    "confidence":0.85,
-    "explanation":"The driver has made little progress while the pickup ETA has increased.",
+    "model_version":"rules-v2",
+    "signals":["low_net_progress","stationary_duration","eta_rising"],
+    "signal_details":[
+      {"code":"low_net_progress","value":0,"threshold":60,"points":20},
+      {"code":"stationary_duration","value":90,"threshold":45,"points":30},
+      {"code":"eta_rising","value":270,"threshold":0,"points":20}
+    ],
+    "confidence":0.832,
+    "explanation":"Observed pickup progress was 0 m. The vehicle was nearly stationary for 90 seconds. The pickup ETA rose by 270 seconds.",
     "is_simulated":true
   }
 }

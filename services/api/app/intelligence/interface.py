@@ -1,9 +1,12 @@
 """The journey engine's boundary to the existing intelligence implementation."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol, TypedDict, Unpack
 
+from app.intelligence.config import RiskConfig
 from app.intelligence.decision import compare_wait_switch
+from app.intelligence.features import RideFeatures, compute_features
 from app.intelligence.llm import (
     VerifiedExplanation,
     classify_driver_message,
@@ -11,17 +14,9 @@ from app.intelligence.llm import (
 )
 from app.intelligence.policy import may_rebook
 from app.intelligence.recovery import rank_backups
-from app.intelligence.risk import assess
-from app.schemas.domain import ChatSignal, DeadlineDecision, Quote, RiskAssessment
-from app.schemas.enums import ChatLabel, GpsQuality, JourneyState, Provider, RideState, RiskBand
-
-
-class RiskInputs(TypedDict):
-    stationary_duration_s: int
-    eta_delta_s: int
-    distance_to_pickup_m: int
-    gps_age_s: int
-    gps_quality: GpsQuality
+from app.intelligence.risk import RiskTracker, assess_v2
+from app.schemas.domain import ChatSignal, DeadlineDecision, Quote, Ride, RiskAssessment, TelemetrySample
+from app.schemas.enums import ChatLabel, JourneyState, Provider, RideState, RiskBand
 
 
 class DecisionContext(TypedDict):
@@ -53,7 +48,15 @@ class RecoveryContext(TypedDict):
 
 
 class IntelligencePort(Protocol):
-    def assess(self, **inputs: Unpack[RiskInputs]) -> RiskAssessment: ...
+    def assess(
+        self,
+        history: Sequence[TelemetrySample],
+        ride: Ride,
+        now: datetime,
+        need_by: datetime,
+        chat_signal: ChatSignal | None,
+        tracker: RiskTracker,
+    ) -> tuple[RideFeatures, RiskAssessment]: ...
 
     def classify_message(self, text: str, *, offline: bool = False) -> ChatSignal: ...
 
@@ -67,10 +70,23 @@ class IntelligencePort(Protocol):
 
 
 class DefaultIntelligence:
-    """Delegate without changing inputs, policy decisions, or language fallback behavior."""
+    """Apply the configured pickup risk model and delegate the other policies."""
 
-    def assess(self, **inputs: Unpack[RiskInputs]) -> RiskAssessment:
-        return assess(**inputs)
+    def __init__(self, config: RiskConfig | None = None) -> None:
+        self.config = config if config is not None else RiskConfig()
+
+    def assess(
+        self,
+        history: Sequence[TelemetrySample],
+        ride: Ride,
+        now: datetime,
+        need_by: datetime,
+        chat_signal: ChatSignal | None,
+        tracker: RiskTracker,
+    ) -> tuple[RideFeatures, RiskAssessment]:
+        features = compute_features(history, ride, now, need_by)
+        assessment = assess_v2(features, chat_signal, self.config)
+        return features, tracker.update(ride.ride_id, assessment, self.config)
 
     def classify_message(self, text: str, *, offline: bool = False) -> ChatSignal:
         return classify_driver_message(text, offline=offline)

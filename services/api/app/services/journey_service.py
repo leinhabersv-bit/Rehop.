@@ -11,7 +11,6 @@ from app.domain.errors import SimulationError
 from app.domain.invariants import check_invariants
 from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
 from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
-from app.intelligence.features import compute_features
 from app.intelligence.history import TelemetryHistory
 from app.intelligence.interface import DefaultIntelligence, IntelligencePort
 from app.schemas.domain import (
@@ -300,17 +299,17 @@ class JourneyService:
             history.prune(journey.clock)
             # StoredSession already saves DriverSim.history. Keep that copy bounded.
             driver.history[:] = history
-            features = compute_features(history, journey.ride, journey.clock, journey.need_by)
+            features, journey.risk = self.intelligence.assess(
+                history,
+                journey.ride,
+                journey.clock,
+                journey.need_by,
+                journey.driver_chat_signal,
+                journey.risk_tracker,
+            )
             # Retain legacy persisted counters for older readers, without using them as inputs.
             journey.stationary_ticks = int(features.stationary_duration_s // 5)
             journey.eta_delta_s = features.eta_delta_s_120s
-            journey.risk = self.intelligence.assess(
-                stationary_duration_s=int(features.stationary_duration_s),
-                eta_delta_s=features.eta_delta_s_120s,
-                distance_to_pickup_m=features.distance_to_pickup_m,
-                gps_age_s=int(features.gps_age_s),
-                gps_quality=features.gps_quality,
-            )
             if sample is None:
                 journey.add_event(EventType.RISK_UPDATED, journey.risk, journey.ride.ride_id)
                 continue
@@ -329,17 +328,11 @@ class JourneyService:
                 journey.risk.band in {RiskBand.MEDIUM, RiskBand.HIGH}
                 and journey.risk.band not in journey.explained_bands
             ):
-                checked = self.intelligence.explain(
-                    journey.risk.explanation,
-                    [journey.ride.eta_sec, journey.ride.distance_to_pickup_m],
-                    offline=journey.deterministic,
-                )
-                journey.risk.explanation = checked.explanation
-                journey.risk.explanation_source = checked.source
+                journey.risk.explanation_source = "deterministic_template"
                 journey.explained_bands.add(journey.risk.band)
                 journey.add_event(
                     EventType.EXPLANATION_VERIFIED,
-                    {"source": checked.source, "numbers_checked_against_telemetry": True},
+                    {"source": journey.risk.explanation_source, "numbers_checked_against_telemetry": True},
                     journey.ride.ride_id,
                 )
             journey.add_event(EventType.RISK_UPDATED, journey.risk, journey.ride.ride_id)
