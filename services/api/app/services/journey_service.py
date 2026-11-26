@@ -115,27 +115,19 @@ class JourneyService:
                 continue
             self.ride_ticks += 1
             adapter = self.adapters[self.ride.provider]
-            scripted_cancel = (
-                self.scenario in {"S04", "S05", "S06", "S07"}
-                and self.ride_ticks >= 8
-                and self.ride_count <= (2 if self.scenario == "S05" else 1)
-            )
-            if scripted_cancel:
+            script = script_for(self.scenario, profiled=not self.provider_overrides.scripted)
+            injections = script.at_tick(self.ride_ticks, self.ride_count)
+            if any(item.kind == "DRIVER_CANCEL" for item in injections):
                 self.driver_cancel()
                 continue
-            if self.scenario == "S10" and self.ride_ticks >= 6:
+            if script.arrival_tick is not None and self.ride_ticks >= script.arrival_tick:
                 self._arrive()
                 continue
             driver = self.driver_sim
             if driver is None or driver.ride_id != self.ride.ride_id:
                 driver = self._create_driver_sim()
-            script = script_for(self.scenario, profiled=not self.provider_overrides.scripted)
-            for injection in script.injections:
-                if (
-                    injection.kind == "FORCE_MODE"
-                    and injection.at_tick == self.ride_ticks
-                    and injection.params.get("ride_number", self.ride_count) == self.ride_count
-                ):
+            for injection in injections:
+                if injection.kind == "FORCE_MODE":
                     driver.force_mode(
                         MotionMode(injection.params["mode"]), injection.params.get("duration_ticks")
                     )
@@ -200,8 +192,9 @@ class JourneyService:
                     self.ride.ride_id,
                 )
             self.add_event(EventType.RISK_UPDATED, self.risk, self.ride.ride_id)
-            if self.scenario == "S13" and self.ride_count == 1 and self.ride_ticks == 5:
-                self._classify_driver_message("Please cancel kar do, I am not coming.")
+            for injection in injections:
+                if injection.kind == "DRIVER_MESSAGE":
+                    self._classify_driver_message(injection.params["text"])
             if (
                 self.risk.band in {RiskBand.HIGH, RiskBand.MEDIUM}
                 and not self.pending_backup

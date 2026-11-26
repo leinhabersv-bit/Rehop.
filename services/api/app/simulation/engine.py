@@ -33,14 +33,15 @@ from app.schemas.enums import (
     RiskBand,
 )
 from app.schemas.requests import JourneyCreate, Location
-from app.simulation.profiles import BASE_OFFERS, PROFILES
+from app.simulation.profiles import PROFILES
 from app.simulation.providers import (
     ProviderRandom,
     ProviderState,
-    ScenarioOverrides,
     SimulatedMobilityAdapter,
 )
-from app.simulation.scenarios import script_for
+from app.simulation.scenarios import RANDOM_SCENARIO as RANDOM_SCENARIO
+from app.simulation.scenarios import SCENARIOS as SCENARIOS
+from app.simulation.scenarios import provider_overrides, script_for
 from app.simulation.trip_duration import straight_line_distance_m
 from app.simulation.world import DriverSim
 from app.storage.event_store import MemoryEventStore
@@ -94,25 +95,6 @@ LOCATIONS = [
     Location(label="Muttukadu Boat House", lat=12.8063999, lng=80.2422292),
     Location(label="Chetpet Eco Park", lat=13.0756583, lng=80.2434076),
 ]
-RANDOM_SCENARIO = "RANDOM"
-SCENARIOS = {
-    "S01": "Healthy pickup",
-    "S02": "Temporary traffic stop",
-    "S03": "Driver stalled, ETA increasing",
-    "S04": "Driver cancels",
-    "S05": "Second driver also cancels",
-    "S06": "No available backup",
-    "S07": "Backups exceed fare cap",
-    "S08": "Stale GPS updates",
-    "S09": "Near pickup, stationary",
-    "S10": "Arrival/cancellation race",
-    "S11": "User cancels during recovery",
-    "S12": "Booking status unknown",
-    "S13": "Driver chat requests rider cancellation",
-    "S14": "Refreshed backup unavailable: original preserved",
-    "S15": "Quote lost after cancellation: disclose recovery gap",
-    "S16": "Urgent and relaxed pickup deadlines",
-}
 
 
 Command = tuple[str, str | bool | None, int | None]
@@ -151,9 +133,7 @@ class Session:
         self.version = 0
         self.events: list[JourneyEvent] = []
         self.provider_states: dict[Provider, ProviderState] = {}
-        self.provider_overrides = ScenarioOverrides(scripted=not (profiled or scenario == RANDOM_SCENARIO))
-        if scenario == "S12":
-            self.provider_overrides.next_confirm = dict.fromkeys(PROFILES, OpStatus.UNKNOWN)
+        self.provider_overrides = provider_overrides(script_for(scenario, profiled=profiled))
         self.driver_sim: DriverSim | None = None
         self.stall_ticks_remaining = 0
         self.unconfirmed_ride: Ride | None = None
@@ -192,10 +172,7 @@ class Session:
     def restore_providers(self) -> None:
         self._distance_km = straight_line_distance_m(self.pickup, self.dropoff) / 1000
         if self.provider_overrides.scripted and not self.provider_overrides.quote_offers:
-            self.provider_overrides.quote_offers = {
-                name: (fare + (120 if self.scenario == "S07" and name != Provider.PROVIDER_A else 0), eta)
-                for name, (fare, eta) in BASE_OFFERS.items()
-            }
+            self.provider_overrides.quote_offers = provider_overrides(script_for(self.scenario)).quote_offers
         self.adapters = {}
         for name, profile in PROFILES.items():
             state = self.provider_states.setdefault(name, ProviderState())
@@ -215,7 +192,7 @@ class Session:
 
     def _refresh_backup(self, quote: Quote) -> Quote | None:
         """A fresh simulated search/select/init BEFORE touching the current booking."""
-        if self.scenario == "S14":
+        if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh"):
             self.provider_overrides.reject_next_init.add(quote.provider)
         refreshed = self._search(quote.provider)
         if not self.adapters[quote.provider].init(refreshed, self.clock) or (
@@ -223,7 +200,7 @@ class Session:
         ):
             reason = (
                 "Backup disappeared during search; original kept"
-                if self.scenario == "S14"
+                if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh")
                 else "Quote no longer eligible"
             )
             self.add_event(EventType.QUOTE_REFRESH_FAILED, {"reason": reason})
@@ -497,7 +474,7 @@ class Session:
 
     def _backups(self) -> list[Quote]:
         provider = self.ride.provider if self.ride else (self.last_ride.provider if self.last_ride else None)
-        if self.scenario == "S06":
+        if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="search"):
             return []
         return self.intelligence.rank_backups(
             self.quotes,
@@ -690,8 +667,13 @@ class Session:
             self._cancel_active_ride(self.ride)
 
         # A refreshed quote is not a reservation. Providers may still reject confirm.
-        if self.scenario == "S15":
-            self.provider_overrides.next_confirm[candidate.provider] = OpStatus.FAILED
+        replacement_results = script_for(self.scenario).injections_for(
+            "FORCE_CONFIRM_RESULT", stage="replacement"
+        )
+        if replacement_results:
+            self.provider_overrides.next_confirm[candidate.provider] = OpStatus(
+                replacement_results[0].params["result"]
+            )
             try:
                 return self._book(candidate.quote_id, replacement=True)
             except SimulationError as error:
