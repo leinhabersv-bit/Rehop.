@@ -1,0 +1,114 @@
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #10182f;
+  color: #fffdf8;
+}
+
+.scene {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: end;
+  min-height: 100%;
+  padding: 1rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.scene::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(11 19 38 / 12%) 20%, #10182f 91%);
+  content: '';
+}
+
+.video {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 62%;
+}
+
+.card {
+  width: min(100%, 29rem);
+  padding: clamp(1.25rem, 5vw, 2rem);
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 1.5rem;
+  background: rgb(17 26 66 / 87%);
+  box-shadow: 0 18px 56px rgb(7 11 25 / 32%);
+}
+
+.card h2 {
+  margin: 1rem 0 .35rem;
+  color: #fffdf8;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.card p {
+  color: #e4eaff;
+  font-size: .9375rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 1rem;
+  background: #ffcbab;
+  color: #111a42;
+}
+
+.card .route {
+  margin-top: 1rem;
+  padding-top: .875rem;
+  border-top: 1px solid rgb(255 255 255 / 24%);
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.progress {
+  overflow: hidden;
+  height: 4px;
+  margin-top: 1.25rem;
+  border-radius: 999px;
+  background: #586991;
+}
+
+.progress::after {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: #ffcbab;
+  content: '';
+}
+
+@media (min-width: 640px) {
+  .scene { align-items: center; padding: clamp(2rem, 8vw, 9rem); }
+  .scene::after { background: linear-gradient(90deg, #10182f 15%, rgb(16 24 47 / 54%) 51%, transparent 90%); }
+  .video { left: auto; width: min(76%, 60rem); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scene { animation: appear .24s ease-out both; }
+  .progress::after { animation: load 1.25s ease-in-out infinite alternate; }
+}
+
+@keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes load { from { transform: translateX(-25%); } to { transform: translateX(164%); } }

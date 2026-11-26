@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,11 +16,14 @@ import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Journey } from '@/types';
 import { hasConfirmedRide, isQuoteExpired, isQuoteWithinPolicy, recommendRide } from '@/lib/pickup';
 import { rememberRide } from '@/lib/recent-rides';
+import { useActiveRide } from '@/components/journey/ActiveRide';
+import { BookingProgress } from './BookingProgress';
 
 export function CompareScreen() {
   const router = useRouter();
   const cache = useQueryClient();
   const searchParams = useSearchParams();
+  const { setBookingHandoff } = useActiveRide();
 
   // Resolve target journey ID
   const queryJourneyId = searchParams.get('journey');
@@ -45,8 +48,10 @@ export function CompareScreen() {
     retry: 1,
   });
 
-  // Booking & modal states
   const [isBooking, setIsBooking] = useState(false);
+  const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [refreshQuotes, setRefreshQuotes] = useState(false);
+  useEffect(() => () => setBookingHandoff(false), [setBookingHandoff]);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [hasOtherRide, setHasOtherRide] = useState(false);
 
@@ -79,19 +84,30 @@ export function CompareScreen() {
     inFlight.current = true;
     setBookingError(null);
     setHasOtherRide(false);
+    setRefreshQuotes(false);
+    setBookingConfirmed(false);
     setIsBooking(true);
+    setBookingHandoff(true);
+    router.prefetch(`/journey/${encodeURIComponent(request.journeyId)}`);
+    const started = performance.now();
+    const minDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1_000;
+    const bookingUrl = window.location.href;
+    let handoff: string | undefined;
     const acceptSnapshot = (snapshot: Journey) => {
       if (snapshot?.id !== request.journeyId || typeof snapshot.version !== 'number' ||
           typeof snapshot.booking_uncertain !== 'boolean' || typeof snapshot.state !== 'string' ||
           !Array.isArray(snapshot.quotes)) return false;
       cache.setQueryData(['journey', request.journeyId], snapshot);
       if (hasConfirmedRide(snapshot, request.quoteId)) {
-        if (!rememberRide(snapshot.id)) router.replace(`/journey/${snapshot.id}`);
+        rememberRide(snapshot.id);
+        handoff = `/journey/${encodeURIComponent(snapshot.id)}`;
+        setBookingConfirmed(true);
         setPendingAttempt(null);
         return true;
       }
       if (snapshot.booking_uncertain || snapshot.state === 'RECONCILING') {
-        if (!rememberRide(snapshot.id)) router.replace(`/journey/${snapshot.id}`);
+        rememberRide(snapshot.id);
+        handoff = `/journey/${encodeURIComponent(snapshot.id)}`;
         setBookingError('The provider has yet to confirm the booking.');
         setPendingAttempt(null);
         return true;
@@ -130,7 +146,10 @@ export function CompareScreen() {
         (err instanceof ApiError && err.code === 'BOOKING_UNCONFIRMED');
       setRetryReady(false);
       setPendingAttempt(ambiguous || providerUncertain ? { ...request, providerUncertain } : null);
-      setBookingError(ambiguous || providerUncertain
+      const invalidQuote = err instanceof ApiError && ['BOOKING_FAILED', 'QUOTE_EXPIRED', 'QUOTE_NOT_FOUND'].includes(err.code);
+      setRefreshQuotes(invalidQuote);
+      setBookingError(invalidQuote ? 'This offer could not be confirmed. Review the trip to get fresh estimates.'
+        : ambiguous || providerUncertain
         ? 'The booking outcome is unknown. Check status before continuing.'
         : err.message);
       try {
@@ -139,8 +158,14 @@ export function CompareScreen() {
         // Retain the original request so any transport retry uses the same idempotency key.
       }
     } finally {
+      if (handoff && window.location.href === bookingUrl) {
+        const remaining = minDuration - (performance.now() - started);
+        if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
+        if (window.location.href === bookingUrl) router.replace(handoff);
+      }
       inFlight.current = false;
       setIsBooking(false);
+      setBookingHandoff(false);
     }
   };
 
@@ -175,6 +200,7 @@ export function CompareScreen() {
 
   return (
     <div className="mx-auto w-full max-w-6xl pb-10 max-sm:pb-5">
+      {isBooking && journey && <BookingProgress pickup={journey.pickup.label} dropoff={journey.dropoff.label} confirmed={bookingConfirmed} />}
       <header className="mb-5 space-y-3 max-sm:mb-3">
         <button
           type="button"
@@ -251,14 +277,15 @@ export function CompareScreen() {
               loadingText="Confirming simulated ride…"
               disabled={canBook && !attempt && (isFetching || (!!recommended && !!error))}
               onClick={() => {
-                if (attempt || (canBook && recommended)) void handleConfirmBooking();
+                if (refreshQuotes) router.push(editTrip);
+                else if (attempt || (canBook && recommended)) void handleConfirmBooking();
                 else if (canBook && allOverBudget) router.push(editTrip);
                 else if (canBook) void refetch();
                 else router.push(`/journey/${journey.id}`);
               }}
               rightIcon={<ArrowRight size={18} aria-hidden="true" />}
             >
-              {attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : allOverBudget ? 'Edit max fare' : 'Try again'}
+              {refreshQuotes ? 'Review trip details' : attempt ? (retryReady ? 'Retry original request' : 'Check booking status') : !canBook ? 'Open journey tracking' : recommended ? 'Book' : allOverBudget ? 'Edit max fare' : 'Try again'}
             </Button>
           </section>
         )}

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, CarFront, Check, MapPin, ShieldCheck } from 'lucide-react';
 import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
@@ -93,6 +93,10 @@ export default function JourneyPanel({ id }: { id: string }) {
     queryFn: () => api.journey(id),
     refetchInterval: stream.connection === 'live' ? false : 5000,
   });
+  const pickupPlayback = useMutation({
+    mutationFn: (speed: 1 | 20) => api.playPickup(id, speed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
   const data = query.data;
   const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined,
     data?.arrives_at ? Date.parse(data.arrives_at) : arrivals[id]);
@@ -101,6 +105,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const [error, setError] = useState('');
   const [reviewCancel, setReviewCancel] = useState(false);
   const inFlight = useRef(false);
+  const pickupHeading = useRef<HTMLHeadingElement>(null);
   const recoveryHeading = useRef<HTMLHeadingElement>(null);
 
   async function act(label: string, send: () => Promise<Journey>) {
@@ -161,6 +166,8 @@ export default function JourneyPanel({ id }: { id: string }) {
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
   const canBoard = canAct && ride?.state === 'DRIVER_ARRIVED';
   const backup = data.state === 'AWAITING_APPROVAL' && !reconciling ? data.pending_backup : null;
+  const cancelledPickup = !ride && !reconciling && data.last_ride?.state === 'DRIVER_CANCELLED' &&
+    (data.state === 'AWAITING_APPROVAL' || data.state === 'EXHAUSTED');
   const bookedQuote = data.quotes.find((quote) => quote.quote_id === ride?.quote_id);
   if (destination.arrived) {
     return <TripCompleted journeyId={data.id} pickup={data.pickup} dropoff={data.dropoff} fare={bookedQuote?.estimated_fare_inr}
@@ -174,8 +181,8 @@ export default function JourneyPanel({ id }: { id: string }) {
   const status = recoveryStatus(data, latestRecovery);
   const { timeline, progress, stalled, startDistance } = pickupActivity(stream.events, ride);
   const positionStalled = stalled && risk?.band !== 'UNKNOWN' && !query.isError;
-  const pickupStatus = ride && data.state === 'MONITORING'
-    ? rideLabels[ride.state] ?? readable(ride.state)
+  const pickupStatus = ride && (data.state === 'MONITORING' || data.state === 'AWAITING_APPROVAL')
+    ? positionStalled ? 'Driver paused' : rideLabels[ride.state] ?? readable(ride.state)
     : journeyLabels[data.state] ?? readable(data.state);
   const pickupStep = ride?.state === 'IN_PROGRESS' || data.state === 'PICKUP_CONFIRMED' ? 2
     : ride?.state === 'DRIVER_ARRIVED' ? 1 : 0;
@@ -191,7 +198,7 @@ export default function JourneyPanel({ id }: { id: string }) {
           onApprove={() => {
             if (!canApprove) return;
             setReviewed(null);
-            requestAnimationFrame(() => recoveryHeading.current?.focus());
+            requestAnimationFrame(() => (cancelledPickup ? pickupHeading : recoveryHeading).current?.focus());
             void act('Checking backup and provider status…', () => api.approve(id, true, reviewed.version));
           }}
         />
@@ -212,10 +219,38 @@ export default function JourneyPanel({ id }: { id: string }) {
       <div className={styles.columns}>
           <section className={styles.pickupCard} aria-labelledby="progress-title">
             <div className={styles.pickupHeader}>
-              <h2 id="progress-title">{boarded ? 'Trip progress' : 'Pickup status'}</h2>
+              <h2 ref={pickupHeading} id="progress-title" tabIndex={-1}>{boarded ? 'Trip progress' : 'Pickup status'}</h2>
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
-            <p className={styles.pickupStatus}>{pickupStatus}</p>
+            {cancelledPickup ? (
+              <>
+                <div role="status" className="grid gap-2">
+                  <p className={styles.pickupStatus}>Your driver cancelled</p>
+                  {backup ? (
+                    <p>Review the replacement to continue. Auto-rebooking is off.</p>
+                  ) : <p>{status ?? 'You have no confirmed ride.'}</p>}
+                </div>
+                {backup ? (
+                  <>
+                    <p><strong>{providerName[backup.provider]}</strong> · ₹{backup.estimated_fare_inr} estimated · {minutes(backup.pickup_eta_sec)} min to pickup</p>
+                    <div className="button-row">
+                      <button id="review-replacement" className="btn scroll-mt-24" disabled={!canApprove} onClick={() => setReviewed(data)}>Review replacement</button>
+                      <button className="btn secondary" disabled={!canApprove} onClick={() => void act('Recording your choice…', () => api.approve(id, false, data.version))}>Decline backup</button>
+                    </div>
+                  </>
+                ) : <div className="button-row">
+                  <Link href={`/book?edit=${encodeURIComponent(id)}`} className="btn">Get a new ride</Link>
+                </div>}
+                {action && <p role="status">{action}</p>}
+                {error && <p role="alert" className="error">{error}</p>}
+              </>
+            ) : <p className={styles.pickupStatus}>{pickupStatus}</p>}
+            {backup && ride && <p>
+              Your current ride stays active while you decide. <a href="#review-switch" className="font-bold text-[#ffcbab] underline underline-offset-4">Jump to backup review</a>
+            </p>}
+            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
+              <button id="confirm-boarding" className="btn scroll-mt-24" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
+            </div>}
             {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} progress={destination} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
@@ -223,10 +258,23 @@ export default function JourneyPanel({ id }: { id: string }) {
                     <div><dt>Driver to pickup</dt><dd>{
                       ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
                       ride.state === 'IN_PROGRESS' ? 'Boarded' :
-                      ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
+                      ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${Math.max(1, minutes(ride.eta_sec))} min` : '—'
                     }</dd></div>
                     <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
                   </dl>
+                  {ride.state === 'DRIVER_EN_ROUTE' && !done && !reconciling && (
+                    <section aria-label="Simulated pickup speed" className="mb-4 grid gap-2 rounded-xl border border-white/20 bg-white/10 p-3">
+                      <p className="text-sm font-bold">Simulated pickup speed</p>
+                      <div className="grid grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap">
+                        <button type="button" aria-label="Fast-forward pickup · 20×" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(20)}>Fast-forward · 20×</button>
+                        <button type="button" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(1)}>Normal speed</button>
+                      </div>
+                      <p role="status" className="text-sm text-[#e4eaff]">
+                        {pickupPlayback.isPending ? 'Changing pickup speed…' : pickupPlayback.isError ? 'Couldn’t change pickup speed. Try again.' :
+                          pickupPlayback.data ? `Pickup running at ${pickupPlayback.data.speed}×.` : 'Speeds up pickup. Confirm boarding when you’re in.'}
+                      </p>
+                    </section>
+                  )}
                   <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
                     startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
                     progress={progress} stalled={positionStalled} status={pickupStatus} />
@@ -246,13 +294,10 @@ export default function JourneyPanel({ id }: { id: string }) {
               </>
             )}
             {canBook && <div className="button-row"><Link href={`/compare?journey=${encodeURIComponent(id)}`} className="btn">Review ride</Link></div>}
-            {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
-              <button className="btn" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
-            </div>}
           </section>
 
         <div className={styles.trackColumn}>
-          <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
+          {!cancelledPickup && <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
             <div className={styles.cardHeading}>
               <h2 ref={recoveryHeading} id="recovery-title" tabIndex={-1}><ShieldCheck size={20} aria-hidden="true" /> Pickup protection</h2>
               {risk && !done && !reconciling && <span className={`badge ${risk.band === 'HIGH' ? 'high' : risk.band === 'LOW' ? 'low' : ''}`}>{readable(risk.band)} risk</span>}
@@ -265,30 +310,30 @@ export default function JourneyPanel({ id }: { id: string }) {
               </div>
             )}
             {(!risk || risk.band === 'LOW') && !status && <p className="muted">{ride ? 'Watching for pickup delays and driver cancellations.' : 'Pickup monitoring begins when a provider confirms a ride.'}</p>}
-            {backup && (
+            {backup && ride && (
               <div className={`stack ${styles.backup}`}>
-                {ride && <p className="helper">Your current ride stays active until you approve a switch and the provider confirms cancellation.</p>}
+                <p className="helper">Your current ride stays active until you approve a switch and the provider confirms cancellation.</p>
                 <dl className={styles.options}>
-                  {ride && <div>
+                  <div>
                     <dt>Current · {providerName[ride.provider]}</dt>
                     <dd>{bookedQuote && `₹${bookedQuote.estimated_fare_inr} estimated · `}{minutes(ride.eta_sec)} min to pickup</dd>
-                  </div>}
+                  </div>
                   <div>
                     <dt>Backup · {providerName[backup.provider]}</dt>
                     <dd>₹{backup.estimated_fare_inr} estimated · {minutes(backup.pickup_eta_sec)} min to pickup</dd>
                   </div>
                 </dl>
-                {ride && data.cancellation_fee_notice && <p className={styles.warning}>Possible fee if you switch · Up to ₹{data.cancellation_fee_notice.potential_fee_upper_bound_inr}</p>}
+                {data.cancellation_fee_notice && <p className={styles.warning}>Possible fee if you switch · Up to ₹{data.cancellation_fee_notice.potential_fee_upper_bound_inr}</p>}
                 <p className="helper">This quote is subject to a fresh provider check. It does not hold a ride.</p>
                 <div className="button-row">
-                  <button className="btn" disabled={!canApprove} onClick={() => setReviewed(data)}>{ride ? 'Review switch & fee' : 'Review replacement'}</button>
-                  <button className="btn ghost" disabled={!canApprove} onClick={() => void act('Recording your choice…', () => api.approve(id, false, data.version))}>{ride ? 'Keep waiting' : 'Decline backup'}</button>
+                  <button id="review-switch" className="btn scroll-mt-24" disabled={!canApprove} onClick={() => setReviewed(data)}>Review switch &amp; fee</button>
+                  <button className="btn ghost" disabled={!canApprove} onClick={() => void act('Recording your choice…', () => api.approve(id, false, data.version))}>Keep waiting</button>
                 </div>
               </div>
             )}
             {action && <p role="status" className="helper">{action}</p>}
             {error && <p role="alert" className="error">{error}</p>}
-          </section>
+          </section>}
 
           {canAct && ride && (
             <section aria-label="Manage ride" className="rounded-2xl border border-[#d9dce9] bg-[#fffdf8] p-4">

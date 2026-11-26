@@ -205,6 +205,13 @@ export function BookingForm({
           </label>
         </section>
 
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
+          <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
+            Find my ride
+          </Button>
+        </div>
+
         <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
           {fromLoc && toLoc && !sameLocation ? <TripRoute pickup={fromLoc} dropoff={toLoc} /> : (
             <div className="flex items-center gap-3 rounded-2xl bg-[#edf1ff] p-4 text-[#354569] lg:min-h-60 lg:flex-col lg:justify-center lg:text-center">
@@ -212,13 +219,6 @@ export function BookingForm({
               <p className="text-sm font-semibold">Choose a pickup and destination to see the route, time and distance.</p>
             </div>
           )}
-        </div>
-
-        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-          {validationError && <p role="alert" className="mb-2 px-2 text-sm font-semibold text-[#a42644]">{validationError}</p>}
-          <Button type="submit" fullWidth size="lg" disabled={!locationData || !!parsedIntent || navigating} loading={busy || navigating} loadingText="Finding rides…" rightIcon={<ArrowRight size={18} aria-hidden="true" />}>
-            Find my ride
-          </Button>
         </div>
       </form>
     </div>

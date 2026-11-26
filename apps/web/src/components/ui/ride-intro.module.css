@@ -62,6 +62,29 @@
   font-size: clamp(1rem, 2.1vw, 1.4rem);
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .85rem;
+}
+
+.secondaryAction {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: .45rem;
+  padding-inline: .6rem;
+  border-radius: .75rem;
+  color: #fffdf8;
+  font-size: .875rem;
+  font-weight: 700;
+}
+
+.secondaryAction:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
 .action {
   display: inline-flex;
   align-items: center;
@@ -85,7 +108,7 @@
 
 
 
-.action:focus-visible {
+.action:focus-visible, .secondaryAction:focus-visible {
   outline: 2px solid #fffdf8;
   outline-offset: 3px;
 }

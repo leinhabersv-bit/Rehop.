@@ -10,6 +10,7 @@ export default defineConfig({
   webServer: externalServers ? undefined : [
     {
       command: 'python -m uvicorn --app-dir tests browser_server:app --port 8000',
+      env: { SIM_DEV_ENDPOINTS: '1' },
       cwd: resolve(__dirname, '../../services/api'),
       url: 'http://127.0.0.1:8000/health',
       reuseExistingServer: !process.env.CI,

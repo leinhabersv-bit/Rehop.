@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { queryOptions, useQueries, type UseQueryResult } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
+import { RoutePending } from '@/components/ui/RoutePending';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { api } from '@/lib/api/client';
 import { googleMapsKey } from '@/lib/google-maps';
@@ -19,15 +20,18 @@ const ActiveRideContext = createContext<{
   active?: Journey;
   receiptId?: string;
   checking: boolean;
+  bookingHandoff: boolean;
+  setBookingHandoff: (pending: boolean) => void;
   entries: { id: string; query: UseQueryResult<Journey> }[];
   arrivals: Record<string, number>;
   now: number;
-}>({ checking: true, entries: [], arrivals: {}, now: 0 });
+}>({ checking: true, bookingHandoff: false, setBookingHandoff: () => {}, entries: [], arrivals: {}, now: 0 });
 
 export function ActiveRideProvider({ children }: { children: ReactNode }) {
   const raw = useSyncExternalStore(subscribeToRides, recentRideSnapshot, serverSnapshot);
   const [ids, localArrivals, pendingId] = useMemo(() =>
     (raw ? JSON.parse(raw) : [[], {}, null]) as [string[], Record<string, number>, string | null], [raw]);
+  const [bookingHandoff, setBookingHandoff] = useState(false);
   const [now, setNow] = useState(Date.now);
   const queries = useQueries({ queries: ids.map((id) => queryOptions({
     queryKey: ['journey', id], queryFn: () => api.journey(id), staleTime: 20_000,
@@ -82,25 +86,27 @@ export function ActiveRideProvider({ children }: { children: ReactNode }) {
 
   const checking = raw === null || queries.some((query) => query.isPending);
   return <ActiveRideContext.Provider value={{
-    active, receiptId, checking, arrivals, now, entries: ids.map((id, i) => ({ id, query: queries[i] })),
+    active, receiptId, checking, bookingHandoff, setBookingHandoff, arrivals, now, entries: ids.map((id, i) => ({ id, query: queries[i] })),
   }}>{children}</ActiveRideContext.Provider>;
 }
 
 export const useActiveRide = () => useContext(ActiveRideContext);
 
 export function ActiveRideGate({ children }: { children: ReactNode }) {
-  const { active, receiptId, checking } = useActiveRide();
+  const { active, receiptId, checking, bookingHandoff } = useActiveRide();
   const path = usePathname();
   const router = useRouter();
-  const rideId = active?.id ?? receiptId;
+  const rideId = active?.id ?? (path === '/' ? receiptId : undefined);
   const tracking = rideId ? `/journey/${encodeURIComponent(rideId)}` : undefined;
-  const redirectTo = tracking && path !== tracking ? tracking : undefined;
+  const deliberateHome = path === '/home';
+  const finishingBooking = path === '/compare' && bookingHandoff;
+  const redirectTo = tracking && path !== tracking && !deliberateHome && !finishingBooking ? tracking : undefined;
 
   useEffect(() => {
     if (redirectTo) router.replace(redirectTo);
   }, [redirectTo, router]);
 
-  if (redirectTo) return <p role="status">Opening your ride…</p>;
-  if (checking && !tracking && !path.startsWith('/journey/')) return <p role="status">Checking ride status…</p>;
+  if (redirectTo) return <RoutePending message="Opening your ride…" />;
+  if (checking && !tracking && !path.startsWith('/journey/')) return <RoutePending message="Checking ride status…" />;
   return children;
 }

@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ArrowDown } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDown, ArrowRight, Info } from 'lucide-react';
 import styles from './ride-intro.module.css';
 
 const clip = '/images/ride-seek-intro.mp4?v=loop';
 
-export function RideIntro() {
+export function RideIntro({ tracking }: { tracking?: string }) {
   const video = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -57,9 +58,16 @@ export function RideIntro() {
           <span>RIDE</span>{' '}<span className={styles.secondLine}><span className={styles.amp}>&amp;</span> SEEK</span>
         </h1>
         <p className={styles.tagline}>Rides with a backup plan.</p>
-        <a href="#trip-planner" className={styles.action}>
-          Plan your ride <ArrowDown size={17} aria-hidden="true" />
-        </a>
+        {tracking ? <Link href={tracking} className={styles.action}>
+          Track ride <ArrowRight size={17} aria-hidden="true" />
+        </Link> : <div className={styles.actions}>
+          <a href="#trip-planner" className={styles.action}>
+            Plan your ride <ArrowDown size={17} aria-hidden="true" />
+          </a>
+          <a href="#ride-features" className={styles.secondaryAction}>
+            <Info size={16} aria-hidden="true" /> How it works
+          </a>
+        </div>}
       </div>
     </section>
   );

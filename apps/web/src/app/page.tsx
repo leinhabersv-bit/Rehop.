@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownUp, ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
+import { RideUpdate } from '@/components/journey/RideUpdate';
+import { useActiveRide } from '@/components/journey/ActiveRide';
+import { RideFeatures } from '@/components/ui/RideFeatures';
 import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
 
@@ -38,8 +41,10 @@ function PlaceOptions({ places, blocked }: { places: string[]; blocked: string }
 }
 
 export default function HomePage() {
+  const { active, receiptId } = useActiveRide();
+  const tracking = active ? `/journey/${encodeURIComponent(active.id)}` : undefined;
   const router = useRouter();
-  const locations = useQuery({ queryKey: ['locations'], queryFn: api.locations, staleTime: 60_000 });
+  const locations = useQuery({ queryKey: ['locations'], queryFn: api.locations, staleTime: 60_000, enabled: !active });
   const labels = locations.data?.locations.map(({ label }) => label) ?? [];
   const [pickupChoice, setPickup] = useState('');
   const [dropoffChoice, setDropoff] = useState('');
@@ -55,8 +60,9 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-8 max-sm:space-y-3 max-sm:pb-4 lg:space-y-7">
-      <RideIntro />
-      <div className="grid items-stretch gap-5 max-sm:gap-3 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
+      <RideUpdate ride={active} receiptId={receiptId} />
+      <RideIntro tracking={tracking} />
+      {!active && <div className="grid items-stretch gap-5 max-sm:gap-3 lg:grid-cols-[.92fr_1.08fr] lg:gap-7">
         <section id="trip-planner" tabIndex={-1} aria-labelledby="home-title" className="min-w-0 scroll-mt-28 rounded-[28px] bg-[#fffdf8] p-5 max-sm:scroll-mt-[4.125rem] max-sm:rounded-3xl max-sm:border max-sm:border-[#ece2d7] max-sm:p-4 max-sm:shadow-[0_8px_24px_#171b370a] sm:scroll-mt-20 sm:p-8">
           <h2 id="home-title" className="text-[clamp(2.65rem,5.8vw,5rem)] font-black leading-[.98] tracking-[-.065em] text-[#171b37]">
             Where to<span className="text-[#173ed7]">?</span>
@@ -126,7 +132,8 @@ export default function HomePage() {
             Your rides <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </section>
-      </div>
+      </div>}
+      {!active && <RideFeatures />}
     </div>
   );
 }
