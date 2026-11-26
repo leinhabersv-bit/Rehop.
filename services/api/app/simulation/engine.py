@@ -117,6 +117,10 @@ class Session:
         self.scenario = scenario
         self.seed = seed
         self.clock = BASE_TIME
+        self.playing = not self.deterministic and script_for(scenario).auto_track
+        self.speed = 1
+        self.last_tick: datetime | None = None
+        self.backup_unavailable_stage: str | None = None
         self.state = JourneyState.CREATED
         self.version = 0
         self.events: list[JourneyEvent] = []
@@ -190,6 +194,9 @@ class Session:
         self.version += 1
         self.events.append(event)
         return event
+
+    def last_seq(self) -> int:
+        return self._event_store.last_seq(self.id)
 
     def list_events(self, since_seq: int = 0) -> list[JourneyEvent]:
         return self._event_store.list(self.id, since_seq)

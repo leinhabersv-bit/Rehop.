@@ -2,9 +2,9 @@
 
 import os
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.domain.errors import SimulationError
 from app.domain.state_machine import ACTIVE_RIDE_STATES, TERMINAL_JOURNEY_STATES
@@ -17,8 +17,9 @@ from app.schemas.domain import (
     Ride,
     RiskAssessment,
 )
-from app.schemas.enums import JourneyState, Provider, RideState, RiskBand
-from app.schemas.requests import JourneyCreate, Location, RecoveryPolicy
+from app.schemas.enums import JourneyState, Provider, RiskBand
+from app.schemas.requests import JourneyCreate, Location, PlaybackSpeed, RecoveryPolicy
+from app.simulation.clock import catch_up, tracking
 from app.simulation.engine import Command, Session, store
 from app.simulation.providers import ProviderState, ScenarioOverrides
 from app.simulation.scenarios import script_for
@@ -43,6 +44,9 @@ class StoredSession(BaseModel):
     scenario: str
     seed: int
     clock: datetime
+    playing: bool = False
+    speed: PlaybackSpeed = 1
+    backup_unavailable_stage: str | None = None
     state: JourneyState
     version: int
     events: list[JourneyEvent]
@@ -69,9 +73,20 @@ class StoredSession(BaseModel):
     boarded_at: datetime | None = None
     arrives_at: datetime | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def restore_legacy_playback(cls, data):
+        if isinstance(data, dict) and "playing" not in data and "scenario" in data:
+            playing = not data.get("deterministic", False) and (
+                script_for(data["scenario"]).auto_track or data.get("recovery_attempts", 0) > 0
+            )
+            return {**data, "playing": playing}
+        return data
+
     def restore(self, idempotency_store: IdempotencyStore | None = None) -> Session:
         session = Session.__new__(Session)
         session.__dict__.update(self.__dict__)
+        session.last_tick = None
         session.restore_stores(idempotency_store)
         session.restore_providers()
         # Payloads written before P04 only recorded rides on the journey.
@@ -81,29 +96,26 @@ class StoredSession(BaseModel):
         return session
 
 
-def tracking(session: Session) -> bool:
-    return (
-        (script_for(session.scenario).auto_track or session.recovery_attempts > 0)
-        and session.state == JourneyState.MONITORING
-        and session.ride is not None
-        and session.ride.state == RideState.DRIVER_EN_ROUTE
-    )
+def clock_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def advance(session: Session, last_tick: datetime | None, now: datetime) -> datetime | None:
-    from app.services.journey_service import JourneyService
+    """Compatibility entry point for manually supplied sessions."""
+    with store.lock:
+        return catch_up(session, last_tick, now)
 
-    if not tracking(session):
-        return None
-    if last_tick is None:
-        return now
-    elapsed = (now - last_tick) // timedelta(seconds=5)
-    for _ in range(min(elapsed, 180)):
-        JourneyService().tick(session.id, 1, session=session)
+
+@contextmanager
+def journey_clock(session: Session, last_tick: datetime | None, now: datetime):
+    session.last_tick = catch_up(session, last_tick, now)
+    try:
+        yield
+    finally:
         if not tracking(session):
-            return None
-        last_tick += timedelta(seconds=5)
-    return last_tick
+            session.last_tick = None
+        elif session.last_tick is None:
+            session.last_tick = now
 
 
 @contextmanager
@@ -187,14 +199,16 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
         with store.lock:
             session = store.get(journey_id)
             if rider_id is None:
-                yield session
+                with journey_clock(session, session.last_tick, clock_now()):
+                    yield session
                 return
             known = (*recent_ids, local_booking_slots.get(rider_id))
             candidates = [store.sessions[known_id] for known_id in known if known_id in store.sessions]
             session._booking_guard = lambda: check_booking_slot(journey_id, candidates)
             previously_occupied = occupies_booking(session)
             try:
-                yield session
+                with journey_clock(session, session.last_tick, clock_now()):
+                    yield session
             finally:
                 session._booking_guard = None
                 if not previously_occupied and occupies_booking(session):
@@ -217,6 +231,9 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
                 (journey_id, list(recent_ids), rider_id),
             )
             candidates = [StoredSession.model_validate(payload) for (payload,) in candidates]
+        connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtext('rehop.journey'), hashtext(%s))", (journey_id,)
+        )
         row = connection.execute(
             "SELECT payload, last_tick FROM ride_journeys WHERE id = %s FOR UPDATE", (journey_id,)
         ).fetchone()
@@ -227,19 +244,14 @@ def open_ride(journey_id: str, *, rider_id: str | None = None, recent_ids: tuple
         session = StoredSession.model_validate(payload).restore(PostgresIdempotencyStore(connection))
         if rider_id is not None:
             session._booking_guard = lambda: check_booking_slot(journey_id, candidates)
-        now = datetime.now(UTC)
-        last_tick = advance(session, old_tick, now)
-        ride_id = session.ride.ride_id if session.ride else None
-        previously_occupied = occupies_booking(session)
-        try:
-            yield session
-        except SimulationError as error:
-            # Some domain failures record idempotency and state before returning an error.
-            failure = error
-        if not tracking(session):
-            last_tick = None
-        elif last_tick is None or session.ride.ride_id != ride_id:
-            last_tick = now
+        with journey_clock(session, old_tick, clock_now()):
+            previously_occupied = occupies_booking(session)
+            try:
+                yield session
+            except SimulationError as error:
+                # Some domain failures record idempotency and state before returning an error.
+                failure = error
+        last_tick = session.last_tick
         updated = StoredSession.model_validate(vars(session)).model_dump(mode="json")
         if updated != payload or last_tick != old_tick:
             connection.execute(

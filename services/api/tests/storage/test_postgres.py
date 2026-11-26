@@ -208,3 +208,30 @@ def test_hosted_backfills_legacy_events_and_keeps_legacy_keys(hosted_database):
             == legacy.snapshot()
         )
     assert_event_copies(legacy.id)
+
+
+def test_hosted_playback_advances_on_requests_and_persists_pause(hosted_database, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    now = datetime(2026, 11, 25, tzinfo=UTC)
+    monkeypatch.setattr(durable, "clock_now", lambda: now)
+    client = TestClient(app)
+    session = durable.create_ride(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]), scenario="S03")
+    service.book(session.id, session.quotes[0].quote_id, "book")
+    url = f"/api/v1/journeys/{session.id}"
+    client.post(f"{url}/play", json={"speed": 20}).raise_for_status()
+    now += timedelta(milliseconds=550)
+    page = client.get(f"{url}/events").raise_for_status()
+    assert [event["type"] for event in page.json()["events"]].count("TELEMETRY_UPDATED") == 2
+
+    client.post(f"{url}/pause").raise_for_status()
+    now += timedelta(seconds=10)
+    unchanged = client.get(f"{url}/events", headers={"If-None-Match": page.headers["ETag"]})
+    assert unchanged.status_code == 304
+    with durable.open_ride(session.id) as restored:
+        assert (restored.playing, restored.speed, restored.last_tick) == (False, 20, None)
+    assert [event.model_dump(mode="json") for event in assert_event_copies(session.id)] == page.json()[
+        "events"
+    ]
