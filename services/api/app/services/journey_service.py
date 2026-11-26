@@ -8,8 +8,10 @@ from app.domain.errors import SimulationError
 from app.domain.invariants import check_invariants
 from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
 from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
+from app.intelligence.features import compute_features
+from app.intelligence.history import TelemetryHistory
 from app.intelligence.interface import DefaultIntelligence, IntelligencePort
-from app.schemas.domain import DeadlineDecision, FeeNotice, JourneySnapshot, Quote, Ride
+from app.schemas.domain import DeadlineDecision, FeeNotice, JourneySnapshot, Quote, Ride, TelemetrySample
 from app.schemas.enums import (
     ChatLabel,
     EventType,
@@ -153,6 +155,7 @@ class JourneyService:
             yield session
 
     def _tick_session(self, journey: Session, steps: int) -> JourneySnapshot:
+        history: TelemetryHistory | None = None
         for _ in range(steps):
             journey.clock += timedelta(seconds=5)
             if not journey.ride or journey.state in STOPPED or journey.state == JourneyState.RECONCILING:
@@ -172,36 +175,44 @@ class JourneyService:
             driver = journey.driver_sim
             if driver is None or driver.ride_id != journey.ride.ride_id:
                 driver = self._create_driver_sim(journey)
+            if history is None or history.ride_id != driver.ride_id:
+                history = TelemetryHistory(
+                    driver.ride_id, driver.history, initial_distance_m=round(driver.initial_distance_m)
+                )
             for injection in injections:
                 if injection.kind == "FORCE_MODE":
                     driver.force_mode(
                         MotionMode(injection.params["mode"]), injection.params.get("duration_ticks")
                     )
-            previous_distance = journey.ride.distance_to_pickup_m
-            previous_eta = journey.ride.eta_sec
             sample = driver.tick(journey.clock, adapter.profile, adapter.rng)
             if driver.cancelled:
                 self._driver_cancel(journey)
                 continue
             if sample is None:
                 journey.ride.gps_quality = GpsQuality.POOR
-                journey.risk = self.intelligence.assess(
-                    stationary_duration_s=journey.stationary_ticks * 5,
-                    eta_delta_s=journey.eta_delta_s,
-                    distance_to_pickup_m=journey.ride.distance_to_pickup_m,
-                    gps_age_s=int((journey.clock - journey.ride.last_position_at).total_seconds()),
-                    gps_quality=GpsQuality.POOR,
-                )
+            else:
+                history.append(sample)
+                journey.ride.distance_to_pickup_m = sample.distance_to_pickup_m
+                journey.ride.eta_sec = sample.eta_sec
+                journey.ride.last_position_at = sample.observed_at
+                journey.ride.gps_quality = sample.gps_quality
+            history.prune(journey.clock)
+            # StoredSession already saves DriverSim.history. Keep that copy bounded.
+            driver.history[:] = history
+            features = compute_features(history, journey.ride, journey.clock, journey.need_by)
+            # Retain legacy persisted counters for older readers, without using them as inputs.
+            journey.stationary_ticks = int(features.stationary_duration_s // 5)
+            journey.eta_delta_s = features.eta_delta_s_120s
+            journey.risk = self.intelligence.assess(
+                stationary_duration_s=int(features.stationary_duration_s),
+                eta_delta_s=features.eta_delta_s_120s,
+                distance_to_pickup_m=features.distance_to_pickup_m,
+                gps_age_s=int(features.gps_age_s),
+                gps_quality=features.gps_quality,
+            )
+            if sample is None:
                 journey.add_event(EventType.RISK_UPDATED, journey.risk, journey.ride.ride_id)
                 continue
-            stationary = sample.distance_to_pickup_m == previous_distance
-            journey.stationary_ticks = journey.stationary_ticks + 1 if stationary else 0
-            delta = sample.eta_sec - previous_eta
-            journey.eta_delta_s = journey.eta_delta_s + delta if stationary else max(0, delta)
-            journey.ride.distance_to_pickup_m = sample.distance_to_pickup_m
-            journey.ride.eta_sec = sample.eta_sec
-            journey.ride.last_position_at = sample.observed_at
-            journey.ride.gps_quality = sample.gps_quality
             # The legacy telemetry event carries only these sample fields.
             journey.add_event(
                 EventType.TELEMETRY_UPDATED,
@@ -212,13 +223,6 @@ class JourneyService:
                     "is_simulated": True,
                 },
                 sample.ride_id,
-            )
-            journey.risk = self.intelligence.assess(
-                stationary_duration_s=journey.stationary_ticks * 5,
-                eta_delta_s=journey.eta_delta_s,
-                distance_to_pickup_m=sample.distance_to_pickup_m,
-                gps_age_s=0,
-                gps_quality=sample.gps_quality,
             )
             if (
                 journey.risk.band in {RiskBand.MEDIUM, RiskBand.HIGH}
@@ -649,6 +653,19 @@ class JourneyService:
             * journey.driver_sim.current_speed_mps
             / max(1, journey.ride.distance_to_pickup_m)
         )
+        if journey.ride.last_position_at == journey.ride.booked_at:
+            lat, lng = journey.driver_sim.route[0]
+            journey.driver_sim.history.append(
+                TelemetrySample(
+                    ride_id=journey.ride.ride_id,
+                    observed_at=journey.ride.booked_at,
+                    distance_to_pickup_m=journey.ride.distance_to_pickup_m,
+                    eta_sec=journey.ride.eta_sec,
+                    lat=lat,
+                    lng=lng,
+                    gps_quality=journey.ride.gps_quality,
+                )
+            )
         return journey.driver_sim
 
     def _arrive(self, journey: Session):
