@@ -25,7 +25,7 @@ export function RideFeatures() {
       <h2 id="ride-features-title" className="mb-4 text-2xl font-black tracking-tight text-[#111a42] sm:mb-5 sm:text-3xl">How RIDE &amp; SEEK works</h2>
       <ul className="grid gap-2.5 md:grid-cols-3 md:gap-4">
         {features.map(({ title, detail, Icon }) => (
-          <li key={title} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-2xl bg-[#edf1ff] p-3.5 sm:p-4 md:grid-cols-1">
+          <li key={title} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-2xl bg-[#edf1ff] p-3.5 sm:p-4 md:grid-cols-1 md:content-start">
             <span className="grid size-10 place-items-center rounded-xl bg-[#173ed7] text-white"><Icon size={19} aria-hidden="true" /></span>
             <div>
               <h3 className="font-extrabold text-[#111a42]">{title}</h3>
