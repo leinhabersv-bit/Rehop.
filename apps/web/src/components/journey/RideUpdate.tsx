@@ -26,7 +26,7 @@ export function RideUpdate({ ride, receiptId }: { ride?: Journey; receiptId?: st
         <Icon size={21} aria-hidden="true" />
       </span>
       <div role="status" aria-live="polite" aria-atomic="true" className="min-w-0 flex-1 break-words">
-        <p className="font-black text-[#111a42]">{title}</p>
+        <p key={title} className="ride-stage font-black text-[#111a42]">{title}</p>
         <p className="text-sm text-[#43536b]">{detail}</p>
       </div>
       <Link className="btn gap-2 max-sm:w-full" href={href}>{action}<ArrowRight size={17} aria-hidden="true" /></Link>

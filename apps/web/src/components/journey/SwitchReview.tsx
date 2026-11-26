@@ -42,7 +42,7 @@ export default function SwitchReview({
   return (
     <dialog
       ref={dialog}
-      className={styles.dialog}
+      className={`ride-dialog ${styles.dialog}`}
       aria-labelledby="switch-title"
       onCancel={(event) => {
         event.preventDefault();

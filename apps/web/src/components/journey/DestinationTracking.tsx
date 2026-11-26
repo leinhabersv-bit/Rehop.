@@ -68,7 +68,7 @@ export default function DestinationTracking({ pickup, dropoff, progress }: {
   const result = route.data;
   const showMap = result?.provider === 'google' && result.coordinates.length >= 2;
   return (
-    <div className={styles.pickupTracking}>
+    <div className={`ride-stage ${styles.pickupTracking}`}>
       <dl className={styles.stats}>
         <div><dt>Arrival ETA</dt><dd>{trip ? formatDrivingDuration(trip.remainingSeconds) : '—'}</dd></div>
         <div><dt>Remaining distance</dt><dd>{trip ? formatDrivingDistance(trip.remainingMeters) : '—'}</dd></div>
@@ -111,7 +111,7 @@ export function TripCompleted({ journeyId, pickup, dropoff, fare, route, loading
 
   const unavailable = loading ? 'Loading…' : 'Unavailable';
   return (
-    <section aria-labelledby="trip-completed" className="mx-auto max-w-lg overflow-hidden rounded-3xl border border-[#d9dce9] bg-[#fffdf8] shadow-lg">
+    <section aria-labelledby="trip-completed" className="ride-stage mx-auto max-w-lg overflow-hidden rounded-3xl border border-[#d9dce9] bg-[#fffdf8] shadow-lg">
       <header className="bg-[#111a42] bg-[radial-gradient(ellipse_at_top_right,#274696,transparent_75%)] px-5 py-6 text-[#fffdf8] sm:px-8 sm:py-8">
         <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-[#ffcbab] text-[#111a42]">
           <Check size={26} strokeWidth={3} aria-hidden="true" />

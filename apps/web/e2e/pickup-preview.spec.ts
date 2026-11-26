@@ -10,8 +10,16 @@ for (const width of [320, 390, 1366]) {
     await page.goto(web);
     await expect(page.getByRole('link', { name: 'RIDE & SEEK home' })).toBeVisible();
     await expect(page).toHaveTitle(/RIDE & SEEK/);
-    await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeInViewport();
+    await expect(page.getByRole('heading', { name: 'RIDE & SEEK', exact: true })).toBeInViewport();
     await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'smooth');
+    await expect(page.locator('main .ride-screen')).toHaveCSS('animation-name', 'ride-reveal');
+    await page.getByRole('link', { name: 'How it works' }).click();
+    await expect(page).toHaveURL(/#ride-features$/);
+    const features = page.getByRole('region', { name: 'How RIDE & SEEK works' });
+    await expect(features.getByRole('listitem')).toHaveCount(3);
+    await expect(features.getByText(/Postgres saves the simulated rides/)).toBeVisible();
+    const titles = await features.getByRole('heading', { level: 3 }).allTextContents();
+    expect(titles).toEqual(['Plan with live traffic', 'Get a backup when plans change', 'Resume a saved ride']);
     await page.getByRole('link', { name: 'Plan your ride' }).click();
     await expect(page).toHaveURL(/#trip-planner$/);
     await expect(page.getByRole('heading', { name: 'Where to?' })).toBeVisible();
@@ -30,6 +38,7 @@ test('the intro uses its poster with reduced motion enabled', async ({ page }) =
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(web);
   await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
+  await expect(page.locator('main .ride-screen')).toHaveCSS('animation-name', 'none');
   const intro = page.getByRole('region', { name: 'RIDE & SEEK' });
   const video = intro.locator('video');
   await expect(video).not.toHaveAttribute('src');
@@ -47,7 +56,7 @@ test('shared controls navigate home and traverse the current app history', async
   await expect(back).toBeDisabled();
   await expect(forward).toBeDisabled();
   await tabs.getByRole('link', { name: 'Home' }).click();
-  await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'RIDE & SEEK', exact: true })).toBeVisible();
   await tabs.getByRole('link', { name: 'Your rides' }).click();
   await expect(page).toHaveURL(/\/trips$/);
   await back.click();
@@ -139,6 +148,7 @@ test('a rider can book and track a ride on a compact phone', async ({ page, requ
   const receipt = page.getByRole('region', { name: 'Trip completed' });
   const receiptTitle = receipt.getByRole('heading', { name: 'Trip completed' });
   await expect(receiptTitle).toBeFocused();
+  await expect(receipt).toHaveCSS('animation-name', 'ride-reveal');
   await expect(receiptTitle).toHaveCSS('color', 'rgb(255, 253, 248)');
   await expect(receipt.getByText('₹285', { exact: true })).toBeVisible();
   await expect(receipt.getByText('3 min', { exact: true })).toBeVisible();
