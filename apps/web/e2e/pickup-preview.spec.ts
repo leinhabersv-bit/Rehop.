@@ -10,7 +10,7 @@ for (const width of [320, 390, 1366]) {
     await page.goto(web);
     await expect(page.getByRole('link', { name: 'RIDE & SEEK home' })).toBeVisible();
     await expect(page).toHaveTitle(/RIDE & SEEK/);
-    await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeInViewport();
+    await expect(page.getByRole('heading', { name: 'RIDE & SEEK', exact: true })).toBeInViewport();
     await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'smooth');
     await expect(page.locator('main .ride-screen')).toHaveCSS('animation-name', 'ride-reveal');
     await page.getByRole('link', { name: 'How it works' }).click();
@@ -56,7 +56,7 @@ test('shared controls navigate home and traverse the current app history', async
   await expect(back).toBeDisabled();
   await expect(forward).toBeDisabled();
   await tabs.getByRole('link', { name: 'Home' }).click();
-  await expect(page.getByRole('heading', { name: 'RIDE & SEEK' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'RIDE & SEEK', exact: true })).toBeVisible();
   await tabs.getByRole('link', { name: 'Your rides' }).click();
   await expect(page).toHaveURL(/\/trips$/);
   await back.click();
