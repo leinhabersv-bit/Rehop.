@@ -237,7 +237,11 @@ test('pickup speed controls advance the opt-in ride and its automatic replacemen
   await expect(page).toHaveURL(`${web}/journey/${id}`);
 
   const playback = page.getByRole('region', { name: 'Simulated pickup speed' });
-  await playback.getByRole('button', { name: 'Normal speed' }).click();
+  const normal = playback.getByRole('button', { name: 'Normal speed' });
+  const fast = playback.getByRole('button', { name: /Fast-forward pickup/ });
+  await expect(normal).toBeVisible();
+  expect((await normal.boundingBox())!.y).toBe((await fast.boundingBox())!.y);
+  await normal.click();
   await expect(playback.getByRole('status')).toHaveText('Pickup running at 1×.');
   const original = await getJourney(request, id);
   expect(original.policy.auto_rebook_on_confirmed_driver_cancel).toBe(true);
@@ -252,7 +256,7 @@ test('pickup speed controls advance the opt-in ride and its automatic replacemen
   await page.reload();
   await expect(page.getByRole('status').filter({ hasText: 'Replacement confirmed' })).toBeVisible();
   const change = page.waitForResponse(response => response.url().endsWith('/play') && response.request().method() === 'POST');
-  await playback.getByRole('button', { name: /Fast-forward pickup/ }).click();
+  await fast.click();
   expect(await (await change).json()).toEqual({ playing: true, speed: 20 });
   await page.reload();
   const board = page.getByRole('button', { name: 'Confirm boarding' });

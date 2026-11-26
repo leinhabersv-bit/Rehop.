@@ -265,13 +265,13 @@ export default function JourneyPanel({ id }: { id: string }) {
                   {ride.state === 'DRIVER_EN_ROUTE' && !done && !reconciling && (
                     <section aria-label="Simulated pickup speed" className="mb-4 grid gap-2 rounded-xl border border-white/20 bg-white/10 p-3">
                       <p className="text-sm font-bold">Simulated pickup speed</p>
-                      <div className="button-row">
-                        <button type="button" className="btn secondary" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(20)}>Fast-forward pickup · 20×</button>
-                        <button type="button" className="btn secondary" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(1)}>Normal speed</button>
+                      <div className="grid grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap">
+                        <button type="button" aria-label="Fast-forward pickup · 20×" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(20)}>Fast-forward · 20×</button>
+                        <button type="button" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(1)}>Normal speed</button>
                       </div>
                       <p role="status" className="text-sm text-[#e4eaff]">
                         {pickupPlayback.isPending ? 'Changing pickup speed…' : pickupPlayback.isError ? 'Couldn’t change pickup speed. Try again.' :
-                          pickupPlayback.data ? `Pickup running at ${pickupPlayback.data.speed}×.` : 'Fast-forward the simulated wait. Boarding still requires confirmation.'}
+                          pickupPlayback.data ? `Pickup running at ${pickupPlayback.data.speed}×.` : 'Speeds up pickup. Confirm boarding when you’re in.'}
                       </p>
                     </section>
                   )}
