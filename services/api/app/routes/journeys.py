@@ -4,9 +4,10 @@ import re
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Header, Query, Response
 
 from app.intelligence.llm import parse_ride_intent
+from app.schemas.domain import PlaybackState
 from app.schemas.enums import Provider
 from app.schemas.errors import ErrorEnvelope, SimulationError
 from app.schemas.requests import (
@@ -14,8 +15,10 @@ from app.schemas.requests import (
     ApprovalRequest,
     BookRequest,
     DriverMessageRequest,
+    InjectRequest,
     JourneyCreate,
     ParseIntentRequest,
+    PlayRequest,
     QuoteRequest,
     RecoveryPolicy,
     TickRequest,
@@ -112,14 +115,54 @@ def book(
     ).model_dump(mode="json")
 
 
-@router.get("/journeys/{journey_id}/events")
-def events(journey_id: str, since_seq: int = 0):
+EVENT_ETAG = {"ETag": {"schema": {"type": "string"}, "description": "Validator for this event cursor."}}
+
+
+@router.get(
+    "/journeys/{journey_id}/events",
+    responses={
+        200: {"headers": EVENT_ETAG},
+        304: {"description": "No change since the supplied validator.", "headers": EVENT_ETAG},
+    },
+)
+def events(
+    journey_id: str,
+    response: Response,
+    since_seq: int = 0,
+    if_none_match: Annotated[str | None, Header()] = None,
+):
     with open_ride(journey_id) as journey:
+        last_seq = journey.last_seq()
+        etag = f'"{journey.id}:{since_seq}:{last_seq}"'
+        headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+        if if_none_match and any(
+            tag.strip().removeprefix("W/") in {"*", etag} for tag in if_none_match.split(",")
+        ):
+            return Response(status_code=304, headers=headers)
+        response.headers.update(headers)
         return {
             "journey_id": journey.id,
             "events": [e.model_dump(mode="json") for e in journey.list_events(since_seq)],
-            "last_event_seq": len(journey.events),
+            "last_event_seq": last_seq,
         }
+
+
+@router.post("/journeys/{journey_id}/play")
+def play(journey_id: str, req: PlayRequest) -> PlaybackState:
+    return journey_service.play(journey_id, req.speed)
+
+
+@router.post("/journeys/{journey_id}/pause")
+def pause(journey_id: str) -> PlaybackState:
+    return journey_service.pause(journey_id)
+
+
+@router.post(
+    "/sim/journeys/{journey_id}/inject",
+    responses={404: {"description": "Simulation development endpoint disabled or journey missing."}},
+)
+def inject(journey_id: str, req: InjectRequest):
+    return journey_service.inject(journey_id, req).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/rescue/approve", responses=IDEMPOTENCY_ERRORS)

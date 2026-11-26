@@ -11,11 +11,10 @@ export class ApiError extends Error {
   }
 }
 
-async function json<T>(path: string, options?: RequestInit): Promise<T> {
+async function request(path: string, options?: RequestInit): Promise<Response> {
   const signal = options?.signal ?? AbortSignal.timeout(12_000);
-  let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    return await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...options?.headers },
       cache: 'no-store',
@@ -25,12 +24,13 @@ async function json<T>(path: string, options?: RequestInit): Promise<T> {
     if (signal.aborted) throw new ApiError('TIMEOUT', 'The request timed out.');
     throw new ApiError('NETWORK_ERROR', err instanceof Error ? err.message : 'Network request failed');
   }
+}
 
+async function parseJson<T>(response: Response): Promise<T> {
   let data: unknown;
   try {
     data = await response.json();
   } catch {
-    if (signal.aborted) throw new ApiError('TIMEOUT', 'The request timed out.');
     if (!response.ok) {
       throw new ApiError(`HTTP_${response.status}`, `HTTP ${response.status}: ${response.statusText}`, response.status);
     }
@@ -50,6 +50,16 @@ async function json<T>(path: string, options?: RequestInit): Promise<T> {
     throw new ApiError(code, message, response.status);
   }
   return data as T;
+}
+
+async function json<T>(path: string, options?: RequestInit): Promise<T> {
+  const signal = options?.signal ?? AbortSignal.timeout(12_000);
+  try {
+    return await parseJson<T>(await request(path, { ...options, signal }));
+  } catch (error) {
+    if (signal.aborted) throw new ApiError('TIMEOUT', 'The request timed out.');
+    throw error;
+  }
 }
 
 const post = <T>(path: string, body: unknown) =>
@@ -72,8 +82,15 @@ export const api = {
   driverMessage: (id: string, text: string) =>
     post<Journey>(`/api/v1/journeys/${id}/driver-message`, { text, idempotency_key: crypto.randomUUID() }),
   journey: (id: string): Promise<Journey> => json<Journey>(`/api/v1/journeys/${id}`),
-  events: (id: string, sinceSeq = 0) =>
-    json<{ events: Event[]; last_event_seq: number }>(`/api/v1/journeys/${id}/events?since_seq=${sinceSeq}`),
+  events: async (id: string, sinceSeq: number, etag?: string) => {
+    const response = await request(`/api/v1/journeys/${encodeURIComponent(id)}/events?since_seq=${sinceSeq}`, {
+      headers: etag ? { 'If-None-Match': etag } : undefined,
+    });
+    const validator = response.headers.get('ETag') ?? undefined;
+    if (response.status === 304) return { etag: validator ?? etag, page: null };
+    const page = await parseJson<{ events: Event[]; last_event_seq: number }>(response);
+    return { etag: validator, page };
+  },
   book: async (id: string, quoteId: string, expectedVersion?: number, key = crypto.randomUUID()): Promise<Journey> => {
     const payload: { quote_id: string; idempotency_key: string; expected_version?: number } = {
       quote_id: quoteId,

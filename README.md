@@ -29,12 +29,11 @@ A **simulation-first AI ride-recovery hackathon project**. RIDE & SEEK monitors 
 ## Cloud deployment
 
 Deploy `apps/web` and `services/api` as separate Vercel projects. Set the web
-project's build variables `NEXT_PUBLIC_API_BASE_URL=/ride-api` and
-`NEXT_PUBLIC_REHOP_POLLING=1`. Connect a database to the API project as
+project's build variable `NEXT_PUBLIC_API_BASE_URL=/ride-api`.
+The journey screen polls the API for live events. Connect a database to the API project as
 `DATABASE_URL` and apply `services/api/deploy/schema.sql` before sending traffic.
 Cloud tracking reads saved journeys and advances the simulated clock from the
-time of the last update. Local development still uses the in-memory engine and
-WebSockets. Set `REHOP_ROUTE_ESTIMATE_URL` on the API project to the public
+time of the last update. Local development uses the in-memory engine and the same event polling flow. Set `REHOP_ROUTE_ESTIMATE_URL` on the API project to the public
 website's `/api/maps` endpoint. Boarding uses that endpoint once to set the
 simulated arrival deadline. The browser's booking slot stays occupied until
 that deadline. Local development and map outages use a distance-based

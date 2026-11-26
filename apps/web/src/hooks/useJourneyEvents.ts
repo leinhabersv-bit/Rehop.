@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { API_BASE, api } from '@/lib/api/client';
+import { api } from '@/lib/api/client';
 import type { Event, Journey } from '@/types';
 
 export type Connection = 'connecting' | 'live' | 'replaying' | 'offline';
@@ -34,15 +34,13 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
 
-    const pollingOnly = process.env.NEXT_PUBLIC_REHOP_POLLING === '1';
     const queryKey = ['journey', journeyId];
     const received = new Map<number, Event>();
     let ordered: Event[] = [];
     let connection: Connection = 'connecting';
     let stopped = false;
     let replaying = false;
-    let socket: WebSocket | undefined;
-    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    let validator: { cursor: number; etag?: string } | undefined;
     let refresh: ReturnType<typeof setTimeout> | undefined;
 
     function publish(nextConnection: Connection = connection) {
@@ -72,71 +70,24 @@ export function useJourneyEvents(journeyId: string, enabled: boolean) {
       if (replaying || stopped) return;
       replaying = true;
       try {
-        const response = await api.events(journeyId, ordered.length);
-        merge(response.events);
-        if (pollingOnly) publish('live');
-        else if (socket?.readyState !== WebSocket.OPEN) publish('replaying');
+        const cursor = ordered.length;
+        const { page, etag } = await api.events(journeyId, cursor, validator?.cursor === cursor ? validator.etag : undefined);
+        validator = { cursor, etag };
+        if (page) merge(page.events);
+        if (connection !== 'live') publish('live');
       } catch {
-        if (socket?.readyState !== WebSocket.OPEN) publish('offline');
+        if (connection !== 'offline') publish('offline');
       } finally {
         replaying = false;
       }
     }
 
-    function reconnectLater() {
-      if (stopped) return;
-      void replay();
-      reconnect = setTimeout(connect, 2500);
-    }
-
-    function connect() {
-      if (stopped) return;
-      try {
-        const url = new URL(
-          `${API_BASE.replace(/\/$/, '')}/ws/journeys/${encodeURIComponent(journeyId)}`,
-          window.location.origin,
-        );
-        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-        url.searchParams.set('since_seq', String(ordered.length));
-        const activeSocket = new WebSocket(url);
-        socket = activeSocket;
-        activeSocket.onopen = () => {
-          publish('live');
-          void queryClient.invalidateQueries({ queryKey });
-        };
-        activeSocket.onmessage = ({ data }) => {
-          try {
-            const event = JSON.parse(data) as Event;
-            merge([event]);
-            if (received.size) void replay();
-          } catch {
-            void replay();
-          }
-        };
-        activeSocket.onclose = () => {
-          publish('connecting');
-          reconnectLater();
-        };
-        activeSocket.onerror = () => activeSocket.close();
-      } catch {
-        reconnectLater();
-      }
-    }
-
-    if (pollingOnly) void replay();
-    else connect();
-    const fallback = setInterval(() => {
-      if (received.size || socket?.readyState !== WebSocket.OPEN) void replay();
-    }, 4000);
+    void replay();
+    const polling = setInterval(() => void replay(), 1500);
     return () => {
       stopped = true;
-      clearInterval(fallback);
+      clearInterval(polling);
       clearTimeout(refresh);
-      clearTimeout(reconnect);
-      if (socket) {
-        socket.onclose = null;
-        socket.close();
-      }
     };
   }, [enabled, journeyId, queryClient]);
 
