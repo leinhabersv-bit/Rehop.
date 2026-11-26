@@ -152,8 +152,7 @@ def confirm_pickup(journey_id: str, req: ActionRequest):
 
 @router.post("/journeys/{journey_id}/tick", description="Development-only simulated clock advancement")
 def tick_journey(journey_id: str, req: TickRequest):
-    with store.lock:
-        return store.get(journey_id).tick(req.steps).model_dump(mode="json")
+    return journey_service.tick(journey_id, req.steps).model_dump(mode="json")
 
 
 @router.get("/scenarios")
@@ -192,4 +191,4 @@ def tick_scenario(scenario_id: str, req: TickRequest):
         journey_id = store.last_scenario.get(scenario_id)
         if not journey_id:
             raise SimulationError("SCENARIO_NOT_STARTED", "Start this scenario before ticking.", status=404)
-        return store.get(journey_id).tick(req.steps).model_dump(mode="json")
+        return journey_service.tick(journey_id, req.steps).model_dump(mode="json")
