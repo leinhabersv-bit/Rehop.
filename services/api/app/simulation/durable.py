@@ -74,6 +74,8 @@ class StoredSession(BaseModel):
     booking_uncertain: bool
     boarded_at: datetime | None = None
     arrives_at: datetime | None = None
+    destination_speed: PlaybackSpeed | None = None
+    destination_started_at: datetime | None = None
 
     @model_validator(mode="before")
     @classmethod

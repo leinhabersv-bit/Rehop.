@@ -118,9 +118,26 @@ def test_boarded_ride_keeps_the_booking_slot_until_destination(monkeypatch):
         assert route_requests == [(LOCATIONS[0], LOCATIONS[1])]
         assert client.get(endpoint).json()["arrives_at"] == boarded["arrives_at"]
 
+        boarded_at = datetime.fromisoformat(boarded["boarded_at"])
+        assert boarded["destination_speed"] == 20
+        changed_at = boarded_at + timedelta(seconds=15)
+        monkeypatch.setattr("app.services.journey_service.clock_now", lambda: changed_at)
+        assert client.post(f"{endpoint}/play", json={"speed": 1}).json() == {"playing": True, "speed": 1}
+        normal = client.get(endpoint).json()
+        assert normal["boarded_at"] == boarded["boarded_at"]
+        assert normal["destination_speed"] == 1
+        assert datetime.fromisoformat(normal["destination_started_at"]) == changed_at - timedelta(seconds=300)
+        assert datetime.fromisoformat(normal["arrives_at"]) == changed_at + timedelta(seconds=1200)
+        assert client.post(f"{endpoint}/play", json={"speed": 1}).status_code == 200
+        assert client.get(endpoint).json()["arrives_at"] == normal["arrives_at"]
+        assert client.post(f"{endpoint}/play", json={"speed": 20}).status_code == 200
+        assert client.get(endpoint).json()["arrives_at"] == boarded["arrives_at"]
+        assert route_requests == [(LOCATIONS[0], LOCATIONS[1])]
+
         blocked = book(client, second, rider)
         assert blocked.status_code == 409
         assert blocked.json()["error"]["code"] == "ACTIVE_RIDE_EXISTS"
         with store.lock:
             store.get(first["id"]).arrives_at = datetime.now(UTC) - timedelta(seconds=1)
+        assert client.post(f"{endpoint}/play", json={"speed": 1}).status_code == 409
         assert book(client, second, rider).status_code == 200
