@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, CarFront, Check, MapPin, ShieldCheck } from 'lucide-react';
 import { api, ApiError } from '@/lib/api/client';
 import { providerName, type Event, type Journey } from '@/types';
@@ -93,6 +93,10 @@ export default function JourneyPanel({ id }: { id: string }) {
     queryFn: () => api.journey(id),
     refetchInterval: stream.connection === 'live' ? false : 5000,
   });
+  const pickupPlayback = useMutation({
+    mutationFn: (speed: 1 | 20) => api.playPickup(id, speed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
   const data = query.data;
   const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined,
     data?.arrives_at ? Date.parse(data.arrives_at) : arrivals[id]);
@@ -177,8 +181,8 @@ export default function JourneyPanel({ id }: { id: string }) {
   const status = recoveryStatus(data, latestRecovery);
   const { timeline, progress, stalled, startDistance } = pickupActivity(stream.events, ride);
   const positionStalled = stalled && risk?.band !== 'UNKNOWN' && !query.isError;
-  const pickupStatus = ride && data.state === 'MONITORING'
-    ? rideLabels[ride.state] ?? readable(ride.state)
+  const pickupStatus = ride && (data.state === 'MONITORING' || data.state === 'AWAITING_APPROVAL')
+    ? positionStalled ? 'Driver paused' : rideLabels[ride.state] ?? readable(ride.state)
     : journeyLabels[data.state] ?? readable(data.state);
   const pickupStep = ride?.state === 'IN_PROGRESS' || data.state === 'PICKUP_CONFIRMED' ? 2
     : ride?.state === 'DRIVER_ARRIVED' ? 1 : 0;
@@ -241,6 +245,9 @@ export default function JourneyPanel({ id }: { id: string }) {
                 {error && <p role="alert" className="error">{error}</p>}
               </>
             ) : <p className={styles.pickupStatus}>{pickupStatus}</p>}
+            {backup && ride && <p>
+              Your current ride stays active while you decide. <a href="#review-switch" className="font-bold text-[#ffcbab] underline underline-offset-4">Jump to backup review</a>
+            </p>}
             {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
               <button id="confirm-boarding" className="btn scroll-mt-24" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
@@ -251,10 +258,23 @@ export default function JourneyPanel({ id }: { id: string }) {
                     <div><dt>Driver to pickup</dt><dd>{
                       ride.state === 'DRIVER_ARRIVED' ? 'At pickup' :
                       ride.state === 'IN_PROGRESS' ? 'Boarded' :
-                      ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${minutes(ride.eta_sec)} min` : '—'
+                      ride.state === 'DRIVER_EN_ROUTE' || ride.state === 'CONFIRMED' ? `${Math.max(1, minutes(ride.eta_sec))} min` : '—'
                     }</dd></div>
                     <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
                   </dl>
+                  {ride.state === 'DRIVER_EN_ROUTE' && !done && !reconciling && (
+                    <section aria-label="Simulated pickup speed" className="mb-4 grid gap-2 rounded-xl border border-white/20 bg-white/10 p-3">
+                      <p className="text-sm font-bold">Simulated pickup speed</p>
+                      <div className="grid grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap">
+                        <button type="button" aria-label="Fast-forward pickup · 20×" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(20)}>Fast-forward · 20×</button>
+                        <button type="button" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(1)}>Normal speed</button>
+                      </div>
+                      <p role="status" className="text-sm text-[#e4eaff]">
+                        {pickupPlayback.isPending ? 'Changing pickup speed…' : pickupPlayback.isError ? 'Couldn’t change pickup speed. Try again.' :
+                          pickupPlayback.data ? `Pickup running at ${pickupPlayback.data.speed}×.` : 'Speeds up pickup. Confirm boarding when you’re in.'}
+                      </p>
+                    </section>
+                  )}
                   <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
                     startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
                     progress={progress} stalled={positionStalled} status={pickupStatus} />
@@ -306,7 +326,7 @@ export default function JourneyPanel({ id }: { id: string }) {
                 {data.cancellation_fee_notice && <p className={styles.warning}>Possible fee if you switch · Up to ₹{data.cancellation_fee_notice.potential_fee_upper_bound_inr}</p>}
                 <p className="helper">This quote is subject to a fresh provider check. It does not hold a ride.</p>
                 <div className="button-row">
-                  <button className="btn" disabled={!canApprove} onClick={() => setReviewed(data)}>Review switch &amp; fee</button>
+                  <button id="review-switch" className="btn scroll-mt-24" disabled={!canApprove} onClick={() => setReviewed(data)}>Review switch &amp; fee</button>
                   <button className="btn ghost" disabled={!canApprove} onClick={() => void act('Recording your choice…', () => api.approve(id, false, data.version))}>Keep waiting</button>
                 </div>
               </div>

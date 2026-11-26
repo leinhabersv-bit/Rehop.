@@ -113,6 +113,8 @@ export const api = {
     return json<Journey>(`/api/v1/journeys/${id}/book`, { method: 'POST', headers, body: JSON.stringify(payload) });
   },
   tick: (id: string, steps = 6) => post<Journey>(`/api/v1/journeys/${id}/tick`, { steps }),
+  playPickup: (id: string, speed: 1 | 20) =>
+    post<{ playing: boolean; speed: 1 | 20 }>(`/api/v1/journeys/${encodeURIComponent(id)}/play`, { speed }),
   approve: (id: string, approved: boolean, version: number) =>
     post<Journey>(`/api/v1/journeys/${id}/rescue/approve`, {
       approved,
