@@ -268,7 +268,8 @@ test('a declined booking ends the loading screen and offers fresh trip estimates
     status: 409, json: { error: { code: 'BOOKING_FAILED', message: 'Provider refused the booking.' } },
   }));
   await bookRecommended(page);
-  await expect(page.getByRole('alert')).toContainText('Review the trip to get fresh estimates.');
+  await expect(page.getByRole('region', { name: 'Recommended ride' }).getByRole('alert'))
+    .toContainText('Review the trip to get fresh estimates.');
   await expect(page.getByRole('dialog', { name: 'Booking progress' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Review trip details' }).click();
   await expect(page).toHaveURL(`${web}/book?edit=${id}`);
