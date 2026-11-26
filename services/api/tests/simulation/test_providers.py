@@ -13,11 +13,14 @@ from app.main import app
 from app.schemas.domain import Ride
 from app.schemas.enums import EventType, GpsQuality, JourneyState, OpStatus, Provider, RideState
 from app.schemas.requests import JourneyCreate, RecoveryPolicy
+from app.services.journey_service import JourneyService
 from app.simulation.durable import StoredSession, occupies_booking
 from app.simulation.engine import BASE_TIME, LOCATIONS, SCENARIOS, Session, store
 from app.simulation.profiles import PROFILES
 from app.simulation.providers import ScenarioOverrides, SimulatedMobilityAdapter
 from app.storage.ids import IdFactory
+
+service = JourneyService()
 
 PROVIDER = Provider.PROVIDER_A
 PROFILE = PROFILES[PROVIDER]
@@ -151,15 +154,15 @@ def test_profiled_ticks_match_after_restoring_from_storage_every_tick(monkeypatc
     def start():
         session = Session(request, seed=89, scenario_ids=IdFactory(), profiled=True)
         session.provider_overrides.next_confirm[PROVIDER] = OpStatus.CONFIRMED
-        session.book(session.quotes[0].quote_id, "initial-book")
+        service.book(session.id, session.quotes[0].quote_id, "initial-book", session=session)
         return session
 
     uninterrupted = start()
     restarted = start()
     initial_draws = uninterrupted.provider_states[PROVIDER].draw_index
-    uninterrupted.tick(20)
+    service.tick(uninterrupted.id, 20, session=uninterrupted)
     for _ in range(20):
-        restarted.tick(1)
+        service.tick(restarted.id, 1, session=restarted)
         restarted = roundtrip(restarted)
     assert [event.model_dump(mode="json") for event in uninterrupted.events] == [
         event.model_dump(mode="json") for event in restarted.events
@@ -177,7 +180,7 @@ def test_unacknowledged_booking_survives_restore_and_stop_verifies_cancellation(
     for seed in range(20):
         session = Session(request, seed=seed, scenario_ids=IdFactory(), profiled=True)
         with pytest.raises(SimulationError, match="timed out"):
-            session.book(session.quotes[0].quote_id, "try-booking")
+            service.book(session.id, session.quotes[0].quote_id, "try-booking", session=session)
         ride_id = session.unconfirmed_ride.ride_id
         if session.adapters[PROVIDER].status(ride_id).state == RideState.DRIVER_EN_ROUTE:
             break
@@ -188,11 +191,11 @@ def test_unacknowledged_booking_survives_restore_and_stop_verifies_cancellation(
     assert restored.adapters[PROVIDER].status(ride_id).state == RideState.DRIVER_EN_ROUTE
     assert occupies_booking(restored)
     with pytest.raises(SimulationError, match="confirmation missing"):
-        restored.cancel("try-stop")
+        service.cancel(restored.id, "try-stop", session=restored)
     restored = roundtrip(restored)
     assert restored.adapters[PROVIDER].status(ride_id).state == RideState.RIDER_CANCELLED
     assert occupies_booking(restored)
-    stopped = restored.cancel("verify-stop")
+    stopped = service.cancel(restored.id, "verify-stop", session=restored)
     assert stopped.state == JourneyState.USER_CANCELLED
     assert stopped.last_ride.state == RideState.RIDER_CANCELLED
     assert not occupies_booking(restored)
@@ -275,11 +278,11 @@ def test_realised_pickup_incidence_matches_targets(provider, cancel_target, stal
         # Measure pickups conditional on a confirmed booking. Only the initial confirm is forced.
         session.provider_overrides.next_confirm[provider] = OpStatus.CONFIRMED
         quote = next(quote for quote in session.quotes if quote.provider == provider)
-        started = session.book(quote.quote_id, "initial")
+        started = service.book(session.id, quote.quote_id, "initial", session=session)
         distance = started.active_ride.distance_to_pickup_m
-        session.tick(180)
+        service.tick(session.id, 180, session=session)
         while session.ride and session.ride.state == RideState.DRIVER_EN_ROUTE:
-            session.tick(180)
+            service.tick(session.id, 180, session=session)
         cancellations += (
             session.last_ride is not None and session.last_ride.state == RideState.DRIVER_CANCELLED
         )

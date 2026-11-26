@@ -18,9 +18,10 @@ from app.schemas.domain import (
     RiskAssessment,
 )
 from app.schemas.enums import JourneyState, Provider, RideState, RiskBand
-from app.schemas.requests import Location, RecoveryPolicy
+from app.schemas.requests import JourneyCreate, Location, RecoveryPolicy
 from app.simulation.engine import Command, Session, store
 from app.simulation.providers import ProviderState, ScenarioOverrides
+from app.simulation.scenarios import script_for
 from app.simulation.world import DriverSim
 from app.storage.event_store import PostgresEventStore
 from app.storage.idempotency import IdempotencyRecord, IdempotencyStore, PostgresIdempotencyStore
@@ -82,7 +83,7 @@ class StoredSession(BaseModel):
 
 def tracking(session: Session) -> bool:
     return (
-        (session.scenario in {"S01", "S03"} or session.recovery_attempts > 0)
+        (script_for(session.scenario).auto_track or session.recovery_attempts > 0)
         and session.state == JourneyState.MONITORING
         and session.ride is not None
         and session.ride.state == RideState.DRIVER_EN_ROUTE
@@ -123,8 +124,9 @@ def database():
         ) from error
 
 
-def create_ride(request, scenario="S01") -> Session:
-    profiled = scenario == "S01"
+def create_ride(request: JourneyCreate, scenario: str = "S01", *, profiled: bool | None = None) -> Session:
+    if profiled is None:
+        profiled = script_for(scenario).ordinary_profiled
     if not HOSTED:
         with store.lock:
             return store.create(request, scenario=scenario, profiled=profiled)

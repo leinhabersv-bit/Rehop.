@@ -5,8 +5,11 @@ import pytest
 from app.domain.errors import SimulationError
 from app.schemas.enums import JourneyState
 from app.schemas.requests import JourneyCreate, RecoveryPolicy
+from app.services.journey_service import JourneyService
 from app.simulation.engine import BASE_TIME, LOCATIONS, SCENARIOS, SimulationStore
 from app.simulation.replay import replay_from_events
+
+service = JourneyService()
 
 
 def scenario_run(store, scenario, seed):
@@ -22,18 +25,18 @@ def scenario_run(store, scenario, seed):
     journey = store.create(request, scenario=scenario, seed=seed, deterministic=True)
     if scenario == "S12":
         with pytest.raises(SimulationError) as error:
-            journey.book(journey.quotes[0].quote_id, "book")
+            service.book(journey.id, journey.quotes[0].quote_id, "book", session=journey)
         assert error.value.code == "BOOKING_UNCONFIRMED"
     else:
-        journey.book(journey.quotes[0].quote_id, "book")
+        service.book(journey.id, journey.quotes[0].quote_id, "book", session=journey)
     if scenario == "S11":
-        journey.tick(10)
-        journey.cancel("cancel")
-    journey.tick(25)
+        service.tick(journey.id, 10, session=journey)
+        service.cancel(journey.id, "cancel", session=journey)
+    service.tick(journey.id, 25, session=journey)
     if scenario in {"S14", "S15"}:
-        journey.approve_switch(True, "approve")
+        service.approve_switch(journey.id, True, "approve", session=journey)
     if scenario == "S01":
-        journey.confirm_pickup("board")
+        service.confirm_pickup(journey.id, "board", session=journey)
     return journey
 
 

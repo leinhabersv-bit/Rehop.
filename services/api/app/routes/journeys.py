@@ -21,8 +21,9 @@ from app.schemas.requests import (
     TickRequest,
 )
 from app.services.journey_service import JourneyService
-from app.simulation.durable import HOSTED, create_ride, open_ride
+from app.simulation.durable import HOSTED, open_ride
 from app.simulation.engine import LOCATIONS, RANDOM_SCENARIO, SCENARIOS, store
+from app.simulation.scenarios import SCRIPTS, script_for
 from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
@@ -55,7 +56,7 @@ def locations():
 def get_quotes(req: QuoteRequest):
     # Quote previews are created from the journey. Use POST /journeys first
     # so quote IDs remain authoritative through booking.
-    journey = create_ride(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
+    journey = journey_service.create(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
     return {
         "journey_id": journey.id,
         "quotes": [quote.model_dump(mode="json") for quote in journey.quotes],
@@ -68,7 +69,7 @@ def create_journey(
     req: JourneyCreate,
     scenario: Annotated[Literal["S01", "S03"], Query(description="Simulated pickup behavior.")] = "S01",
 ):
-    return create_ride(req, scenario=scenario).snapshot().model_dump(mode="json")
+    return journey_service.create(req, scenario=scenario).snapshot().model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}")
@@ -163,22 +164,23 @@ def scenarios():
 
 @router.post("/scenarios/{scenario_id}/run")
 def run_scenario(scenario_id: str, seed: int = 2026):
-    if scenario_id not in SCENARIOS and scenario_id != RANDOM_SCENARIO:
+    if scenario_id not in SCRIPTS:
         raise SimulationError("SCENARIO_NOT_FOUND", "Unknown simulator scenario.", status=404)
     with store.lock:
+        script = script_for(scenario_id)
         policy = RecoveryPolicy(
-            auto_rebook_on_confirmed_driver_cancel=scenario_id in {"S04", "S05", "S06", "S07"},
-            max_total_fare_inr=330 if scenario_id == "S07" else 650,
+            auto_rebook_on_confirmed_driver_cancel=script.auto_rebook,
+            max_total_fare_inr=script.fare_cap,
         )
         request = JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1], policy=policy)
-        if scenario_id == "S16":
+        for injection in script.injections_for("NEED_BY"):
             from datetime import timedelta
 
             from app.simulation.engine import BASE_TIME
 
-            request.need_by = BASE_TIME + timedelta(minutes=5)
+            request.need_by = BASE_TIME + timedelta(minutes=injection.params["minutes"])
         journey = store.create(request, scenario=scenario_id, seed=seed, deterministic=True)
-        if scenario_id not in {"S12", RANDOM_SCENARIO}:
+        if script.auto_book:
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
             journey_service.book(journey.id, primary.quote_id, f"scenario_initial_{scenario_id}")
         store.last_scenario[scenario_id] = journey.id

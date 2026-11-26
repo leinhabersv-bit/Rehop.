@@ -8,9 +8,13 @@ from datetime import timedelta
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'services'/'api'))
+from app.services.journey_service import JourneyService
 from app.simulation.engine import Session, LOCATIONS, SCENARIOS, SimulationError, BASE_TIME
 from app.schemas.models import JourneyCreate, RecoveryPolicy
 from app.storage.ids import IdFactory
+
+
+service = JourneyService()
 
 
 def run(seed:int):
@@ -25,12 +29,12 @@ def run(seed:int):
         if scenario_id=='S16': request.need_by=BASE_TIME + timedelta(minutes=5)
         session=Session(request, scenario_id, seed, scenario_ids=scenario_ids)
         primary=next(q for q in session.quotes if q.provider=='PROVIDER_A')
-        try:session.book(primary.quote_id,f'benchmark-{scenario_id}')
+        try:service.book(session.id, primary.quote_id,f'benchmark-{scenario_id}', session=session)
         except SimulationError:pass
-        if scenario_id=='S11':session.cancel('benchmark-stop')
-        session.tick(25)
+        if scenario_id=='S11':service.cancel(session.id, 'benchmark-stop', session=session)
+        service.tick(session.id, 25, session=session)
         if scenario_id in {'S14','S15'} and session.pending_backup:
-            session.approve_switch(True,f'benchmark-switch-{scenario_id}')
+            service.approve_switch(session.id, True,f'benchmark-switch-{scenario_id}', session=session)
         results.append({
             'scenario':scenario_id,'journey_state':session.state,
             'risk_band':session.risk.band if session.risk else None,

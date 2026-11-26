@@ -35,18 +35,33 @@ class ScenarioScript:
     fare_cap: int = 650
     auto_book: bool = True
     sampled: bool = False
+    auto_track: bool = False
+    ordinary_profiled: bool = False
+    arrival_tick: int | None = None
+
+    def injections_for(self, kind: InjectionKind, *, stage: str | None = None) -> tuple[Injection, ...]:
+        return tuple(
+            item for item in self.injections if item.kind == kind and item.params.get("stage") == stage
+        )
+
+    def at_tick(self, tick: int, ride_number: int) -> tuple[Injection, ...]:
+        return tuple(
+            item
+            for item in self.injections
+            if item.at_tick == tick and item.params.get("ride_number", ride_number) == ride_number
+        )
 
 
 STALL = Injection(1, "FORCE_MODE", {"mode": "STALLED", "ride_number": 1})
 CANCEL = Injection(8, "DRIVER_CANCEL", {"ride_number": 1})
 
 SCRIPTS = {
-    "S01": ScenarioScript("Healthy pickup"),
+    "S01": ScenarioScript("Healthy pickup", auto_track=True, ordinary_profiled=True),
     "S02": ScenarioScript(
         "Temporary traffic stop",
         injections=(Injection(3, "FORCE_MODE", {"mode": "STOPPED", "duration_ticks": 5, "ride_number": 1}),),
     ),
-    "S03": ScenarioScript("Driver stalled, ETA increasing", injections=(STALL,)),
+    "S03": ScenarioScript("Driver stalled, ETA increasing", injections=(STALL,), auto_track=True),
     "S04": ScenarioScript("Driver cancels", injections=(CANCEL,), auto_rebook=True),
     "S05": ScenarioScript(
         "Second driver also cancels",
@@ -81,7 +96,7 @@ SCRIPTS = {
     "S09": ScenarioScript(
         "Near pickup, stationary", profile_overrides={"distance_m": 100}, injections=(STALL,)
     ),
-    "S10": ScenarioScript("Arrival/cancellation race", profile_overrides={"distance_m": 900}),
+    "S10": ScenarioScript("Arrival/cancellation race", profile_overrides={"distance_m": 900}, arrival_tick=6),
     "S11": ScenarioScript("User cancels during recovery", injections=(STALL,)),
     "S12": ScenarioScript(
         "Booking status unknown",

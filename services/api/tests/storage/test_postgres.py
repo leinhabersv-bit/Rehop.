@@ -9,10 +9,13 @@ import pytest
 from app.domain.errors import SimulationError
 from app.schemas.enums import EventType, JourneyState
 from app.schemas.requests import JourneyCreate
+from app.services.journey_service import JourneyService
 from app.simulation import durable
 from app.simulation.engine import LOCATIONS, Session
 from app.simulation.replay import replay_from_events
 from app.storage.event_store import MemoryEventStore, PostgresEventStore
+
+service = JourneyService()
 
 SCHEMA = Path(__file__).resolve().parents[2] / "deploy" / "schema.sql"
 
@@ -102,7 +105,9 @@ def test_hosted_mutations_keep_event_copies_identical_and_replay_responses(hoste
     rider_id = str(uuid4())
     assert_event_copies(stalled.id)
     with durable.open_ride(stalled.id, rider_id=rider_id) as session:
-        initial = session.book(session.quotes[0].quote_id, "book", expected_version=stalled.version)
+        initial = service.book(
+            session.id, session.quotes[0].quote_id, "book", expected_version=stalled.version, session=session
+        )
     assert_event_copies(stalled.id)
     competing = durable.create_ride(request)
     assert_event_copies(competing.id)
@@ -110,39 +115,48 @@ def test_hosted_mutations_keep_event_copies_identical_and_replay_responses(hoste
         pytest.raises(SimulationError, match="already have an active ride"),
         durable.open_ride(competing.id, rider_id=rider_id) as session,
     ):
-        session.book(session.quotes[0].quote_id, "book")
+        service.book(session.id, session.quotes[0].quote_id, "book", session=session)
     assert_event_copies(competing.id)
 
     with durable.open_ride(stalled.id) as session:
-        session.driver_message("Traffic, 10 min", "message")
+        service.driver_message(session.id, "Traffic, 10 min", "message", session=session)
     assert_event_copies(stalled.id)
     now += timedelta(seconds=125)
     with durable.open_ride(stalled.id) as session:
         assert session.state == JourneyState.AWAITING_APPROVAL
     assert_event_copies(stalled.id)
     with durable.open_ride(stalled.id) as session:
-        session.approve_switch(True, "approve")
+        service.approve_switch(session.id, True, "approve", session=session)
     assert_event_copies(stalled.id)
     now += timedelta(seconds=125)
     with durable.open_ride(stalled.id) as session:
-        session.confirm_pickup("board")
+        service.confirm_pickup(session.id, "board", session=session)
     events = assert_event_copies(stalled.id)
     assert replay_from_events(stalled.id).state == JourneyState.PICKUP_CONFIRMED
     with durable.open_ride(stalled.id, rider_id=rider_id) as session:
-        assert session.book(session.quotes[0].quote_id, "book", expected_version=stalled.version) == initial
+        assert (
+            service.book(
+                session.id,
+                session.quotes[0].quote_id,
+                "book",
+                expected_version=stalled.version,
+                session=session,
+            )
+            == initial
+        )
     assert assert_event_copies(stalled.id) == events
     with (
         pytest.raises(SimulationError, match="different request") as error,
         durable.open_ride(stalled.id) as session,
     ):
-        session.cancel("book")
+        service.cancel(session.id, "book", session=session)
     assert error.value.code == "IDEMPOTENCY_KEY_REUSED"
     assert assert_event_copies(stalled.id) == events
     with durable.open_ride(competing.id, rider_id=rider_id) as session:
-        session.book(session.quotes[0].quote_id, "book")
+        service.book(session.id, session.quotes[0].quote_id, "book", session=session)
     assert_event_copies(competing.id)
     with durable.open_ride(competing.id) as session:
-        session.cancel("cancel")
+        service.cancel(session.id, "cancel", session=session)
     assert_event_copies(competing.id)
 
 
@@ -161,11 +175,11 @@ def test_hosted_events_and_response_roll_back_with_payload(hosted_database, monk
             pytest.raises(RuntimeError, match="forced failure"),
             durable.open_ride(session.id) as journey,
         ):
-            journey.book(journey.quotes[0].quote_id, "book")
+            service.book(journey.id, journey.quotes[0].quote_id, "book", session=journey)
     assert assert_event_copies(session.id) == events
     with durable.open_ride(session.id) as journey:
         assert journey.state == JourneyState.WAITING_FOR_RIDE
-        assert journey.book(journey.quotes[0].quote_id, "book").active_ride_id
+        assert service.book(journey.id, journey.quotes[0].quote_id, "book", session=journey).active_ride_id
     assert len(assert_event_copies(session.id)) == len(events) + 1
 
 
@@ -175,7 +189,7 @@ def test_hosted_backfills_legacy_events_and_keeps_legacy_keys(hosted_database):
     legacy = Session(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]))
     quote = legacy.quotes[0].quote_id
     version = legacy.version
-    legacy.book(quote, "book", expected_version=version)
+    service.book(legacy.id, quote, "book", expected_version=version, session=legacy)
     payload = durable.StoredSession.model_validate(vars(legacy)).model_dump(mode="json")
     del payload["idempotency_records"]
     del payload["deterministic"]
@@ -188,6 +202,9 @@ def test_hosted_backfills_legacy_events_and_keeps_legacy_keys(hosted_database):
     assert_event_copies(legacy.id)
     with durable.open_ride(legacy.id) as journey:
         with pytest.raises(SimulationError, match="different request"):
-            journey.cancel("book")
-        assert journey.book(quote, "book", expected_version=version) == legacy.snapshot()
+            service.cancel(journey.id, "book", session=journey)
+        assert (
+            service.book(journey.id, quote, "book", expected_version=version, session=journey)
+            == legacy.snapshot()
+        )
     assert_event_copies(legacy.id)

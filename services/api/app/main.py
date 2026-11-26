@@ -13,15 +13,17 @@ from starlette.concurrency import run_in_threadpool
 
 from app.routes.journeys import router
 from app.schemas.errors import ErrorEnvelope, ErrorPayload, SimulationError
+from app.services.journey_service import JourneyService
 from app.simulation.durable import HOSTED, tracking
 from app.simulation.engine import store
 
 
 def advance_rider_pickups() -> None:
+    service = JourneyService()
     with store.lock:
         for journey in store.sessions.values():
             if not journey.deterministic and tracking(journey):
-                journey.tick(1)
+                service.tick(journey.id, 1, session=journey)
 
 
 @asynccontextmanager
