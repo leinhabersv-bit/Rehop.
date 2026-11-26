@@ -21,7 +21,6 @@ from app.schemas.domain import (
     Quote,
     Ride,
     RiskAssessment,
-    TelemetrySample,
 )
 from app.schemas.enums import (
     ChatLabel,
@@ -41,7 +40,9 @@ from app.simulation.providers import (
     ScenarioOverrides,
     SimulatedMobilityAdapter,
 )
+from app.simulation.scenarios import script_for
 from app.simulation.trip_duration import straight_line_distance_m
+from app.simulation.world import DriverSim
 from app.storage.event_store import MemoryEventStore
 from app.storage.idempotency import (
     FailureResponse,
@@ -153,6 +154,7 @@ class Session:
         self.provider_overrides = ScenarioOverrides(scripted=not (profiled or scenario == RANDOM_SCENARIO))
         if scenario == "S12":
             self.provider_overrides.next_confirm = dict.fromkeys(PROFILES, OpStatus.UNKNOWN)
+        self.driver_sim: DriverSim | None = None
         self.stall_ticks_remaining = 0
         self.unconfirmed_ride: Ride | None = None
         self.restore_providers()
@@ -432,7 +434,9 @@ class Session:
             ),
             booked_at=self.clock,
             driver_id=f"SIM_DRIVER_{count}",
-            distance_to_pickup_m=(100 if self.scenario == "S09" else 2200),
+            distance_to_pickup_m=script_for(
+                self.scenario, profiled=not self.provider_overrides.scripted
+            ).profile_overrides.get("distance_m", 2200),
             eta_sec=quote.pickup_eta_sec,
             last_position_at=self.clock,
             cancellation_fee_inr=None,
@@ -475,6 +479,7 @@ class Session:
         self.cancellation_fee_notice = None
         self.ride = result.ride
         assert self.ride is not None
+        self._create_driver_sim()
         self._transition_journey(JourneyState.MONITORING, reason="Provider confirmed the booking.")
         self.attempted_providers.add(quote.provider)
         self.add_event(
@@ -595,147 +600,26 @@ class Session:
         self._checked_snapshot()
 
     def tick(self, steps: int) -> JourneySnapshot:
-        for _ in range(steps):
-            self.clock += timedelta(seconds=5)
-            if not self.ride or self.state in STOPPED or self.state == JourneyState.RECONCILING:
-                continue
-            if self.ride.state == RideState.DRIVER_ARRIVED:
-                continue
-            self.ride_ticks += 1
-            adapter = self.adapters[self.ride.provider]
-            profiled = not self.provider_overrides.scripted
-            scripted_cancel = (
-                self.scenario in {"S04", "S05", "S06", "S07"}
-                and self.ride_ticks >= 8
-                and self.ride_count <= (2 if self.scenario == "S05" else 1)
-            )
-            if scripted_cancel or (profiled and adapter.hazard(adapter.profile.driver_cancel_hazard_per_min)):
-                self.driver_cancel()
-                continue
-            if self.scenario == "S10" and self.ride_ticks >= 6:
-                self._arrive()
-                continue
-            if (self.scenario == "S08" and self.ride_ticks >= 4) or (
-                profiled and adapter.hazard(adapter.profile.gps_dropout_hazard_per_min)
-            ):
-                # Leave last_position_at unchanged: GPS freshness becomes unknown.
-                self.ride.gps_quality = GpsQuality.POOR
-                gps_age = (self.clock - self.ride.last_position_at).total_seconds()
-                self.risk = self.intelligence.assess(
-                    stationary_duration_s=self.stationary_ticks * 5,
-                    eta_delta_s=self.eta_delta_s,
-                    distance_to_pickup_m=self.ride.distance_to_pickup_m,
-                    gps_age_s=int(gps_age),
-                    gps_quality=GpsQuality.POOR,
-                )
-                self.add_event(EventType.RISK_UPDATED, self.risk, self.ride.ride_id)
-                continue
-            stationary = (
-                (self.ride_count == 1 and self.scenario in {"S03", "S11", "S13", "S14", "S15", "S16"})
-                or (self.scenario == "S02" and 3 <= self.ride_ticks <= 7)
-                or self.scenario == "S09"
-            )
-            if profiled:
-                if self.stall_ticks_remaining == 0 and adapter.hazard(adapter.profile.stall_hazard_per_min):
-                    self.stall_ticks_remaining = adapter.stall_ticks()
-                stationary = self.stall_ticks_remaining > 0
-                if stationary:
-                    self.stall_ticks_remaining -= 1
-            if stationary:
-                self.stationary_ticks += 1
-                self.eta_delta_s += 15
-                self.ride.eta_sec += 15
-            else:
-                progress = adapter.progress_m() if profiled else 150
-                detour = profiled and adapter.hazard(adapter.profile.detour_hazard_per_min)
-                self.stationary_ticks = 0
-                self.eta_delta_s = 20 if detour else 0
-                self.ride.distance_to_pickup_m = max(
-                    0, self.ride.distance_to_pickup_m + (450 if detour else -progress)
-                )
-                self.ride.eta_sec = max(0, self.ride.eta_sec + (20 if detour else -5))
-            self.ride.last_position_at = self.clock
-            self.ride.gps_quality = GpsQuality.GOOD
-            sample = TelemetrySample(
-                ride_id=self.ride.ride_id,
-                observed_at=self.ride.last_position_at,
-                distance_to_pickup_m=self.ride.distance_to_pickup_m,
-                eta_sec=self.ride.eta_sec,
-                gps_quality=GpsQuality.GOOD,
-            )
-            # The legacy telemetry event carries only these sample fields.
-            self.add_event(
-                EventType.TELEMETRY_UPDATED,
-                {
-                    "distance_to_pickup_m": sample.distance_to_pickup_m,
-                    "eta_sec": sample.eta_sec,
-                    "gps_quality": sample.gps_quality,
-                    "is_simulated": True,
-                },
-                sample.ride_id,
-            )
-            self.risk = self.intelligence.assess(
-                stationary_duration_s=self.stationary_ticks * 5,
-                eta_delta_s=self.eta_delta_s,
-                distance_to_pickup_m=sample.distance_to_pickup_m,
-                gps_age_s=0,
-                gps_quality=sample.gps_quality,
-            )
-            if (
-                self.risk.band in {RiskBand.MEDIUM, RiskBand.HIGH}
-                and self.risk.band not in self.explained_bands
-            ):
-                checked = self.intelligence.explain(
-                    self.risk.explanation,
-                    [self.ride.eta_sec, self.ride.distance_to_pickup_m],
-                    offline=self.deterministic,
-                )
-                self.risk.explanation = checked.explanation
-                self.risk.explanation_source = checked.source
-                self.explained_bands.add(self.risk.band)
-                self.add_event(
-                    EventType.EXPLANATION_VERIFIED,
-                    {"source": checked.source, "numbers_checked_against_telemetry": True},
-                    self.ride.ride_id,
-                )
-            self.add_event(EventType.RISK_UPDATED, self.risk, self.ride.ride_id)
-            if self.scenario == "S13" and self.ride_count == 1 and self.ride_ticks == 5:
-                self._classify_driver_message("Please cancel kar do, I am not coming.")
-            if (
-                self.risk.band in {RiskBand.HIGH, RiskBand.MEDIUM}
-                and not self.pending_backup
-                and self.recovery_attempts < self.policy.max_recovery_attempts
-            ):
-                candidates = self._backups()
-                if candidates:
-                    assessment = self._evaluate_backup(self.ride, candidates[0])
-                    self.decision = assessment
-                    self.add_event(EventType.DEADLINE_DECISION, assessment, self.ride.ride_id)
-                    if assessment.recommendation == "PROPOSE_SWITCH":
-                        self.pending_backup = candidates[0]
-                        self.cancellation_fee_notice = self._fee_notice()
-                        self._transition_journey(
-                            JourneyState.AWAITING_APPROVAL,
-                            reason="A preemptive switch requires rider approval.",
-                        )
-                        self.add_event(
-                            EventType.BACKUP_FOUND, {"candidate": self.pending_backup}, self.ride.ride_id
-                        )
-                        self.add_event(
-                            EventType.APPROVAL_REQUIRED,
-                            {
-                                "reason": "Deadline-aware switching proposal; rider approval required",
-                                "cancellation_fee_notice": self.cancellation_fee_notice,
-                            },
-                            self.ride.ride_id,
-                        )
-                else:
-                    self.add_event(
-                        EventType.RECOVERY_BLOCKED, {"reason": "No eligible backup"}, self.ride.ride_id
-                    )
-            if self.ride.distance_to_pickup_m <= 0:
-                self._arrive()
-        return self._checked_snapshot()
+        from app.services.journey_service import JourneyService
+
+        return JourneyService().tick(self.id, steps, session=self)
+
+    def _create_driver_sim(self) -> DriverSim:
+        adapter = self.adapters[self.ride.provider]
+        scripted = self.provider_overrides.scripted
+        self.driver_sim = DriverSim.create(
+            self.ride.ride_id,
+            self.pickup,
+            adapter.profile,
+            adapter.rng,
+            distance_m=self.ride.distance_to_pickup_m,
+            speed_mps=150 / 5 if scripted else None,
+            sampled=not scripted,
+        )
+        self.driver_sim.traffic_multiplier = (
+            self.ride.eta_sec * self.driver_sim.current_speed_mps / max(1, self.ride.distance_to_pickup_m)
+        )
+        return self.driver_sim
 
     def _arrive(self):
         if not self.ride or self.ride.state == RideState.DRIVER_ARRIVED:

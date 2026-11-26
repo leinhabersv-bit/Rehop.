@@ -20,11 +20,13 @@ from app.schemas.requests import (
     RecoveryPolicy,
     TickRequest,
 )
+from app.services.journey_service import JourneyService
 from app.simulation.durable import HOSTED, create_ride, open_ride
 from app.simulation.engine import LOCATIONS, RANDOM_SCENARIO, SCENARIOS, store
 from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
+journey_service = JourneyService()
 IDEMPOTENCY_ERRORS = {
     409: {
         "model": ErrorEnvelope,
@@ -41,8 +43,7 @@ def parse_intent(req: ParseIntentRequest):
 
 @router.post("/journeys/{journey_id}/driver-message", responses=IDEMPOTENCY_ERRORS)
 def driver_message(journey_id: str, req: DriverMessageRequest):
-    with open_ride(journey_id) as journey:
-        return journey.driver_message(req.text, req.idempotency_key).model_dump(mode="json")
+    return journey_service.driver_message(journey_id, req.text, req.idempotency_key).model_dump(mode="json")
 
 
 @router.get("/locations")
@@ -100,10 +101,14 @@ def book(
         if re.fullmatch(r"journey_[a-f0-9]{12}", recent_id)
     )
     rider_id = str(x_ride_rider) if x_ride_rider else None
-    with open_ride(journey_id, rider_id=rider_id, recent_ids=recent_ids) as journey:
-        return journey.book(
-            req.quote_id, req.idempotency_key, expected_version=req.expected_version
-        ).model_dump(mode="json")
+    return journey_service.book(
+        journey_id,
+        req.quote_id,
+        req.idempotency_key,
+        expected_version=req.expected_version,
+        rider_id=rider_id,
+        recent_ids=recent_ids,
+    ).model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}/events")
@@ -118,32 +123,36 @@ def events(journey_id: str, since_seq: int = 0):
 
 @router.post("/journeys/{journey_id}/rescue/approve", responses=IDEMPOTENCY_ERRORS)
 def approve(journey_id: str, req: ApprovalRequest):
-    with open_ride(journey_id) as journey:
-        return journey.approve_switch(
-            req.approved, req.idempotency_key, expected_version=req.expected_version
-        ).model_dump(mode="json")
+    return journey_service.approve_switch(
+        journey_id,
+        req.approved,
+        req.idempotency_key,
+        expected_version=req.expected_version,
+    ).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/cancel", responses=IDEMPOTENCY_ERRORS)
 def cancel(journey_id: str, req: ActionRequest):
-    with open_ride(journey_id) as journey:
-        return journey.cancel(req.idempotency_key, expected_version=req.expected_version).model_dump(
-            mode="json"
-        )
+    return journey_service.cancel(
+        journey_id,
+        req.idempotency_key,
+        expected_version=req.expected_version,
+    ).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/pickup/confirm", responses=IDEMPOTENCY_ERRORS)
 def confirm_pickup(journey_id: str, req: ActionRequest):
-    with open_ride(journey_id) as journey:
-        return journey.confirm_pickup(
-            req.idempotency_key, expected_version=req.expected_version, trip_duration=destination_playback
-        ).model_dump(mode="json")
+    return journey_service.confirm_pickup(
+        journey_id,
+        req.idempotency_key,
+        expected_version=req.expected_version,
+        trip_duration=destination_playback,
+    ).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/tick", description="Development-only simulated clock advancement")
 def tick_journey(journey_id: str, req: TickRequest):
-    with store.lock:
-        return store.get(journey_id).tick(req.steps).model_dump(mode="json")
+    return journey_service.tick(journey_id, req.steps).model_dump(mode="json")
 
 
 @router.get("/scenarios")
@@ -171,7 +180,7 @@ def run_scenario(scenario_id: str, seed: int = 2026):
         journey = store.create(request, scenario=scenario_id, seed=seed, deterministic=True)
         if scenario_id not in {"S12", RANDOM_SCENARIO}:
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
-            journey.book(primary.quote_id, f"scenario_initial_{scenario_id}")
+            journey_service.book(journey.id, primary.quote_id, f"scenario_initial_{scenario_id}")
         store.last_scenario[scenario_id] = journey.id
         return journey.snapshot().model_dump(mode="json")
 
@@ -182,4 +191,4 @@ def tick_scenario(scenario_id: str, req: TickRequest):
         journey_id = store.last_scenario.get(scenario_id)
         if not journey_id:
             raise SimulationError("SCENARIO_NOT_STARTED", "Start this scenario before ticking.", status=404)
-        return store.get(journey_id).tick(req.steps).model_dump(mode="json")
+        return journey_service.tick(journey_id, req.steps).model_dump(mode="json")

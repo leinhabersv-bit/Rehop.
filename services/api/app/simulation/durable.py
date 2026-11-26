@@ -21,6 +21,7 @@ from app.schemas.enums import JourneyState, Provider, RideState, RiskBand
 from app.schemas.requests import Location, RecoveryPolicy
 from app.simulation.engine import Command, Session, store
 from app.simulation.providers import ProviderState, ScenarioOverrides
+from app.simulation.world import DriverSim
 from app.storage.event_store import PostgresEventStore
 from app.storage.idempotency import IdempotencyRecord, IdempotencyStore, PostgresIdempotencyStore
 
@@ -61,6 +62,7 @@ class StoredSession(BaseModel):
     provider_states: dict[Provider, ProviderState] = Field(default_factory=dict)
     provider_overrides: ScenarioOverrides = Field(default_factory=lambda: ScenarioOverrides(scripted=True))
     stall_ticks_remaining: int = 0
+    driver_sim: DriverSim | None = None
     unconfirmed_ride: Ride | None = None
     booking_uncertain: bool
     boarded_at: datetime | None = None
@@ -88,13 +90,15 @@ def tracking(session: Session) -> bool:
 
 
 def advance(session: Session, last_tick: datetime | None, now: datetime) -> datetime | None:
+    from app.services.journey_service import JourneyService
+
     if not tracking(session):
         return None
     if last_tick is None:
         return now
     elapsed = (now - last_tick) // timedelta(seconds=5)
     for _ in range(min(elapsed, 180)):
-        session.tick(1)
+        JourneyService().tick(session.id, 1, session=session)
         if not tracking(session):
             return None
         last_tick += timedelta(seconds=5)
