@@ -9,16 +9,18 @@ export function RideUpdate({ ride, receiptId }: { ride?: Journey; receiptId?: st
   const atPickup = ride?.active_ride?.state === 'DRIVER_ARRIVED';
   const boarding = ride?.state === 'PICKUP_CONFIRMED';
   const approval = ride?.state === 'AWAITING_APPROVAL';
+  const replacement = approval && !ride?.active_ride && ride?.last_ride?.state === 'DRIVER_CANCELLED';
   const uncertain = ride?.booking_uncertain || ride?.state === 'RECONCILING';
   const title = !ride ? 'Trip completed' : atPickup ? 'Your driver has arrived' :
-    boarding ? 'You’re on your way' : approval ? 'A backup ride needs your review' :
+    boarding ? 'You’re on your way' : replacement ? 'Your driver cancelled' : approval ? 'A backup ride needs your review' :
     uncertain ? 'Checking your booking' : 'Your ride is on the way';
   const detail = !ride ? 'Your trip receipt is ready.' : atPickup ? 'Confirm boarding when you’re in the car.' :
+    replacement ? 'Review the replacement to continue. Auto-rebooking is off.' :
     approval ? 'Open tracking to review the backup and any cancellation fee.' : uncertain ? 'Open tracking for the latest provider status.' :
     boarding ? `Heading to ${ride.dropoff.label}.` : `Pickup at ${ride.pickup.label}.`;
   const Icon = !ride ? CheckCircle2 : atPickup ? MapPin : approval || uncertain ? Bell : CarFront;
-  const href = `/journey/${encodeURIComponent(id)}${atPickup ? '#confirm-boarding' : ''}`;
-  const action = !ride ? 'View trip receipt' : atPickup ? 'Confirm boarding' : approval ? 'Review backup' : 'Track ride';
+  const href = `/journey/${encodeURIComponent(id)}${atPickup ? '#confirm-boarding' : replacement ? '#review-replacement' : ''}`;
+  const action = !ride ? 'View trip receipt' : atPickup ? 'Confirm boarding' : replacement ? 'Review replacement' : approval ? 'Review backup' : 'Track ride';
 
   return (
     <section aria-label="Ride update" className="sticky top-14 z-30 flex flex-wrap items-center gap-3 rounded-2xl border border-[#d9dbe7] bg-[#fffdf8] p-3 shadow-md sm:top-16 sm:px-4">
