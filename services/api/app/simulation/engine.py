@@ -7,10 +7,7 @@ from datetime import UTC, datetime, timedelta
 from threading import RLock
 
 from app.domain.errors import SimulationError as SimulationError
-from app.domain.invariants import check_invariants
-from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
-from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
-from app.intelligence.interface import DefaultIntelligence, IntelligencePort
+from app.domain.state_machine import transition_journey
 from app.schemas.domain import (
     ChatSignal,
     DeadlineDecision,
@@ -23,13 +20,9 @@ from app.schemas.domain import (
     RiskAssessment,
 )
 from app.schemas.enums import (
-    ChatLabel,
     EventType,
-    GpsQuality,
     JourneyState,
-    OpStatus,
     Provider,
-    RideState,
     RiskBand,
 )
 from app.schemas.requests import JourneyCreate, Location
@@ -46,12 +39,9 @@ from app.simulation.trip_duration import straight_line_distance_m
 from app.simulation.world import DriverSim
 from app.storage.event_store import MemoryEventStore
 from app.storage.idempotency import (
-    FailureResponse,
     IdempotencyRecord,
     IdempotencyStore,
     MemoryIdempotencyStore,
-    fingerprint,
-    key_reused,
 )
 from app.storage.ids import IdFactory
 
@@ -101,8 +91,6 @@ Command = tuple[str, str | bool | None, int | None]
 
 
 class Session:
-    intelligence: IntelligencePort = DefaultIntelligence()
-
     def __init__(
         self,
         request: JourneyCreate,
@@ -157,7 +145,9 @@ class Session:
         self.arrives_at: datetime | None = None
         self.add_event(EventType.JOURNEY_CREATED, {"scenario": scenario, "is_simulated": True})
         self.add_event(EventType.QUOTES_READY, {"quotes": self.quotes})
-        self._transition_journey(JourneyState.WAITING_FOR_RIDE, reason="Initial quotes are ready.")
+        self.state = transition_journey(
+            self.state, JourneyState.WAITING_FOR_RIDE, reason="Initial quotes are ready."
+        )
 
     def restore_stores(self, idempotency_store: IdempotencyStore | None = None) -> None:
         self._event_store = MemoryEventStore(self.events)
@@ -190,80 +180,10 @@ class Session:
     def _search(self, name: Provider) -> Quote:
         return self.adapters[name].search(self.id, self.clock, self._distance_km)
 
-    def _refresh_backup(self, quote: Quote) -> Quote | None:
-        """A fresh simulated search/select/init BEFORE touching the current booking."""
-        if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh"):
-            self.provider_overrides.reject_next_init.add(quote.provider)
-        refreshed = self._search(quote.provider)
-        if not self.adapters[quote.provider].init(refreshed, self.clock) or (
-            refreshed.estimated_fare_inr > self.policy.max_total_fare_inr
-        ):
-            reason = (
-                "Backup disappeared during search; original kept"
-                if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh")
-                else "Quote no longer eligible"
-            )
-            self.add_event(EventType.QUOTE_REFRESH_FAILED, {"reason": reason})
-            return None
-        self.quotes = [refreshed if q.provider == refreshed.provider else q for q in self.quotes]
-        self.add_event(EventType.QUOTE_REFRESHED, {"candidate": refreshed, "not_a_reservation": True})
-        return refreshed
-
-    def _fee_notice(self) -> FeeNotice:
-        fare = next(
-            (q.estimated_fare_inr for q in self.quotes if self.ride and q.quote_id == self.ride.quote_id),
-            0,
-        )
-        bound = min(round(fare * 0.10), 100)
-        # Guideline 18.2 applies ONLY to passenger cancellation without valid reason;
-        # actual provider/state rule may differ. This is a simulation estimate.
-        return FeeNotice(
-            potential_fee_upper_bound_inr=bound,
-            actual_fee_inr=None,
-            fee_confirmed=False,
-            source="MVAG 2025 clause 18.2: conditional illustration",
-            caution="Not a guaranteed charge. Provider and state rules govern; "
-            "valid reasons may avoid the fee.",
-        )
-
-    def _evaluate_backup(self, ride: Ride, candidate: Quote) -> DeadlineDecision:
-        fee = self._fee_notice()
-        current_fare = next((q.estimated_fare_inr for q in self.quotes if q.quote_id == ride.quote_id), 0)
-        return self.intelligence.decide(
-            now=self.clock,
-            need_by=self.need_by,
-            current_eta_sec=ride.eta_sec,
-            backup_eta_sec=candidate.pickup_eta_sec,
-            current_fare_inr=current_fare,
-            backup_fare_inr=candidate.estimated_fare_inr,
-            cancellation_fee_upper_bound_inr=fee.potential_fee_upper_bound_inr,
-            risk_band=self.risk.band if self.risk else RiskBand.UNKNOWN,
-            chat_signal=self.driver_chat_signal.label if self.driver_chat_signal else None,
-        )
-
     def driver_message(self, text: str, key: str) -> JourneySnapshot:
-        return self._idempotent("driver_message", key, {"text": text}, lambda: self._message(text))
+        from app.services.journey_service import JourneyService
 
-    def _message(self, text: str) -> JourneySnapshot:
-        self._classify_driver_message(text)
-        return self._checked_snapshot()
-
-    def _classify_driver_message(self, text: str) -> None:
-        if not self.ride or self.state in STOPPED:
-            raise SimulationError("INVALID_STATE", "No active driver conversation.")
-        self.driver_chat_signal = self.intelligence.classify_message(text, offline=self.deterministic)
-        self.add_event(
-            EventType.DRIVER_MESSAGE_CLASSIFIED,
-            {"message": text[:300], "signal": self.driver_chat_signal},
-            self.ride.ride_id,
-        )
-        # Never cancel from driver chat. Advice can elevate attention, not permissions.
-        if self.driver_chat_signal.label == ChatLabel.REQUEST_RIDER_CANCEL:
-            self.add_event(
-                EventType.RISK_SIGNAL_ADDED,
-                {"signal": "driver_requests_rider_cancellation", "advisory_only": True},
-                self.ride.ride_id,
-            )
+        return JourneyService().driver_message(self.id, text, key, session=self)
 
     def add_event(self, kind: EventType, payload: EventPayload, ride_id: str | None = None) -> JourneyEvent:
         event = self._event_store.append(self.id, kind, payload, ride_id, self.clock)
@@ -303,447 +223,29 @@ class Session:
             arrives_at=self.arrives_at,
         )
 
-    def _checked_snapshot(self) -> JourneySnapshot:
-        snapshot = self.snapshot()
-        check_invariants(snapshot)
-        return snapshot
-
-    def _transition_journey(self, target: JourneyState, *, reason: str) -> None:
-        if target == self.state:
-            return
-        self.state = transition_journey(self.state, target, reason=reason)
-        if target in STOPPED:
-            self.pending_backup = None
-
-    def _validate_version(self, expected_version: int | None):
-        if expected_version is not None and expected_version != self.version:
-            raise SimulationError(
-                "STALE_JOURNEY_VERSION", "Refresh journey state before acting.", retryable=True
-            )
-
-    def _idempotent(
-        self, operation: str, key: str, body: dict, action: Callable[[], JourneySnapshot]
-    ) -> JourneySnapshot:
-        request_hash = fingerprint({"idempotency_key": key, **body})
-        record = self._idempotency_store.get(self.id, key)
-        if record is not None:
-            return record.replay(operation, request_hash)
-
-        # Legacy hosted payloads recorded the command and failure but had no response snapshot.
-        legacy = self.idempotency.get(key)
-        if legacy is not None:
-            (legacy_operation, argument, version), failure = legacy
-            if operation != legacy_operation:
-                raise key_reused()
-            legacy_body = {"expected_version": version} if operation != "driver_message" else {}
-            legacy_body["idempotency_key"] = key
-            argument_name = {"book": "quote_id", "approve_switch": "approved", "driver_message": "text"}
-            if operation in argument_name:
-                legacy_body[argument_name[operation]] = argument
-            legacy_hash = fingerprint(legacy_body)
-            if request_hash != legacy_hash:
-                raise key_reused()
-            record = IdempotencyRecord(
-                operation=operation,
-                request_hash=legacy_hash,
-                response=FailureResponse(code=failure[0], message=failure[1]) if failure else self.snapshot(),
-            )
-            self._idempotency_store.put(self.id, key, record)
-            return record.replay(operation, request_hash)
-
-        before = self.version
-        try:
-            response = action()
-        except SimulationError as error:
-            # Rejected preconditions can be corrected and retried. Preserve applied failures.
-            if self.version != before or error.code in {"BOOKING_FAILED", "BOOKING_UNCONFIRMED"}:
-                record = IdempotencyRecord(
-                    operation=operation, request_hash=request_hash, response=FailureResponse.from_error(error)
-                )
-                self._idempotency_store.put(self.id, key, record)
-            raise
-        record = IdempotencyRecord(operation=operation, request_hash=request_hash, response=response)
-        self._idempotency_store.put(self.id, key, record)
-        return response
-
     def book(self, quote_id: str, key: str, *, expected_version: int | None = None) -> JourneySnapshot:
-        return self._idempotent(
-            "book",
-            key,
-            {"quote_id": quote_id, "expected_version": expected_version},
-            lambda: self._book_primary(quote_id, expected_version),
-        )
+        from app.services.journey_service import JourneyService
 
-    def _book_primary(self, quote_id: str, expected_version: int | None) -> JourneySnapshot:
-        if self._booking_guard is not None:
-            self._booking_guard()
-        self._validate_version(expected_version)
-        return self._book(quote_id, replacement=False)
-
-    def _book(self, quote_id: str, *, replacement: bool) -> JourneySnapshot:
-        if self.state in STOPPED:
-            raise SimulationError("INVALID_STATE", "Journey is no longer accepting bookings.")
-        if self.booking_uncertain or self.state == JourneyState.RECONCILING:
-            raise SimulationError("BOOKING_UNCONFIRMED", "Prior booking outcome needs reconciliation.")
-        if self.ride and self.ride.state in ACTIVE_RIDE_STATES:
-            raise SimulationError(
-                "ACTIVE_RIDE_EXISTS", "Cancel and verify existing ride before booking another."
-            )
-        if self.ride_count > 0 and not replacement:
-            raise SimulationError(
-                "INVALID_STATE", "Additional bookings must use the bounded recovery workflow."
-            )
-        quote = next((q for q in self.quotes if q.quote_id == quote_id), None)
-        if not quote:
-            raise SimulationError("QUOTE_NOT_FOUND", "Quote is missing or expired.", retryable=True)
-        if quote.estimated_fare_inr > self.policy.max_total_fare_inr:
-            raise SimulationError("POLICY_FARE_LIMIT", "Ride exceeds the user-approved fare limit.")
-        if self.clock >= quote.expires_at:
-            raise SimulationError("QUOTE_EXPIRED", "Request an updated quote.", retryable=True)
-        count = self.ride_count + 1
-        proposal = Ride(
-            ride_id=f"ride_{count}_{self.id}",
-            journey_id=self.id,
-            provider=quote.provider,
-            quote_id=quote_id,
-            state=transition_ride(
-                RideState.CONFIRMED, RideState.DRIVER_EN_ROUTE, reason="Provider confirmed the booking."
-            ),
-            booked_at=self.clock,
-            driver_id=f"SIM_DRIVER_{count}",
-            distance_to_pickup_m=script_for(
-                self.scenario, profiled=not self.provider_overrides.scripted
-            ).profile_overrides.get("distance_m", 2200),
-            eta_sec=quote.pickup_eta_sec,
-            last_position_at=self.clock,
-            cancellation_fee_inr=None,
-            gps_quality=GpsQuality.GOOD,
-            is_simulated=True,
-        )
-        adapter = self.adapters[quote.provider]
-        if not replacement and not adapter.init(quote, self.clock):
-            raise SimulationError(
-                "BOOKING_FAILED", "The simulated provider refused the booking.", retryable=True
-            )
-        result = adapter.confirm(quote, self.clock, proposal)
-        if result.status == OpStatus.FAILED:
-            raise SimulationError(
-                "BOOKING_FAILED", "The simulated provider refused the booking.", retryable=True
-            )
-        if result.status == OpStatus.UNKNOWN:
-            self.unconfirmed_ride = proposal
-            self.booking_uncertain = True
-            self._transition_journey(JourneyState.RECONCILING, reason="Booking result is unknown.")
-            self.add_event(
-                EventType.ERROR,
-                {
-                    "code": "BOOKING_UNCONFIRMED",
-                    "message": "Booking result unknown. Do not retry automatically.",
-                },
-            )
-            self._checked_snapshot()
-            raise SimulationError("BOOKING_UNCONFIRMED", "Booking response timed out; verification required.")
-        self.ride_count += 1
-        self.ride_ticks = 0
-        self.stall_ticks_remaining = 0
-        self.stationary_ticks = 0
-        self.eta_delta_s = 0
-        self.risk = None
-        self.pending_backup = None
-        self.decision = None
-        self.driver_chat_signal = None
-        self.explained_bands.clear()
-        self.cancellation_fee_notice = None
-        self.ride = result.ride
-        assert self.ride is not None
-        self._create_driver_sim()
-        self._transition_journey(JourneyState.MONITORING, reason="Provider confirmed the booking.")
-        self.attempted_providers.add(quote.provider)
-        self.add_event(
-            EventType.RIDE_CONFIRMED,
-            {"ride": self.ride.model_copy(), "replacement": replacement},
-            self.ride.ride_id,
-        )
-        if replacement:
-            self.add_event(
-                EventType.RECOVERY_SUCCEEDED,
-                {"attempt": self.recovery_attempts, "provider": quote.provider},
-                self.ride.ride_id,
-            )
-        return self._checked_snapshot()
-
-    def _backups(self) -> list[Quote]:
-        provider = self.ride.provider if self.ride else (self.last_ride.provider if self.last_ride else None)
-        if script_for(self.scenario).injections_for("BACKUP_UNAVAILABLE", stage="search"):
-            return []
-        return self.intelligence.rank_backups(
-            self.quotes,
-            excluding_provider=provider,
-            max_fare_inr=self.policy.max_total_fare_inr,
-            attempted_providers=self.attempted_providers,
-        )
-
-    def _confirm_replacement(self, candidate: Quote) -> JourneySnapshot:
-        permitted, reason = self.intelligence.may_rebook(
-            journey_state=self.state,
-            active_ride_state=self.ride.state if self.ride else None,
-            attempts=self.recovery_attempts,
-            max_attempts=self.policy.max_recovery_attempts,
-            quote_fare_inr=candidate.estimated_fare_inr,
-            max_fare_inr=self.policy.max_total_fare_inr,
-            original_cancel_confirmed=self.last_ride is not None
-            and self.last_ride.state in {RideState.DRIVER_CANCELLED, RideState.RIDER_CANCELLED},
-        )
-        if not permitted:
-            self.add_event(EventType.RECOVERY_BLOCKED, {"reason": reason})
-            self._clear_proposal("Recovery policy refused the replacement.")
-            return self._checked_snapshot()
-        self.recovery_attempts += 1
-        self._transition_journey(JourneyState.RECOVERING, reason="Recovery policy allowed the replacement.")
-        self.add_event(
-            EventType.RECOVERY_STARTED, {"attempt": self.recovery_attempts, "candidate": candidate}
-        )
-        try:
-            return self._book(candidate.quote_id, replacement=True)
-        except SimulationError as exc:
-            if self.state == JourneyState.RECONCILING:
-                return self._checked_snapshot()
-            self._transition_journey(
-                JourneyState.EXHAUSTED, reason="Replacement booking failed after cancellation."
-            )
-            self.add_event(
-                EventType.RECOVERY_EXHAUSTED, {"reason": exc.code, "original_cancellation_confirmed": True}
-            )
-            return self._checked_snapshot()
-
-    def _recover_after_cancel(self):
-        if self.state == JourneyState.USER_CANCELLED:
-            return
-        if self.recovery_attempts >= self.policy.max_recovery_attempts:
-            self._transition_journey(JourneyState.EXHAUSTED, reason="Recovery attempt limit reached.")
-            self.add_event(EventType.RECOVERY_EXHAUSTED, {"reason": "POLICY_RETRY_LIMIT"})
-            return
-        candidates = self._backups()
-        if not candidates:
-            self._transition_journey(
-                JourneyState.EXHAUSTED, reason="No eligible backup after driver cancellation."
-            )
-            self.add_event(
-                EventType.RECOVERY_EXHAUSTED,
-                {"reason": "No eligible backup under fare and availability rules"},
-            )
-            return
-        candidate = None
-        for ranked in candidates:
-            candidate = self._refresh_backup(ranked)
-            if candidate is not None:
-                break
-        if not candidate:
-            self._transition_journey(
-                JourneyState.EXHAUSTED, reason="No fresh backup after driver cancellation."
-            )
-            self.add_event(
-                EventType.RECOVERY_EXHAUSTED, {"reason": "No fresh backup after driver cancellation"}
-            )
-            return
-        if not self.policy.auto_rebook_on_confirmed_driver_cancel:
-            self.pending_backup = candidate
-            self._transition_journey(
-                JourneyState.AWAITING_APPROVAL,
-                reason="A replacement after driver cancellation requires approval.",
-            )
-            self.add_event(EventType.BACKUP_FOUND, {"candidate": candidate})
-            self.add_event(
-                EventType.APPROVAL_REQUIRED, {"reason": "Driver cancelled; approve a replacement booking."}
-            )
-            return
-        self._confirm_replacement(candidate)
-
-    def driver_cancel(self):
-        if not self.ride or self.state in STOPPED or self.state == JourneyState.RECONCILING:
-            return
-        cancelled = self.ride.model_copy()
-        self.ride.state = transition_ride(
-            self.ride.state, RideState.DRIVER_CANCELLED, reason="Driver cancelled the ride."
-        )
-        self.adapters[self.ride.provider].update_ride(self.ride)
-        self.last_ride = self.ride.model_copy()
-        self.add_event(EventType.DRIVER_CANCELLED, {"provider": cancelled.provider}, cancelled.ride_id)
-        self.ride = None
-        self.pending_backup = None
-        self.cancellation_fee_notice = None
-        self.decision = None
-        self._recover_after_cancel()
-        self._checked_snapshot()
+        return JourneyService().book(self.id, quote_id, key, expected_version=expected_version, session=self)
 
     def tick(self, steps: int) -> JourneySnapshot:
         from app.services.journey_service import JourneyService
 
         return JourneyService().tick(self.id, steps, session=self)
 
-    def _create_driver_sim(self) -> DriverSim:
-        adapter = self.adapters[self.ride.provider]
-        scripted = self.provider_overrides.scripted
-        self.driver_sim = DriverSim.create(
-            self.ride.ride_id,
-            self.pickup,
-            adapter.profile,
-            adapter.rng,
-            distance_m=self.ride.distance_to_pickup_m,
-            speed_mps=150 / 5 if scripted else None,
-            sampled=not scripted,
-        )
-        self.driver_sim.traffic_multiplier = (
-            self.ride.eta_sec * self.driver_sim.current_speed_mps / max(1, self.ride.distance_to_pickup_m)
-        )
-        return self.driver_sim
-
-    def _arrive(self):
-        if not self.ride or self.ride.state == RideState.DRIVER_ARRIVED:
-            return
-        self.ride.state = transition_ride(
-            self.ride.state, RideState.DRIVER_ARRIVED, reason="Driver reached the pickup point."
-        )
-        self.adapters[self.ride.provider].update_ride(self.ride)
-        self.ride.distance_to_pickup_m = 0
-        self.ride.eta_sec = 0
-        self.ride.last_position_at = self.clock
-        self._transition_journey(
-            JourneyState.MONITORING, reason="Driver arrival superseded the switch proposal."
-        )
-        self.risk = None
-        self.decision = None
-        self.pending_backup = None
-        self.cancellation_fee_notice = None
-        self.add_event(
-            EventType.DRIVER_ARRIVED, {"message": "Simulated driver reached pickup."}, self.ride.ride_id
-        )
-
     def approve_switch(
         self, approved: bool, key: str, expected_version: int | None = None
     ) -> JourneySnapshot:
-        return self._idempotent(
-            "approve_switch",
-            key,
-            {"approved": approved, "expected_version": expected_version},
-            lambda: self._approve_switch(approved, expected_version),
+        from app.services.journey_service import JourneyService
+
+        return JourneyService().approve_switch(
+            self.id, approved, key, expected_version=expected_version, session=self
         )
-
-    def _approve_switch(self, approved: bool, expected_version: int | None) -> JourneySnapshot:
-        self._validate_version(expected_version)
-        if not self.pending_backup or self.state != JourneyState.AWAITING_APPROVAL:
-            raise SimulationError("INVALID_STATE", "No switch approval is pending.")
-        if not self.ride and (not self.last_ride or self.last_ride.state != RideState.DRIVER_CANCELLED):
-            raise SimulationError("CANCEL_UNCONFIRMED", "Cannot confirm original cancellation.")
-        if not approved:
-            reason = "Rider chose to keep waiting." if self.ride else "Rider declined replacement."
-            self.add_event(EventType.SWITCH_REJECTED, {"reason": reason})
-            self._clear_proposal(reason)
-            return self._checked_snapshot()
-        if self.recovery_attempts >= self.policy.max_recovery_attempts:
-            self.add_event(EventType.RECOVERY_BLOCKED, {"reason": "POLICY_RETRY_LIMIT"})
-            self._clear_proposal("Recovery attempt limit reached.")
-            return self._checked_snapshot()
-
-        # Refresh provider offer before any rider-side cancellation.
-        candidate = self._refresh_backup(self.pending_backup)
-        if candidate is None:
-            self._clear_proposal("The refreshed backup is unavailable.")
-            return self._checked_snapshot()
-        if self.ride:
-            self.cancellation_fee_notice = self._fee_notice()
-            if (
-                self.cancellation_fee_notice.potential_fee_upper_bound_inr
-                > self.policy.max_cancellation_fee_inr
-            ):
-                self.add_event(EventType.RECOVERY_BLOCKED, {"reason": "CANCELLATION_FEE_LIMIT"})
-                self._clear_proposal("Cancellation fee limit would be exceeded.")
-                return self._checked_snapshot()
-        self.add_event(
-            EventType.SWITCH_APPROVED,
-            {"new_provider": candidate.provider, "cancellation_fee_notice": self.cancellation_fee_notice},
-        )
-        if self.ride:
-            self._cancel_active_ride(self.ride)
-
-        # A refreshed quote is not a reservation. Providers may still reject confirm.
-        replacement_results = script_for(self.scenario).injections_for(
-            "FORCE_CONFIRM_RESULT", stage="replacement"
-        )
-        if replacement_results:
-            self.provider_overrides.next_confirm[candidate.provider] = OpStatus(
-                replacement_results[0].params["result"]
-            )
-            try:
-                return self._book(candidate.quote_id, replacement=True)
-            except SimulationError as error:
-                if error.code != "BOOKING_FAILED":
-                    raise
-            self.add_event(
-                EventType.REPLACEMENT_QUOTE_LOST,
-                {"reason": "Illustrative race after confirmed original cancellation"},
-            )
-            self._clear_proposal("Replacement quote was lost after cancellation.")
-            return self._checked_snapshot()
-        return self._confirm_replacement(candidate)
-
-    def _clear_proposal(self, reason: str) -> None:
-        self.pending_backup = None
-        self.cancellation_fee_notice = None
-        self._transition_journey(
-            JourneyState.MONITORING if self.ride else JourneyState.EXHAUSTED, reason=reason
-        )
-
-    def _cancel_active_ride(self, ride: Ride) -> None:
-        ride_state = transition_ride(
-            ride.state, RideState.RIDER_CANCELLED, reason="Rider requested cancellation."
-        )
-        payload = {"old_provider": ride.provider}
-        self.add_event(EventType.RIDE_CANCEL_REQUESTED, payload, ride.ride_id)
-        result = self.adapters[ride.provider].cancel(ride.ride_id)
-        if result.status == OpStatus.UNKNOWN:
-            self._transition_journey(JourneyState.RECONCILING, reason="Cancellation result is unknown.")
-            self.pending_backup = None
-            self.cancellation_fee_notice = None
-        if result.status != OpStatus.CONFIRMED:
-            raise SimulationError("CANCEL_UNCONFIRMED", "Provider cancellation confirmation missing.")
-        self._record_confirmed_cancel(ride, ride_state)
-
-    def _record_confirmed_cancel(self, ride: Ride, ride_state: RideState = RideState.RIDER_CANCELLED) -> None:
-        ride.state = ride_state
-        self.last_ride = ride.model_copy()
-        self.ride = None
-        self.add_event(EventType.RIDE_CANCEL_CONFIRMED, {"old_provider": ride.provider}, ride.ride_id)
 
     def cancel(self, key: str, expected_version: int | None = None) -> JourneySnapshot:
-        return self._idempotent(
-            "cancel", key, {"expected_version": expected_version}, lambda: self._cancel(expected_version)
-        )
+        from app.services.journey_service import JourneyService
 
-    def _cancel(self, expected_version: int | None) -> JourneySnapshot:
-        self._validate_version(expected_version)
-        if self.state == JourneyState.USER_CANCELLED:
-            return self._checked_snapshot()
-        stopped_state = transition_journey(
-            self.state, JourneyState.USER_CANCELLED, reason="Rider stopped the journey."
-        )
-        ride = self.ride or self.unconfirmed_ride
-        if ride:
-            if self.state != JourneyState.RECONCILING:
-                self._cancel_active_ride(ride)
-            else:
-                status = self.adapters[ride.provider].status(ride.ride_id)
-                if status and status.state == RideState.RIDER_CANCELLED:
-                    self._record_confirmed_cancel(ride)
-                elif self.unconfirmed_ride is not None and status and status.state in ACTIVE_RIDE_STATES:
-                    self._cancel_active_ride(ride)
-        self.state = stopped_state
-        self.unconfirmed_ride = None
-        self.booking_uncertain = False
-        self.pending_backup = None
-        self.cancellation_fee_notice = None
-        self.add_event(EventType.USER_CANCELLED, {"message": "Rider stopped the journey."})
-        return self._checked_snapshot()
+        return JourneyService().cancel(self.id, key, expected_version=expected_version, session=self)
 
     def confirm_pickup(
         self,
@@ -753,39 +255,16 @@ class Session:
         boarded_at: datetime | None = None,
         trip_duration: Callable[[Location, Location], timedelta] | None = None,
     ) -> JourneySnapshot:
-        return self._idempotent(
-            "confirm_pickup",
-            key,
-            {"expected_version": expected_version},
-            lambda: self._confirm_pickup(expected_version, boarded_at, trip_duration),
-        )
+        from app.services.journey_service import JourneyService
 
-    def _confirm_pickup(
-        self,
-        expected_version: int | None,
-        boarded_at: datetime | None,
-        trip_duration: Callable[[Location, Location], timedelta] | None,
-    ) -> JourneySnapshot:
-        self._validate_version(expected_version)
-        if not self.ride or self.ride.state != RideState.DRIVER_ARRIVED:
-            raise SimulationError("INVALID_STATE", "Confirm pickup only after driver arrives.")
-        duration = trip_duration(self.pickup, self.dropoff) if trip_duration else None
-        if duration is not None and boarded_at is None:
-            boarded_at = datetime.now(UTC)
-        ride_state = transition_ride(
-            self.ride.state, RideState.IN_PROGRESS, reason="Passenger boarded the ride after arrival."
+        return JourneyService().confirm_pickup(
+            self.id,
+            key,
+            expected_version=expected_version,
+            boarded_at=boarded_at,
+            trip_duration=trip_duration,
+            session=self,
         )
-        self._transition_journey(JourneyState.PICKUP_CONFIRMED, reason="Passenger boarded the arrived ride.")
-        self.ride.state = ride_state
-        self.adapters[self.ride.provider].update_ride(self.ride)
-        self.boarded_at = boarded_at
-        self.arrives_at = boarded_at + duration if boarded_at and duration else None
-        self.pending_backup = None
-        self.cancellation_fee_notice = None
-        self.add_event(
-            EventType.PICKUP_CONFIRMED, {"message": "Passenger boarded simulated ride."}, self.ride.ride_id
-        )
-        return self._checked_snapshot()
 
 
 class SimulationStore:

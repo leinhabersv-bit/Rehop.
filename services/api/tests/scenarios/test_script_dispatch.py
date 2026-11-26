@@ -8,6 +8,8 @@ from app.simulation.durable import StoredSession, tracking
 from app.simulation.engine import store
 from app.simulation.scenarios import SCRIPTS
 
+service = JourneyService()
+
 
 @pytest.mark.parametrize("scenario_id", [f"S{number:02}" for number in range(1, 17)])
 def test_script_behaves_identically_under_an_unrecognized_id(scenario_id, monkeypatch):
@@ -21,9 +23,9 @@ def test_script_behaves_identically_under_an_unrecognized_id(scenario_id, monkey
         session = StoredSession.model_validate_json(
             StoredSession.model_validate(session, from_attributes=True).model_dump_json()
         ).restore()
-        JourneyService().tick(session.id, 25, session=session)
+        service.tick(session.id, 25, session=session)
         if session.pending_backup:
-            session.approve_switch(True, "approve")
+            service.approve_switch(session.id, True, "approve", session=session)
         events = [
             event.model_dump_json().replace(session.id, "JOURNEY").replace(name, "SCRIPT")
             for event in session.events

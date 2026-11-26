@@ -4,14 +4,15 @@ from app.simulation.durable import StoredSession
 from app.simulation.engine import LOCATIONS, Session
 from app.storage.ids import IdFactory
 
+service = JourneyService()
+
 
 def test_s03_thirty_ticks_survive_json_restore_after_every_tick():
     request = JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1])
     continuous = Session(request, scenario="S03", scenario_ids=IdFactory())
     restarted = Session(request, scenario="S03", scenario_ids=IdFactory())
     for journey in (continuous, restarted):
-        journey.book(journey.quotes[0].quote_id, "initial")
-    service = JourneyService()
+        service.book(journey.id, journey.quotes[0].quote_id, "initial", session=journey)
     service.tick(continuous.id, 30, session=continuous)
     for _ in range(30):
         service.tick(restarted.id, 1, session=restarted)

@@ -21,7 +21,7 @@ from app.schemas.requests import (
     TickRequest,
 )
 from app.services.journey_service import JourneyService
-from app.simulation.durable import HOSTED, create_ride, open_ride
+from app.simulation.durable import HOSTED, open_ride
 from app.simulation.engine import LOCATIONS, RANDOM_SCENARIO, SCENARIOS, store
 from app.simulation.scenarios import SCRIPTS, script_for
 from app.simulation.trip_duration import destination_playback
@@ -56,7 +56,7 @@ def locations():
 def get_quotes(req: QuoteRequest):
     # Quote previews are created from the journey. Use POST /journeys first
     # so quote IDs remain authoritative through booking.
-    journey = create_ride(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
+    journey = journey_service.create(JourneyCreate(pickup=req.pickup, dropoff=req.dropoff))
     return {
         "journey_id": journey.id,
         "quotes": [quote.model_dump(mode="json") for quote in journey.quotes],
@@ -69,7 +69,7 @@ def create_journey(
     req: JourneyCreate,
     scenario: Annotated[Literal["S01", "S03"], Query(description="Simulated pickup behavior.")] = "S01",
 ):
-    return create_ride(req, scenario=scenario).snapshot().model_dump(mode="json")
+    return journey_service.create(req, scenario=scenario).snapshot().model_dump(mode="json")
 
 
 @router.get("/journeys/{journey_id}")
