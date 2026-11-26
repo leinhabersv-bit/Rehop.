@@ -72,5 +72,34 @@
     "payload": {
       "type": "object"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"type": {"const": "RISK_UPDATED"}}
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "signal_details": {
+                "description": "Optional numeric evidence. Points are signed adjustments to the risk score.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["code", "value", "threshold", "points"],
+                  "properties": {
+                    "code": {"type": "string"},
+                    "value": {"type": ["number", "string"]},
+                    "threshold": {"type": ["number", "string"]},
+                    "points": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

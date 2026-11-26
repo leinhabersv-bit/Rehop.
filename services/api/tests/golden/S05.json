@@ -110,6 +110,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -125,6 +126,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -140,6 +142,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -155,6 +158,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -170,6 +174,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -185,6 +190,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -200,130 +206,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
-      "signals"
-    ],
-    [
-      "provider"
-    ],
-    [
-      "candidate",
-      "not_a_reservation"
-    ],
-    [
-      "attempt",
-      "candidate"
-    ],
-    [
-      "replacement",
-      "ride"
-    ],
-    [
-      "attempt",
-      "provider"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
-      "signals"
-    ],
-    [
-      "distance_to_pickup_m",
-      "eta_sec",
-      "gps_quality",
-      "is_simulated"
-    ],
-    [
-      "band",
-      "confidence",
-      "explanation",
-      "is_simulated",
-      "model_version",
-      "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -358,6 +241,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -373,6 +257,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -388,6 +273,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -403,6 +289,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -418,6 +305,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -433,6 +321,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -448,6 +337,42 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "provider"
+    ],
+    [
+      "candidate",
+      "not_a_reservation"
+    ],
+    [
+      "attempt",
+      "candidate"
+    ],
+    [
+      "replacement",
+      "ride"
+    ],
+    [
+      "attempt",
+      "provider"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -463,6 +388,7 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
       "signals"
     ],
     [
@@ -478,6 +404,103 @@
       "is_simulated",
       "model_version",
       "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
+      "signals"
+    ],
+    [
+      "distance_to_pickup_m",
+      "eta_sec",
+      "gps_quality",
+      "is_simulated"
+    ],
+    [
+      "band",
+      "confidence",
+      "explanation",
+      "is_simulated",
+      "model_version",
+      "score_0_100",
+      "signal_details",
       "signals"
     ]
   ]

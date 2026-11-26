@@ -27,6 +27,7 @@ class RideFeatures:
     span_60s: float
     span_120s: float
     span_180s: float
+    eta_sec: int = 0
 
 
 def _displacement_m(first: TelemetrySample, second: TelemetrySample) -> float:
@@ -126,4 +127,5 @@ def compute_features(
         span_60s=span_60,
         span_120s=span_120,
         span_180s=span_180,
+        eta_sec=latest.eta_sec if latest else ride.eta_sec,
     )

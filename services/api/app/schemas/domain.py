@@ -62,12 +62,20 @@ class TelemetrySample(BaseModel):
     gps_quality: GpsQuality
 
 
+class RiskSignalDetail(BaseModel):
+    code: str
+    value: int | float | str
+    threshold: int | float | str
+    points: int
+
+
 class RiskAssessment(BaseModel):
     score_0_100: int
     band: RiskBand
     confidence: float
     model_version: str
     signals: list[str]
+    signal_details: list[RiskSignalDetail] | None = None
     explanation: str
     is_simulated: bool
     explanation_source: str | None = None
@@ -76,6 +84,8 @@ class RiskAssessment(BaseModel):
     def serialize(self, handler):
         data = handler(self)
         # This key appears only after an explanation is checked.
+        if self.signal_details is None:
+            data.pop("signal_details", None)
         if "explanation_source" not in self.model_fields_set:
             data.pop("explanation_source", None)
         return data

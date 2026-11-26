@@ -8,6 +8,7 @@ from threading import RLock
 
 from app.domain.errors import SimulationError as SimulationError
 from app.domain.state_machine import transition_journey
+from app.intelligence.risk import RiskTracker
 from app.schemas.domain import (
     ChatSignal,
     DeadlineDecision,
@@ -135,6 +136,7 @@ class Session:
         self.last_ride: Ride | None = None
         self.pending_backup: Quote | None = None
         self.risk: RiskAssessment | None = None
+        self.risk_tracker = RiskTracker()
         self.recovery_attempts = 0
         self.ride_count = 0
         self.ride_ticks = 0

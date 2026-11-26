@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.domain.errors import SimulationError
 from app.domain.state_machine import ACTIVE_RIDE_STATES, TERMINAL_JOURNEY_STATES
+from app.intelligence.risk import RiskTracker
 from app.schemas.domain import (
     ChatSignal,
     DeadlineDecision,
@@ -55,6 +56,7 @@ class StoredSession(BaseModel):
     last_ride: Ride | None
     pending_backup: Quote | None
     risk: RiskAssessment | None
+    risk_tracker: RiskTracker = Field(default_factory=RiskTracker)
     recovery_attempts: int
     ride_count: int
     ride_ticks: int
