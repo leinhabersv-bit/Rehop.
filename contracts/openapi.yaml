@@ -237,12 +237,123 @@ paths:
           type: integer
           default: 0
           title: Since Seq
+      - name: if-none-match
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-None-Match
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Validator for this event cursor.
+        '304':
+          description: No change since the supplied validator.
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Validator for this event cursor.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/play:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Play
+      operationId: play_api_v1_journeys__journey_id__play_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackState'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/journeys/{journey_id}/pause:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Pause
+      operationId: pause_api_v1_journeys__journey_id__pause_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackState'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/sim/journeys/{journey_id}/inject:
+    post:
+      tags:
+      - RideRescue simulation
+      summary: Inject
+      operationId: inject_api_v1_sim_journeys__journey_id__inject_post
+      parameters:
+      - name: journey_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Journey Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InjectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Simulation development endpoint disabled or journey missing.
         '422':
           description: Validation Error
           content:
@@ -599,6 +710,63 @@ components:
       - lat
       - lng
       title: Location
+    PlayRequest:
+      properties:
+        speed:
+          type: integer
+          enum:
+          - 1
+          - 2
+          - 5
+          - 10
+          - 20
+          title: Speed
+      type: object
+      required:
+      - speed
+      title: PlayRequest
+    PlaybackState:
+      properties:
+        playing:
+          type: boolean
+          title: Playing
+        speed:
+          type: integer
+          enum:
+          - 1
+          - 2
+          - 5
+          - 10
+          - 20
+          title: Speed
+      type: object
+      required:
+      - playing
+      - speed
+      title: PlaybackState
+    InjectRequest:
+      properties:
+        kind:
+          type: string
+          enum:
+          - FORCE_MODE
+          - DRIVER_CANCEL
+          - DRIVER_MESSAGE
+          - FORCE_CONFIRM_RESULT
+          - FORCE_CANCEL_RESULT
+          - BACKUP_UNAVAILABLE
+          - FARE_SURGE
+          - NEED_BY
+          title: Kind
+        params:
+          additionalProperties: true
+          type: object
+          title: Params
+      type: object
+      required:
+      - kind
+      - params
+      title: InjectRequest
     ParseIntentRequest:
       properties:
         text:

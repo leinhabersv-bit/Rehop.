@@ -1,22 +1,11 @@
 """Data-defined scripted pickups and the profile-driven RANDOM world."""
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from app.schemas.enums import OpStatus, Provider
+from app.schemas.requests import InjectionKind
 from app.simulation.profiles import BASE_OFFERS
 from app.simulation.providers import ScenarioOverrides
-
-InjectionKind = Literal[
-    "FORCE_MODE",
-    "DRIVER_CANCEL",
-    "DRIVER_MESSAGE",
-    "FORCE_CONFIRM_RESULT",
-    "FORCE_CANCEL_RESULT",
-    "BACKUP_UNAVAILABLE",
-    "FARE_SURGE",
-    "NEED_BY",
-]
 
 
 @dataclass(frozen=True)

@@ -3,23 +3,27 @@
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from typing import Annotated, Literal
+
+from pydantic import Field, TypeAdapter, ValidationError
 
 from app.domain.errors import SimulationError
 from app.domain.invariants import check_invariants
 from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
 from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
 from app.intelligence.interface import DefaultIntelligence, IntelligencePort
-from app.schemas.domain import DeadlineDecision, FeeNotice, JourneySnapshot, Quote, Ride
+from app.schemas.domain import DeadlineDecision, FeeNotice, JourneySnapshot, PlaybackState, Quote, Ride
 from app.schemas.enums import (
     ChatLabel,
     EventType,
     GpsQuality,
     JourneyState,
     OpStatus,
+    Provider,
     RideState,
     RiskBand,
 )
-from app.schemas.requests import JourneyCreate, Location
+from app.schemas.requests import InjectRequest, JourneyCreate, Location, PlaybackSpeed
 from app.simulation.durable import create_ride, open_ride
 from app.simulation.engine import Session, store
 from app.simulation.scenarios import script_for
@@ -126,6 +130,95 @@ class JourneyService:
             )
             check_invariants(journey.snapshot())
             return result
+
+    def play(self, journey_id: str, speed: PlaybackSpeed) -> PlaybackState:
+        with open_ride(journey_id) as journey:
+            if not journey.playing or journey.speed != speed:
+                journey.last_tick = None
+            journey.playing = True
+            journey.speed = speed
+            return PlaybackState(playing=journey.playing, speed=journey.speed)
+
+    def pause(self, journey_id: str) -> PlaybackState:
+        with open_ride(journey_id) as journey:
+            journey.playing = False
+            return PlaybackState(playing=journey.playing, speed=journey.speed)
+
+    def inject(self, journey_id: str, request: InjectRequest) -> JourneySnapshot:
+        with open_ride(journey_id) as journey:
+            try:
+                self._apply_injection(journey, request)
+            except ValidationError as error:
+                raise SimulationError(
+                    "INVALID_INJECTION", "Invalid parameters for this injection kind.", status=422
+                ) from error
+            return self._checked_snapshot(journey)
+
+    def _apply_injection(self, journey: Session, request: InjectRequest) -> None:
+        params = request.params
+        match request.kind:
+            case "FORCE_MODE":
+                mode = TypeAdapter(MotionMode).validate_python(params.get("mode"))
+                duration = TypeAdapter(
+                    Annotated[int, Field(strict=True, ge=1, le=180)] | None
+                ).validate_python(params.get("duration_ticks"))
+                self._require_en_route(journey)
+                driver = journey.driver_sim or self._create_driver_sim(journey)
+                driver.force_mode(mode, duration)
+            case "DRIVER_CANCEL":
+                self._require_en_route(journey)
+                self._driver_cancel(journey)
+            case "DRIVER_MESSAGE":
+                message = TypeAdapter(Annotated[str, Field(min_length=1, max_length=500)]).validate_python(
+                    params.get("text")
+                )
+                self._classify_driver_message(journey, message)
+            case "FORCE_CONFIRM_RESULT" | "FORCE_CANCEL_RESULT":
+                result = TypeAdapter(OpStatus).validate_python(params.get("result"))
+                provider = TypeAdapter(Provider).validate_python(params.get("provider"))
+                overrides = journey.provider_overrides
+                outcomes = (
+                    overrides.next_confirm
+                    if request.kind == "FORCE_CONFIRM_RESULT"
+                    else overrides.next_cancel
+                )
+                outcomes[provider] = result
+            case "BACKUP_UNAVAILABLE":
+                journey.backup_unavailable_stage = TypeAdapter(
+                    Literal["search", "refresh"] | None
+                ).validate_python(params.get("stage", "search"))
+            case "FARE_SURGE":
+                providers = TypeAdapter(Annotated[set[Provider], Field(min_length=1)]).validate_python(
+                    params.get("providers")
+                )
+                amount = TypeAdapter(Annotated[int, Field(strict=True, ge=1, le=100000)]).validate_python(
+                    params.get("amount")
+                )
+                # Retain quote identity, ETA, and expiry while changing the simulated offer.
+                for quote in journey.quotes:
+                    if quote.provider in providers:
+                        offers = journey.provider_overrides.quote_offers
+                        fare, eta = offers.get(
+                            quote.provider, (quote.estimated_fare_inr, quote.pickup_eta_sec)
+                        )
+                        offers[quote.provider] = (fare + amount, eta)
+                        if not journey.ride or journey.ride.quote_id != quote.quote_id:
+                            quote.estimated_fare_inr = fare + amount
+                journey.add_event(EventType.QUOTES_READY, {"quotes": journey.quotes})
+            case "NEED_BY":
+                minutes = TypeAdapter(Annotated[int, Field(strict=True, ge=1, le=1440)]).validate_python(
+                    params.get("minutes")
+                )
+                journey.need_by = journey.clock + timedelta(minutes=minutes)
+
+    @staticmethod
+    def _require_en_route(journey: Session) -> None:
+        if (
+            journey.ride is None
+            or journey.ride.state != RideState.DRIVER_EN_ROUTE
+            or journey.state not in {JourneyState.MONITORING, JourneyState.AWAITING_APPROVAL}
+        ):
+            raise SimulationError("INVALID_STATE", "This injection needs a driver en route.")
 
     def tick(self, journey_id: str, steps: int, *, session: Session | None = None) -> JourneySnapshot:
         with self._open_session(journey_id, session) as journey:
@@ -282,7 +375,10 @@ class JourneyService:
 
     def _refresh_backup(self, journey: Session, quote: Quote) -> Quote | None:
         """A fresh simulated search/select/init BEFORE touching the current booking."""
-        if script_for(journey.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh"):
+        unavailable = journey.backup_unavailable_stage == "refresh" or bool(
+            script_for(journey.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh")
+        )
+        if unavailable:
             journey.provider_overrides.reject_next_init.add(quote.provider)
         refreshed = journey._search(quote.provider)
         if not journey.adapters[quote.provider].init(refreshed, journey.clock) or (
@@ -290,7 +386,7 @@ class JourneyService:
         ):
             reason = (
                 "Backup disappeared during search; original kept"
-                if script_for(journey.scenario).injections_for("BACKUP_UNAVAILABLE", stage="refresh")
+                if unavailable
                 else "Quote no longer eligible"
             )
             journey.add_event(EventType.QUOTE_REFRESH_FAILED, {"reason": reason})
@@ -525,7 +621,9 @@ class JourneyService:
             if journey.ride
             else (journey.last_ride.provider if journey.last_ride else None)
         )
-        if script_for(journey.scenario).injections_for("BACKUP_UNAVAILABLE", stage="search"):
+        if journey.backup_unavailable_stage == "search" or script_for(journey.scenario).injections_for(
+            "BACKUP_UNAVAILABLE", stage="search"
+        ):
             return []
         return self.intelligence.rank_backups(
             journey.quotes,

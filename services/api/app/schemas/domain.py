@@ -20,7 +20,7 @@ from app.schemas.enums import (
     RideState,
     RiskBand,
 )
-from app.schemas.requests import Location, RecoveryPolicy
+from app.schemas.requests import Location, PlaybackSpeed, RecoveryPolicy
 
 Money = Annotated[int, Field(ge=0, strict=True)]
 # Preserve the existing +00:00 spelling and datetime.isoformat() precision.
@@ -133,6 +133,11 @@ class JourneyEvent(BaseModel):
         if info.data.get("type") == EventType.DEADLINE_DECISION:
             return DeadlineDecision.model_validate(payload)
         return payload
+
+
+class PlaybackState(BaseModel):
+    playing: bool
+    speed: PlaybackSpeed
 
 
 class JourneySnapshot(BaseModel):

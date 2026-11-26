@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Location(BaseModel):
@@ -60,6 +60,37 @@ class ApprovalRequest(BaseModel):
 class ActionRequest(BaseModel):
     idempotency_key: str = Field(min_length=3)
     expected_version: int | None = None
+
+
+InjectionKind = Literal[
+    "FORCE_MODE",
+    "DRIVER_CANCEL",
+    "DRIVER_MESSAGE",
+    "FORCE_CONFIRM_RESULT",
+    "FORCE_CANCEL_RESULT",
+    "BACKUP_UNAVAILABLE",
+    "FARE_SURGE",
+    "NEED_BY",
+]
+
+
+class InjectRequest(BaseModel):
+    kind: InjectionKind
+    params: dict
+
+
+PlaybackSpeed = Literal[1, 2, 5, 10, 20]
+
+
+class PlayRequest(BaseModel):
+    speed: PlaybackSpeed
+
+    @field_validator("speed", mode="before")
+    @classmethod
+    def integer_speed(cls, value):
+        if type(value) is not int:
+            raise ValueError("speed must be an integer")
+        return value
 
 
 class TickRequest(BaseModel):
