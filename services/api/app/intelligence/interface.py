@@ -8,15 +8,18 @@ from app.intelligence.config import RiskConfig
 from app.intelligence.decision import compare_wait_switch
 from app.intelligence.features import RideFeatures, compute_features
 from app.intelligence.llm import (
+    RideIntent,
     VerifiedExplanation,
     classify_driver_message,
     explain_with_verified_numbers,
+    parse_ride_intent,
 )
 from app.intelligence.policy import may_rebook
 from app.intelligence.recovery import rank_backups
 from app.intelligence.risk import RiskTracker, assess_v2
 from app.schemas.domain import ChatSignal, DeadlineDecision, Quote, Ride, RiskAssessment, TelemetrySample
 from app.schemas.enums import ChatLabel, JourneyState, Provider, RideState, RiskBand
+from app.schemas.requests import Location
 
 
 class DecisionContext(TypedDict):
@@ -60,6 +63,8 @@ class IntelligencePort(Protocol):
 
     def classify_message(self, text: str, *, offline: bool = False) -> ChatSignal: ...
 
+    def parse_intent(self, text: str, locations: list[Location]) -> RideIntent: ...
+
     def decide(self, **context: Unpack[DecisionContext]) -> DeadlineDecision: ...
 
     def rank_backups(self, quotes: list[Quote], **context: Unpack[BackupContext]) -> list[Quote]: ...
@@ -90,6 +95,9 @@ class DefaultIntelligence:
 
     def classify_message(self, text: str, *, offline: bool = False) -> ChatSignal:
         return classify_driver_message(text, offline=offline)
+
+    def parse_intent(self, text: str, locations: list[Location]) -> RideIntent:
+        return parse_ride_intent(text, locations)
 
     def decide(self, **context: Unpack[DecisionContext]) -> DeadlineDecision:
         return compare_wait_switch(**context)

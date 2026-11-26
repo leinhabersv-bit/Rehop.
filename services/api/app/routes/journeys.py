@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 import re
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Response
 
-from app.intelligence.llm import parse_ride_intent
+from app.intelligence.interface import DefaultIntelligence
 from app.schemas.domain import PlaybackState
 from app.schemas.enums import Provider
 from app.schemas.errors import ErrorEnvelope, SimulationError
@@ -31,6 +32,7 @@ from app.simulation.trip_duration import destination_playback
 
 router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
 journey_service = JourneyService()
+intelligence = DefaultIntelligence()
 IDEMPOTENCY_ERRORS = {
     409: {
         "model": ErrorEnvelope,
@@ -42,7 +44,7 @@ IDEMPOTENCY_ERRORS = {
 
 @router.post("/intent/parse")
 def parse_intent(req: ParseIntentRequest):
-    return parse_ride_intent(req.text, LOCATIONS).model_dump(mode="json")
+    return intelligence.parse_intent(req.text, LOCATIONS).model_dump(mode="json")
 
 
 @router.post("/journeys/{journey_id}/driver-message", responses=IDEMPOTENCY_ERRORS)
@@ -223,6 +225,8 @@ def run_scenario(scenario_id: str, seed: int = 2026):
 
             request.need_by = BASE_TIME + timedelta(minutes=injection.params["minutes"])
         journey = store.create(request, scenario=scenario_id, seed=seed, deterministic=True)
+        # Only API-started demo runs can opt out of offline classification.
+        journey.demo_live_llm = os.getenv("DEMO_LIVE_LLM") == "1"
         if script.auto_book:
             primary = next(q for q in journey.quotes if q.provider == Provider.PROVIDER_A)
             journey_service.book(journey.id, primary.quote_id, f"scenario_initial_{scenario_id}")

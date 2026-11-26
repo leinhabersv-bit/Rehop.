@@ -5,6 +5,12 @@ import pytest
 from app.simulation.profiles import PROFILES
 
 
+@pytest.fixture(autouse=True)
+def disable_live_llm(monkeypatch):
+    for name in ("LLM_API_KEY", "OPENAI_API_KEY", "DEMO_LIVE_LLM"):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def steady_provider_profiles(monkeypatch):
     """Exercise API safety and persistence independently of simulated incidents."""

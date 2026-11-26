@@ -12,7 +12,7 @@ A **simulation-first AI ride-recovery hackathon project**. RIDE & SEEK monitors 
 - ✅ Python FastAPI service with versioned REST endpoints and ordered WebSocket events.
 - ✅ Four neutral **mock** providers: `PROVIDER_A`, `PROVIDER_B`, `PROVIDER_C`, `PROVIDER_D`.
 - ✅ ONDC/Beckn-shaped *simulator* adapters: `search`, `select`, `init`, `confirm`, `cancel`, `status`, `track` (no network access).
-- ✅ Real LLM integration when `OPENAI_API_KEY` is configured: bounded ride-intent parsing, driver-message classification and explanation rewriting; explicit deterministic fallbacks offline.
+- ✅ Real LLM integration when `LLM_API_KEY` or `OPENAI_API_KEY` is configured: bounded ride-intent parsing, driver-message classification and explanation rewriting; explicit deterministic fallbacks offline.
 - ✅ Deadline-aware waiting-versus-switching recommendation, without allowing AI to authorize provider actions.
 - ✅ Fresh-backup pre-cancellation validation and conditional 2025-guideline fee notice; fee is a simulated upper-bound illustration, **not** a provider quote.
 - ✅ Representative seeded simulation scenarios S01–S16, including a stalled pickup, two cancellations, budget limits and GPS uncertainty.
@@ -154,7 +154,11 @@ Read **`AGENTS.md`**, **`docs/design-freeze-v1.1.md`**, **`docs/ondc-beckn-path.
 9. Refresh the backup quote **before** cancellation; still disclose that this is not a reservation.
 10. Show a conditional possible cancellation charge and seek rider approval; do not invent a real fee.
 
-**Optional LLM.** Set `OPENAI_API_KEY` in the API process environment or copy `services/api/.env.example` to `services/api/.env`, set the key, and add `--env-file .env` to the Uvicorn command. The API can send selected rider or driver text to the configured model. With no key, it uses labeled rules and templates. Provider and policy code own all booking decisions.
+**Optional LLM.** Set `LLM_API_KEY` (with `OPENAI_API_KEY` supported as a fallback) in the API process environment. The OpenAI-compatible client uses `LLM_API_BASE`, `LLM_MODEL`, and `LLM_TIMEOUT_S` to override the default endpoint, `gpt-4o-mini`, and four-second timeout. Selected rider and driver messages can be sent to the configured endpoint. Without a key, the API uses local rules and templates. Model output is advisory.
+
+Set `DEMO_LIVE_LLM=1` before launching the API to show live chat classification in newly started demo scenarios. It defaults to off. Benchmarks and the test suite keep scenario runs offline. The pickup-risk timeline uses its evidence-based template.
+
+With the API virtual environment activated, run `python eval/llm_eval.py` from the repository root to write JSON and Markdown reports under `eval/results/`. The fallback is always scored. A configured key also sends the synthetic cases to the model. The labelled set is small and hand-made, and its scores measure this fixture only.
 
 **Future integration:** The ONDC mobility specification is built on Beckn. Namma Yatri publicly identifies itself as built on these standards. RideRescue is **ONDC-shaped, not ONDC-connected**: actual deployment needs compliant BAP/BPP partnerships, onboarding, auth, signing, callbacks, validation, payments and commercial agreements. See [`docs/ondc-beckn-path.md`](docs/ondc-beckn-path.md).
 

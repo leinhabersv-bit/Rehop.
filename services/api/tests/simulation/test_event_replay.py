@@ -45,7 +45,7 @@ def test_seeded_runs_have_identical_events_and_replay_final_status(scenario, mon
     def unexpected_llm(*args):
         pytest.fail("Deterministic scenario runs must use offline language processing")
 
-    monkeypatch.setattr("app.intelligence.llm._llm_json", unexpected_llm)
+    monkeypatch.setattr("app.intelligence.llm.client.complete_json", unexpected_llm)
     first = scenario_run(SimulationStore(), scenario, 2026)
     second = scenario_run(SimulationStore(), scenario, 2026)
     assert first.id == second.id == f"journey_{scenario}_2026_1"
