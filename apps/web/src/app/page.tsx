@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowDownUp, ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RideUpdate } from '@/components/journey/RideUpdate';
 import { useActiveRide } from '@/components/journey/ActiveRide';
+import { RideFeatures } from '@/components/ui/RideFeatures';
 import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
 
@@ -132,6 +133,7 @@ export default function HomePage() {
           </Link>
         </section>
       </div>}
+      {!active && <RideFeatures />}
     </div>
   );
 }

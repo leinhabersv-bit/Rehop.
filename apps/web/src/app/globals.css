@@ -51,9 +51,31 @@ a {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html:has(#trip-planner) {
+  html:has(#ride-features) {
     scroll-behavior: smooth;
   }
+
+  .ride-screen, .ride-stage {
+    animation: ride-reveal 200ms ease-out;
+  }
+
+  .ride-dialog[open] {
+    animation: ride-panel-reveal 180ms ease-out;
+  }
+
+  .ride-dialog[open]::backdrop {
+    animation: ride-reveal 180ms ease-out;
+  }
+}
+
+@keyframes ride-reveal {
+  from { opacity: .65; }
+  to { opacity: 1; }
+}
+
+@keyframes ride-panel-reveal {
+  from { opacity: .55; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 639px) {
@@ -316,7 +338,7 @@ input[type=checkbox] {
   border-radius: 16px;
   font-weight: 800;
   min-height: 45px;
-  transition: transform 0.15s ease, background 0.15s, opacity 0.15s, filter 0.15s;
+  transition: transform 160ms ease, background 160ms ease, opacity 160ms ease, filter 160ms ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -326,6 +348,10 @@ input[type=checkbox] {
 .btn:hover:not(:disabled) {
   filter: brightness(1.08);
   transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn.secondary {
@@ -668,5 +694,12 @@ textarea {
   .topbar nav {
     font-size: 12px;
     gap: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .btn:hover:not(:disabled) {
+    transition: none;
+    transform: none;
   }
 }

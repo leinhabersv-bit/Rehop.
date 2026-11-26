@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { queryOptions, useQueries, type UseQueryResult } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
+import { RoutePending } from '@/components/ui/RoutePending';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { api } from '@/lib/api/client';
 import { googleMapsKey } from '@/lib/google-maps';
@@ -105,7 +106,7 @@ export function ActiveRideGate({ children }: { children: ReactNode }) {
     if (redirectTo) router.replace(redirectTo);
   }, [redirectTo, router]);
 
-  if (redirectTo) return <p role="status">Opening your ride…</p>;
-  if (checking && !tracking && !path.startsWith('/journey/')) return <p role="status">Checking ride status…</p>;
+  if (redirectTo) return <RoutePending message="Opening your ride…" />;
+  if (checking && !tracking && !path.startsWith('/journey/')) return <RoutePending message="Checking ride status…" />;
   return children;
 }
