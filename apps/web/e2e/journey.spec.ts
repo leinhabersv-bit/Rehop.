@@ -253,11 +253,24 @@ test('cancelling an active ride restores the normal navigation', async ({ page }
   await bookRecommended(page);
   await expect(page).toHaveURL(`${web}/journey/${id}`);
   const tabs = page.getByRole('navigation', { name: 'Mobile navigation' });
-  await expect(tabs.getByRole('link')).toHaveText(['Track ride']);
+  await expect(tabs.getByRole('link')).toHaveText(['Home', 'Track ride']);
   await page.getByRole('button', { name: 'Cancel ride', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm cancellation' }).click();
   await expect(tabs.getByRole('link')).toHaveText(['Home', 'Book', 'Your rides']);
   await tabs.getByRole('link', { name: 'Home' }).click();
   await expect(page).toHaveURL(web + '/');
   await expect(page.getByRole('button', { name: 'Review trip details' })).toBeVisible();
+});
+
+test('a declined booking ends the loading screen and offers fresh trip estimates', async ({ page }) => {
+  const id = await prepareManualBooking(page);
+  await page.route(`**/journeys/${id}/book`, (route) => route.fulfill({
+    status: 409, json: { error: { code: 'BOOKING_FAILED', message: 'Provider refused the booking.' } },
+  }));
+  await bookRecommended(page);
+  await expect(page.getByRole('alert')).toContainText('Review the trip to get fresh estimates.');
+  await expect(page.getByRole('dialog', { name: 'Booking progress' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Review trip details' }).click();
+  await expect(page).toHaveURL(`${web}/book?edit=${id}`);
+  await expect(page.getByRole('button', { name: 'Find my ride' })).toBeVisible();
 });
