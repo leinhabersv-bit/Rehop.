@@ -22,10 +22,11 @@ export default function TripsPage() {
     <p className="mb-6 text-[#43536b]">Bookings made on this device.</p>
     {feedback && <p role="status" className="mb-3 text-sm text-[#43536b]">{feedback}</p>}
     {entries.length === 0 ? (
-      <section className="rounded-3xl border border-[#d4dcec] bg-white p-6 sm:p-8">
-        <Route size={27} className="mb-4 text-[#173ed7]" aria-hidden="true" />
-        <h2 className="text-xl font-bold">No rides yet</h2>
-        <Link className="btn mt-4 inline-flex" href="/book">Plan a ride</Link>
+      <section className="rounded-3xl bg-[#111a42] bg-[radial-gradient(ellipse_at_top_right,#274696,transparent_75%)] p-6 text-white sm:p-8">
+        <span className="mb-4 grid size-11 place-items-center rounded-xl bg-[#ffcbab] text-[#111a42]"><Route size={23} aria-hidden="true" /></span>
+        <h2 className="text-2xl font-black !text-white">No rides yet</h2>
+        <p className="mt-2 text-sm text-[#e4eaff]">Your completed and cancelled rides will appear here.</p>
+        <Link className="btn mt-4 gap-2 !border-[#ffcbab] !bg-[#ffcbab] !text-[#111a42]" href="/book">Plan a ride <ArrowUpRight size={16} aria-hidden="true" /></Link>
       </section>
     ) : <>
       <h2 className="mb-3 text-lg font-extrabold">Recent rides</h2>

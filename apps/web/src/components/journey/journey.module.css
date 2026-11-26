@@ -255,9 +255,11 @@
 
 .stats dd {
   margin: .25rem 0 0;
-  color: #fffdf8;
+  color: #ffcbab;
   font-weight: 850;
-  font-size: clamp(1.125rem, 5.5vw, 1.75rem);
+  font-size: clamp(1.125rem, 5.5vw, 2.25rem);
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }

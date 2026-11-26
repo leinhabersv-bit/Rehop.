@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowDownUp, ArrowRight, Clock3, MapPin, Navigation, RefreshCw, ShieldCheck } from 'lucide-react';
 import { RideIntro } from '@/components/ui/RideIntro';
 import { api } from '@/lib/api/client';
 
@@ -63,7 +63,14 @@ export default function HomePage() {
           </h2>
           <p className="mt-3 mb-6 max-w-sm text-sm leading-relaxed text-[#475673] max-sm:my-2.5 sm:text-base">Check the route and drive time before booking. Get pickup updates and a backup if your driver cancels.</p>
           <form onSubmit={continueTrip} className="space-y-3">
-            <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-[#475673]">Popular places in Chennai</p>
+              <button type="button" disabled={!ready} onClick={() => { setPickup(dropoff); setDropoff(pickup); }}
+                aria-label="Swap pickup and destination"
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-[#173ed7] enabled:bg-[#edf1ff] enabled:hover:bg-[#dce4ff] disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-[#173ed7]">
+                <ArrowDownUp size={16} aria-hidden="true" /> Swap
+              </button>
+            </div>
             <label htmlFor="quick-pickup" className="quick-route-field block text-sm font-bold !text-[#171b37]">
               <span className="inline-flex items-center gap-2"><Navigation size={16} className="text-[#173ed7]" aria-hidden="true" /> Pickup point</span>
               <select id="quick-pickup" value={pickup} disabled={!labels.length || locations.isError} onChange={(event) => setPickup(event.target.value)} className={field}>
