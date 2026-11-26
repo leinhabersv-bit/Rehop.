@@ -1,9 +1,10 @@
 import type { Location } from '@/types';
-import { computeGoogleDrive, searchGoogleIndia } from './google-server';
+import { computeGoogleDrive, GoogleMapsHttpError, searchGoogleIndia } from './google-server';
 
 const userAgent = 'ReHop/0.1 (+https://github.com/leinhabersv-bit/Rehop.)';
 const lastRequest = { places: 0, route: 0 };
 const lastGoogleRequest = { places: 0, route: 0 };
+const googleRetryAt = { places: 0, route: 0 };
 type MapResult = { data: object; status: number };
 const cache = new Map<string, { expires: number; result: Promise<MapResult> }>();
 const googlePending = new Map<string, Promise<MapResult | null>>();
@@ -125,18 +126,19 @@ export async function POST(request: Request) {
   const mapsKey = source === 'osm' ? undefined : process.env.GOOGLE_MAPS_SERVER_KEY?.trim();
   const googleKey = includeGooglePath ? `google-map:${key}` : key;
   const responseOptions = { headers: { 'Cache-Control': 'no-store' } };
-  const now = Date.now();
   const inFlight = mapsKey && googlePending.get(googleKey);
   if (inFlight) {
     const result = await inFlight;
     if (result) return Response.json(result.data, { ...responseOptions, status: result.status });
   }
+  const now = Date.now();
+  const activeGoogleKey = now >= googleRetryAt[kind] ? mapsKey : undefined;
   const cached = cache.get(key);
-  if (!mapsKey && cached && cached.expires > now) {
+  if (!activeGoogleKey && cached && cached.expires > now) {
     const { data, status } = await cached.result;
     return Response.json(data, { status });
   }
-  const requestTimes = mapsKey ? lastGoogleRequest : lastRequest;
+  const requestTimes = activeGoogleKey ? lastGoogleRequest : lastRequest;
   if (now - requestTimes[kind] < 1000) {
     return Response.json({ error: 'Map service is busy. Try again in a second.' }, {
       status: 429,
@@ -144,20 +146,23 @@ export async function POST(request: Request) {
     });
   }
   requestTimes[kind] = now;
-  if (mapsKey) {
+  if (activeGoogleKey) {
     const pending = (async (): Promise<MapResult | null> => {
       try {
         if (points) {
-          const route = await computeGoogleDrive(...points, mapsKey, includeGooglePath);
+          const route = await computeGoogleDrive(...points, activeGoogleKey, includeGooglePath);
           if (route && includeGooglePath && (!Array.isArray(route.coordinates) ||
               route.coordinates.length < 2 || !route.coordinates.every(validPoint))) return null;
           return route
             ? { data: route, status: 200 }
             : { data: { error: 'No driving route found. Try a nearby road or entrance.' }, status: 404 };
         }
-        const result = await searchGoogleIndia(query!, mapsKey);
+        const result = await searchGoogleIndia(query!, activeGoogleKey);
         return { data: result, status: 200 };
-      } catch {
+      } catch (error) {
+        if (error instanceof GoogleMapsHttpError && error.status === 429) {
+          googleRetryAt[kind] = Date.now() + error.retryAfterMs;
+        }
         return null;
       }
     })();

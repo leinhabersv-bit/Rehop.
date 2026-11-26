@@ -77,13 +77,18 @@ export default function DestinationTracking({ pickup, dropoff, progress, control
       {controls}
       {showMap ? (
         <div className={styles.pickupMap}>
-          <div className={styles.approachHeading}><span>Destination route</span><span>Simulation · Google Maps</span></div>
+          <div className={styles.approachHeading}>
+            <span>Destination route</span>
+            <span>{result.trafficAware ? 'Google Maps · live traffic' : 'Google Maps · traffic excluded'}</span>
+          </div>
           <GoogleDrivingMap coordinates={result.coordinates} pickup={pickup} dropoff={dropoff}
             driver={trip ? { marker: <RideCab />, progress: trip.progress, target: 'destination' } : undefined} />
           <div className={styles.approachFooter}><span>In transit</span><span>Destination · {dropoff.label}</span></div>
         </div>
       ) : <p role="status" className="text-sm text-[#e4eaff]">{route.isFetching
-        ? 'Loading the destination route…' : result ? 'Estimated from the road route below.' : 'The destination route is unavailable.'}</p>}
+        ? 'Loading the destination route…' : result ? googleMapsKey
+          ? 'Google live traffic is unavailable. The road estimate is shown below.'
+          : 'Estimated from the road route below.' : 'The destination route is unavailable.'}</p>}
       {!canTrack && <p className="mt-3 text-sm text-[#e4eaff]">Arrival tracking is unavailable for this booking.</p>}
     </div>
   );
