@@ -223,6 +223,52 @@ test('tracking shows an automatically booked replacement after confirmed driver 
   expect(await getJourney(request, id)).toMatchObject({ state: 'PICKUP_CONFIRMED', active_ride: { provider: 'PROVIDER_B' } });
 });
 
+test('a driver cancellation makes manual replacement the next step when auto-rebooking is off', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto(`${web}/book?pickup=Chennai+Central+Railway+Station&dropoff=Chennai+Egmore+Railway+Station`);
+  await expect(page.getByRole('switch', { name: /^Auto-rebook if my driver cancels/ })).not.toBeChecked();
+  await page.getByRole('button', { name: 'Find my ride' }).click();
+  const id = await reachQuotes(page);
+  await bookRecommended(page);
+  await expect(page).toHaveURL(`${web}/journey/${id}`);
+  const original = await getJourney(request, id);
+  expect(original.active_ride_id).toBeTruthy();
+  expect(original.policy.auto_rebook_on_confirmed_driver_cancel).toBe(false);
+
+  const cancellation = await request.post(`${api}/api/v1/sim/journeys/${id}/inject`, {
+    data: { kind: 'DRIVER_CANCEL', params: {} },
+  });
+  expect(cancellation.ok()).toBe(true);
+
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Home' }).click();
+  const update = page.getByRole('region', { name: 'Ride update' });
+  await expect(update.getByRole('status')).toContainText('Your driver cancelled');
+  await update.getByRole('link', { name: 'Review replacement' }).click();
+  const pickup = page.getByRole('region', { name: 'Pickup status' });
+  await expect(pickup.getByRole('status').filter({ hasText: 'Your driver cancelled' })).toBeVisible();
+  const review = pickup.getByRole('button', { name: 'Review replacement' });
+  await expect(review).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: 'Confirm boarding' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Book' })).toHaveCount(0);
+  await expect.poll(() => getJourney(request, id)).toMatchObject({
+    state: 'AWAITING_APPROVAL', active_ride: null, recovery_attempts: 0, last_ride: { state: 'DRIVER_CANCELLED' },
+  });
+
+  await review.click();
+  const offer = page.getByRole('dialog', { name: 'Review replacement ride' });
+  await offer.getByRole('button', { name: 'Approve replacement' }).click();
+  await expect.poll(() => getJourney(request, id)).toMatchObject({
+    state: 'MONITORING', pending_backup: null, recovery_attempts: 1,
+    policy: { auto_rebook_on_confirmed_driver_cancel: false },
+  });
+  const replacement = await getJourney(request, id);
+  expect(replacement.active_ride_id).not.toBe(original.active_ride_id);
+  await tick(request, id, 24);
+  await page.getByRole('button', { name: 'Confirm boarding' }).click();
+  await expect(page.getByRole('heading', { name: 'Trip progress' })).toBeVisible();
+});
+
 test('blocks approval when the journey changes while the rider is reviewing the offer', async ({ page, request }) => {
   const { id } = await openScenario(page, request, 'S03');
   await tick(request, id, 24);
