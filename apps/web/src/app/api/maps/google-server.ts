@@ -1,5 +1,11 @@
 import type { Location } from '@/types';
 
+export class GoogleMapsHttpError extends Error {
+  constructor(readonly status: number, readonly retryAfterMs: number) {
+    super('Google Maps request failed');
+  }
+}
+
 export async function googleRequest<T>(url: string, key: string, fields: string, body: object): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',
@@ -12,7 +18,23 @@ export async function googleRequest<T>(url: string, key: string, fields: string,
     signal: AbortSignal.timeout(5000),
     cache: 'no-store',
   });
-  if (!response.ok) throw new Error('Google Maps request failed');
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as {
+      error?: { status?: unknown; details?: { reason?: unknown; metadata?: Record<string, unknown> }[] };
+    } | null;
+    const details = Array.isArray(payload?.error?.details) ? payload.error.details : [];
+    const codes = [payload?.error?.status, ...details.map(detail => detail?.reason)]
+      .filter((code): code is string => typeof code === 'string' && /^[A-Z0-9_]{1,64}$/.test(code));
+    const quota = details.flatMap(detail => ['quota_limit', 'quota_limit_value', 'quota_metric', 'quota_unit']
+      .map(field => [field, detail?.metadata?.[field]])
+      .filter(([, value]) => typeof value === 'string' && /^[\w./{}-]{1,120}$/.test(value)));
+    console.warn('Google Maps upstream request failed', {
+      service: new URL(url).hostname, status: response.status, codes, quota: Object.fromEntries(quota),
+    });
+    const retryAfter = response.headers.get('Retry-After') ?? '';
+    const wait = /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+    throw new GoogleMapsHttpError(response.status, Number.isFinite(wait) && wait > 0 ? wait : 60_000);
+  }
   return response.json();
 }
 

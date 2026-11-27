@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Clock3, Route } from 'lucide-react';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { googleMapsKey } from '@/lib/google-maps';
@@ -28,7 +28,7 @@ export function useDestinationProgress(journey?: Journey, recordedArrival?: numb
     !!journey,
   );
   const [now, setNow] = useState(Date.now);
-  const startedAt = Date.parse(journey?.boarded_at ?? '');
+  const startedAt = Date.parse(journey?.destination_started_at ?? journey?.boarded_at ?? '');
   const canTrack = Number.isFinite(startedAt);
   const duration = route.data?.durationSeconds;
   const end = canTrack ? recordedArrival ?? (duration === undefined
@@ -59,10 +59,11 @@ export function useDestinationProgress(journey?: Journey, recordedArrival?: numb
 
 type DestinationProgress = ReturnType<typeof useDestinationProgress>;
 
-export default function DestinationTracking({ pickup, dropoff, progress }: {
+export default function DestinationTracking({ pickup, dropoff, progress, controls }: {
   pickup: Location;
   dropoff: Location;
   progress: DestinationProgress;
+  controls: ReactNode;
 }) {
   const { route, trip, canTrack } = progress;
   const result = route.data;
@@ -73,15 +74,21 @@ export default function DestinationTracking({ pickup, dropoff, progress }: {
         <div><dt>Arrival ETA</dt><dd>{trip ? formatDrivingDuration(trip.remainingSeconds) : '—'}</dd></div>
         <div><dt>Remaining distance</dt><dd>{trip ? formatDrivingDistance(trip.remainingMeters) : '—'}</dd></div>
       </dl>
+      {controls}
       {showMap ? (
         <div className={styles.pickupMap}>
-          <div className={styles.approachHeading}><span>Destination route</span><span>Accelerated simulation · Google Maps</span></div>
+          <div className={styles.approachHeading}>
+            <span>Destination route</span>
+            <span>{result.trafficAware ? 'Google Maps · live traffic' : 'Google Maps · traffic excluded'}</span>
+          </div>
           <GoogleDrivingMap coordinates={result.coordinates} pickup={pickup} dropoff={dropoff}
             driver={trip ? { marker: <RideCab />, progress: trip.progress, target: 'destination' } : undefined} />
           <div className={styles.approachFooter}><span>In transit</span><span>Destination · {dropoff.label}</span></div>
         </div>
       ) : <p role="status" className="text-sm text-[#e4eaff]">{route.isFetching
-        ? 'Loading the destination route…' : result ? 'Estimated from the road route below.' : 'The destination route is unavailable.'}</p>}
+        ? 'Loading the destination route…' : result ? googleMapsKey
+          ? 'Google live traffic is unavailable. The road estimate is shown below.'
+          : 'Estimated from the road route below.' : 'The destination route is unavailable.'}</p>}
       {!canTrack && <p className="mt-3 text-sm text-[#e4eaff]">Arrival tracking is unavailable for this booking.</p>}
     </div>
   );

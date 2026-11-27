@@ -93,9 +93,9 @@ export default function JourneyPanel({ id }: { id: string }) {
     queryFn: () => api.journey(id),
     refetchInterval: stream.connection === 'live' ? false : 5000,
   });
-  const pickupPlayback = useMutation({
-    mutationFn: (speed: 1 | 20) => api.playPickup(id, speed),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  const playback = useMutation({
+    mutationFn: (speed: 1 | 20) => api.setPlaybackSpeed(id, speed),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
   const data = query.data;
   const destination = useDestinationProgress(data?.state === 'PICKUP_CONFIRMED' ? data : undefined,
@@ -169,7 +169,7 @@ export default function JourneyPanel({ id }: { id: string }) {
   const cancelledPickup = !ride && !reconciling && data.last_ride?.state === 'DRIVER_CANCELLED' &&
     (data.state === 'AWAITING_APPROVAL' || data.state === 'EXHAUSTED');
   const bookedQuote = data.quotes.find((quote) => quote.quote_id === ride?.quote_id);
-  if (destination.arrived) {
+  if (destination.arrived && !playback.isPending) {
     return <TripCompleted journeyId={data.id} pickup={data.pickup} dropoff={data.dropoff} fare={bookedQuote?.estimated_fare_inr}
       route={destination.route.data} loading={destination.route.isPending && destination.route.isFetching} />;
   }
@@ -186,6 +186,24 @@ export default function JourneyPanel({ id }: { id: string }) {
     : journeyLabels[data.state] ?? readable(data.state);
   const pickupStep = ride?.state === 'IN_PROGRESS' || data.state === 'PICKUP_CONFIRMED' ? 2
     : ride?.state === 'DRIVER_ARRIVED' ? 1 : 0;
+  const playbackLabel = boarded ? 'Simulated trip speed' : 'Simulated pickup speed';
+  const speed = boarded ? data.destination_speed ?? 20 : playback.data?.speed;
+  const speedControls = (
+    <section aria-label={playbackLabel} className="mb-4 grid gap-2 rounded-xl border border-white/20 bg-white/10 p-3">
+      <p className="text-sm font-bold">{playbackLabel}</p>
+      <div className="grid grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap">
+        <button type="button" aria-label={`Fast-forward ${boarded ? 'trip' : 'pickup'} · 20×`} aria-pressed={speed === 20}
+          className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm"
+          disabled={!!action || query.isError || playback.isPending} onClick={() => playback.mutate(20)}>Fast-forward · 20×</button>
+        <button type="button" aria-pressed={speed === 1} className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm"
+          disabled={!!action || query.isError || playback.isPending} onClick={() => playback.mutate(1)}>Normal speed</button>
+      </div>
+      <p role="status" className="text-sm text-[#e4eaff]">
+        {playback.isPending ? 'Changing playback speed…' : playback.isError ? 'Couldn’t change playback speed. Try again.' :
+          speed ? `${boarded ? 'Trip' : 'Pickup'} running at ${speed}×.` : 'Speeds up pickup. Confirm boarding when you’re in.'}
+      </p>
+    </section>
+  );
 
   return (
     <>
@@ -251,7 +269,8 @@ export default function JourneyPanel({ id }: { id: string }) {
             {ride?.state === 'DRIVER_ARRIVED' && !done && <div className="button-row">
               <button id="confirm-boarding" className="btn scroll-mt-24" disabled={!canBoard} onClick={() => void act('Confirming boarding…', () => api.confirmPickup(id, data.version))}>Confirm boarding</button>
             </div>}
-            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} progress={destination} /> : ride && (
+            {boarded ? <DestinationTracking pickup={data.pickup} dropoff={data.dropoff} progress={destination}
+              controls={data.arrives_at && speedControls} /> : ride && (
               <>
                 <div className={styles.pickupTracking}>
                   <dl className={styles.stats}>
@@ -262,19 +281,7 @@ export default function JourneyPanel({ id }: { id: string }) {
                     }</dd></div>
                     <div><dt>Distance to pickup</dt><dd>{`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}</dd></div>
                   </dl>
-                  {ride.state === 'DRIVER_EN_ROUTE' && !done && !reconciling && (
-                    <section aria-label="Simulated pickup speed" className="mb-4 grid gap-2 rounded-xl border border-white/20 bg-white/10 p-3">
-                      <p className="text-sm font-bold">Simulated pickup speed</p>
-                      <div className="grid grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap">
-                        <button type="button" aria-label="Fast-forward pickup · 20×" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(20)}>Fast-forward · 20×</button>
-                        <button type="button" className="btn secondary !min-h-11 !px-2 !py-2 !text-xs sm:!px-4 sm:!text-sm" disabled={!canAct || pickupPlayback.isPending} onClick={() => pickupPlayback.mutate(1)}>Normal speed</button>
-                      </div>
-                      <p role="status" className="text-sm text-[#e4eaff]">
-                        {pickupPlayback.isPending ? 'Changing pickup speed…' : pickupPlayback.isError ? 'Couldn’t change pickup speed. Try again.' :
-                          pickupPlayback.data ? `Pickup running at ${pickupPlayback.data.speed}×.` : 'Speeds up pickup. Confirm boarding when you’re in.'}
-                      </p>
-                    </section>
-                  )}
+                  {ride.state === 'DRIVER_EN_ROUTE' && !done && !reconciling && speedControls}
                   <PickupApproach key={ride.ride_id} pickup={data.pickup} dropoff={data.dropoff}
                     startDistance={startDistance} distance={`${(ride.distance_to_pickup_m / 1000).toFixed(1)} km`}
                     progress={progress} stalled={positionStalled} status={pickupStatus} />

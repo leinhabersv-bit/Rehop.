@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 import { useDrivingRoute } from '@/components/booking/TripRoute';
 import { googleMapsKey } from '@/lib/google-maps';
+import { formatDrivingDuration } from '@/lib/maps';
 import { measureRoute } from '@/lib/route-path';
 import type { Location } from '@/types';
 import { RideCab } from './RideCab';
@@ -42,7 +43,13 @@ export default function PickupApproach({ pickup, dropoff, startDistance, distanc
   if (showMap) {
     return (
       <div className={styles.pickupMap}>
-        <div className={styles.approachHeading}><span>Driver location</span><span>Simulated position · Google Maps</span></div>
+        <div className={styles.approachHeading}>
+          <span>Driver location</span>
+          <span>{route.data?.trafficAware ? 'Google Maps · live traffic' : 'Google Maps · traffic excluded'}</span>
+        </div>
+        {route.data?.trafficAware && <p className="px-3 pb-2 text-sm text-[#e4eaff]">
+          Simulated position · Road estimate {formatDrivingDuration(route.data.durationSeconds * (1 - progress))}
+        </p>}
         <GoogleDrivingMap coordinates={coordinates} pickup={pickup} dropoff={pickup} driver={{ progress, marker: cab }} />
         <div className={styles.approachFooter}><span>{stalled ? 'Position unchanged' : status}</span><span>Pickup · {pickup.label}</span></div>
       </div>
@@ -54,7 +61,8 @@ export default function PickupApproach({ pickup, dropoff, startDistance, distanc
     <div className={styles.approach} role="img" aria-label={`Simulated driver approach. ${status}. ${stalled ? 'Driver position unchanged. ' : ''}${distance} to pickup.`}>
       <div className={styles.approachHeading} aria-hidden="true">
         <span>Driver location</span>
-        <span>{!hasPosition ? 'Loading driver position…' : loading ? 'Loading Google Maps pickup route…' : 'Simulated pickup route'}</span>
+        <span>{!hasPosition ? 'Loading driver position…' : loading ? 'Loading Google Maps pickup route…' :
+          googleMapsKey ? 'Google pickup route unavailable' : 'Simulated pickup route'}</span>
       </div>
       <div className={styles.approachTrack} aria-hidden="true">
         <span className={styles.approachPin}><MapPin size={23} /></span>
