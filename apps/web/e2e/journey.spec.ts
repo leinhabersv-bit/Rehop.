@@ -393,6 +393,32 @@ test('blocks approval when the journey changes while the rider is reviewing the 
   });
 });
 
+for (const width of [390, 1366]) {
+  test(`a failed switch shows the S15 end state at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { id } = await openScenario(page, request, 'S15');
+    await tick(request, id, 25);
+    await page.getByRole('button', { name: 'Review switch & fee' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Approve switch' }).click();
+    const pickup = page.getByRole('region', { name: 'Pickup status' });
+    await expect(pickup.getByRole('status').filter({ hasText: 'We couldn’t book a replacement' }))
+      .toContainText('Your original ride was cancelled. You have no confirmed ride.');
+    await expect(pickup.getByRole('button', { name: /board|cancel|approve/i })).toHaveCount(0);
+    expect(await getJourney(request, id)).toMatchObject({
+      state: 'EXHAUSTED', active_ride: null, recovery_attempts: 2, last_ride: { state: 'RIDER_CANCELLED' },
+    });
+    const { events }: { events: Event[] } = await (await request.get(`${api}/api/v1/journeys/${id}/events`)).json();
+    const recovery = events.map(event => event.type).filter(type =>
+      ['RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST', 'RECOVERY_EXHAUSTED'].includes(type));
+    expect(recovery).toEqual([
+      'RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST',
+      'RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST', 'RECOVERY_EXHAUSTED',
+    ]);
+    await pickup.getByRole('link', { name: 'Get a new ride' }).click();
+    await expect(page.getByRole('button', { name: 'Find my ride' })).toBeVisible();
+  });
+}
+
 test('cancelling an active ride restores the normal navigation', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const id = await prepareManualBooking(page);
