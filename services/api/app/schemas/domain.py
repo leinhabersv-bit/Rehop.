@@ -12,6 +12,7 @@ from pydantic import (
 
 from app.schemas.enums import (
     ChatLabel,
+    DecisionType,
     EventType,
     GpsQuality,
     JourneyState,
@@ -126,6 +127,17 @@ class DeadlineDecision(BaseModel):
     switch_cost_points: int
     recommendation: Literal["PROPOSE_SWITCH", "WAIT_AND_MONITOR"]
     formula: str
+    decision_type: DecisionType | None = None
+    reasons: list[str] | None = None
+    numbers: dict[str, int | None] | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        data = handler(self)
+        for field in ("decision_type", "reasons", "numbers"):
+            if data.get(field) is None:
+                data.pop(field, None)
+        return data
 
 
 class OperationResult(BaseModel):

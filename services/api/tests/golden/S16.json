@@ -230,7 +230,10 @@
       "signals"
     ],
     [
+      "decision_type",
       "formula",
+      "numbers",
+      "reasons",
       "recommendation",
       "seconds_until_deadline",
       "switch_cost_points",

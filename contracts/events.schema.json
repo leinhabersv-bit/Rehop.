@@ -152,6 +152,77 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "DEADLINE_DECISION"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "decision_type": {
+                "enum": [
+                  "MONITOR",
+                  "SEARCH_BACKUP",
+                  "REQUEST_APPROVAL",
+                  "REBOOK_AFTER_CANCEL",
+                  "STOP"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "numbers": {
+                "type": "object",
+                "required": [
+                  "wait_late_sec",
+                  "switch_late_sec",
+                  "wait_cost",
+                  "switch_cost",
+                  "seconds_until_need_by"
+                ],
+                "properties": {
+                  "wait_late_sec": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "switch_late_sec": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "wait_cost": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "switch_cost": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "seconds_until_need_by": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

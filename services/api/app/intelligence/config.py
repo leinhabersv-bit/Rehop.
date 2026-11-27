@@ -45,3 +45,26 @@ class RiskConfig:
     medium_cutoff: int = 40
     high_cutoff: int = 70
     lower_assessments_to_drop: int = 2
+
+
+@dataclass(frozen=True)
+class DecisionConfig:
+    # Simulated preference points, not financial losses or calibrated predictions.
+    lateness_points_per_second: int = 2
+    low_risk_points: int = 0
+    unknown_risk_points: int = 0
+    medium_risk_points: int = 40
+    high_risk_points: int = 90
+    chat_cancel_points: int = 20
+    fare_points_per_inr: int = 1
+    switch_overhead_seconds: int = 15
+    minimum_improvement_margin: int = 30
+    rejection_cooldown_seconds: int = 120
+    provider_cooldown_seconds: int = 120
+
+    # Illustrative cancellation-fee upper bound and normalized ranking weights.
+    cancellation_fee_rate: float = 0.10
+    cancellation_fee_cap_inr: int = 100
+    backup_eta_weight: float = 0.80
+    backup_fare_weight: float = 0.17
+    backup_simulator_prior_weight: float = 0.03

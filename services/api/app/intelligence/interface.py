@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol, TypedDict, Unpack
 
-from app.intelligence.config import RiskConfig
-from app.intelligence.decision import compare_wait_switch
+from app.intelligence.config import DecisionConfig, RiskConfig
+from app.intelligence.decision import Decision, DecisionContext, cancellation_fee_bound, decide
 from app.intelligence.features import RideFeatures, compute_features
 from app.intelligence.llm import (
     RideIntent,
@@ -15,29 +15,20 @@ from app.intelligence.llm import (
     parse_ride_intent,
 )
 from app.intelligence.policy import may_rebook
-from app.intelligence.recovery import rank_backups
+from app.intelligence.recovery import RankedBackups, rank_backups
 from app.intelligence.risk import RiskTracker, assess_v2
-from app.schemas.domain import ChatSignal, DeadlineDecision, Quote, Ride, RiskAssessment, TelemetrySample
-from app.schemas.enums import ChatLabel, JourneyState, Provider, RideState, RiskBand
-from app.schemas.requests import Location
-
-
-class DecisionContext(TypedDict):
-    now: datetime
-    need_by: datetime
-    current_eta_sec: int
-    backup_eta_sec: int
-    current_fare_inr: int
-    backup_fare_inr: int
-    cancellation_fee_upper_bound_inr: int
-    risk_band: RiskBand
-    chat_signal: ChatLabel | None
+from app.schemas.domain import ChatSignal, Quote, Ride, RiskAssessment, TelemetrySample
+from app.schemas.enums import JourneyState, Provider, RideState
+from app.schemas.requests import Location, RecoveryPolicy
+from app.simulation.profiles import PROFILES
 
 
 class BackupContext(TypedDict):
+    now: datetime
+    policy: RecoveryPolicy
     excluding_provider: Provider | None
-    max_fare_inr: int
     attempted_providers: set[Provider]
+    provider_cooldowns: dict[Provider, datetime]
 
 
 class RecoveryContext(TypedDict):
@@ -65,9 +56,11 @@ class IntelligencePort(Protocol):
 
     def parse_intent(self, text: str, locations: list[Location]) -> RideIntent: ...
 
-    def decide(self, **context: Unpack[DecisionContext]) -> DeadlineDecision: ...
+    def decide(self, context: DecisionContext) -> Decision: ...
 
-    def rank_backups(self, quotes: list[Quote], **context: Unpack[BackupContext]) -> list[Quote]: ...
+    def cancellation_fee_bound(self, fare_inr: int) -> int: ...
+
+    def rank_backups(self, quotes: list[Quote], **context: Unpack[BackupContext]) -> RankedBackups: ...
 
     def explain(self, template: str, numbers: list[int], *, offline: bool = False) -> VerifiedExplanation: ...
 
@@ -77,8 +70,11 @@ class IntelligencePort(Protocol):
 class DefaultIntelligence:
     """Apply the configured pickup risk model and delegate the other policies."""
 
-    def __init__(self, config: RiskConfig | None = None) -> None:
+    def __init__(
+        self, config: RiskConfig | None = None, decision_config: DecisionConfig | None = None
+    ) -> None:
         self.config = config if config is not None else RiskConfig()
+        self.decision_config = decision_config if decision_config is not None else DecisionConfig()
 
     def assess(
         self,
@@ -99,11 +95,14 @@ class DefaultIntelligence:
     def parse_intent(self, text: str, locations: list[Location]) -> RideIntent:
         return parse_ride_intent(text, locations)
 
-    def decide(self, **context: Unpack[DecisionContext]) -> DeadlineDecision:
-        return compare_wait_switch(**context)
+    def decide(self, context: DecisionContext) -> Decision:
+        return decide(context, self.decision_config)
 
-    def rank_backups(self, quotes: list[Quote], **context: Unpack[BackupContext]) -> list[Quote]:
-        return rank_backups(quotes, **context)
+    def cancellation_fee_bound(self, fare_inr: int) -> int:
+        return cancellation_fee_bound(fare_inr, self.decision_config)
+
+    def rank_backups(self, quotes: list[Quote], **context: Unpack[BackupContext]) -> RankedBackups:
+        return rank_backups(quotes, **context, profiles=PROFILES, config=self.decision_config)
 
     def explain(self, template: str, numbers: list[int], *, offline: bool = False) -> VerifiedExplanation:
         return explain_with_verified_numbers(template, numbers, offline=offline)

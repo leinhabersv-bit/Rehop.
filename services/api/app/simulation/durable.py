@@ -40,6 +40,9 @@ class StoredSession(BaseModel):
     need_by: datetime
     driver_chat_signal: ChatSignal | None
     decision: DeadlineDecision | None
+    last_rejection_at: datetime | None = None
+    last_proposal_band: RiskBand | None = None
+    provider_cooldowns: dict[Provider, datetime] = Field(default_factory=dict)
     explained_bands: set[RiskBand]
     cancellation_fee_notice: FeeNotice | None
     scenario: str

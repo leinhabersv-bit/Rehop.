@@ -1,0 +1,28 @@
+{
+  "event_id": "journey_demo_evt_0043",
+  "journey_id": "journey_demo",
+  "seq": 43,
+  "timestamp": "2026-11-23T08:35:00+00:00",
+  "type": "DEADLINE_DECISION",
+  "ride_id": "ride_demo",
+  "payload": {
+    "seconds_until_deadline": 300,
+    "wait_late_sec": 120,
+    "switch_late_sec": 0,
+    "wait_cost_points": 280,
+    "switch_cost_points": 32,
+    "recommendation": "PROPOSE_SWITCH",
+    "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+    "decision_type": "REQUEST_APPROVAL",
+    "reasons": [
+      "SWITCH_IMPROVES_PICKUP_COST"
+    ],
+    "numbers": {
+      "wait_late_sec": 120,
+      "switch_late_sec": 0,
+      "wait_cost": 280,
+      "switch_cost": 32,
+      "seconds_until_need_by": 300
+    }
+  }
+}
