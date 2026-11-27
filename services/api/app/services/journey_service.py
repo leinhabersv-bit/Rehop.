@@ -11,10 +11,11 @@ from app.domain.errors import SimulationError
 from app.domain.invariants import check_invariants
 from app.domain.state_machine import ACTIVE_RIDE_STATES, transition_journey, transition_ride
 from app.domain.state_machine import TERMINAL_JOURNEY_STATES as STOPPED
+from app.intelligence.decision import Decision, DecisionContext
+from app.intelligence.features import RideFeatures
 from app.intelligence.history import TelemetryHistory
 from app.intelligence.interface import DefaultIntelligence, IntelligencePort
 from app.schemas.domain import (
-    DeadlineDecision,
     FeeNotice,
     JourneySnapshot,
     PlaybackState,
@@ -24,6 +25,7 @@ from app.schemas.domain import (
 )
 from app.schemas.enums import (
     ChatLabel,
+    DecisionType,
     EventType,
     GpsQuality,
     JourneyState,
@@ -354,41 +356,8 @@ class JourneyService:
             for injection in injections:
                 if injection.kind == "DRIVER_MESSAGE":
                     self._classify_driver_message(journey, injection.params["text"])
-            if (
-                journey.risk.band in {RiskBand.HIGH, RiskBand.MEDIUM}
-                and not journey.pending_backup
-                and journey.recovery_attempts < journey.policy.max_recovery_attempts
-            ):
-                candidates = self._backups(journey)
-                if candidates:
-                    assessment = self._evaluate_backup(journey, journey.ride, candidates[0])
-                    journey.decision = assessment
-                    journey.add_event(EventType.DEADLINE_DECISION, assessment, journey.ride.ride_id)
-                    if assessment.recommendation == "PROPOSE_SWITCH":
-                        journey.pending_backup = candidates[0]
-                        journey.cancellation_fee_notice = self._fee_notice(journey)
-                        self._transition_journey(
-                            journey,
-                            JourneyState.AWAITING_APPROVAL,
-                            reason="A preemptive switch requires rider approval.",
-                        )
-                        journey.add_event(
-                            EventType.BACKUP_FOUND,
-                            {"candidate": journey.pending_backup},
-                            journey.ride.ride_id,
-                        )
-                        journey.add_event(
-                            EventType.APPROVAL_REQUIRED,
-                            {
-                                "reason": "Deadline-aware switching proposal; rider approval required",
-                                "cancellation_fee_notice": journey.cancellation_fee_notice,
-                            },
-                            journey.ride.ride_id,
-                        )
-                else:
-                    journey.add_event(
-                        EventType.RECOVERY_BLOCKED, {"reason": "No eligible backup"}, journey.ride.ride_id
-                    )
+            if journey.risk.band in {RiskBand.HIGH, RiskBand.MEDIUM} and not journey.pending_backup:
+                self._consider_backup(journey, features)
             if journey.ride.distance_to_pickup_m <= 0:
                 self._arrive(journey)
         return self._checked_snapshot(journey)
@@ -415,8 +384,8 @@ class JourneyService:
         journey.add_event(EventType.QUOTE_REFRESHED, {"candidate": refreshed, "not_a_reservation": True})
         return refreshed
 
-    def _fee_notice(self, journey: Session) -> FeeNotice:
-        fare = next(
+    def _current_fare(self, journey: Session) -> int:
+        return next(
             (
                 q.estimated_fare_inr
                 for q in journey.quotes
@@ -424,11 +393,13 @@ class JourneyService:
             ),
             0,
         )
-        bound = min(round(fare * 0.10), 100)
-        # Guideline 18.2 applies ONLY to passenger cancellation without valid reason;
-        # actual provider/state rule may differ. This is a simulation estimate.
+
+    def _fee_notice(self, journey: Session) -> FeeNotice:
+        # The bound is illustrative and conditional on applicable provider and state rules.
         return FeeNotice(
-            potential_fee_upper_bound_inr=bound,
+            potential_fee_upper_bound_inr=self.intelligence.cancellation_fee_bound(
+                self._current_fare(journey)
+            ),
             actual_fee_inr=None,
             fee_confirmed=False,
             source="MVAG 2025 clause 18.2: conditional illustration",
@@ -436,20 +407,64 @@ class JourneyService:
             "valid reasons may avoid the fee.",
         )
 
-    def _evaluate_backup(self, journey: Session, ride: Ride, candidate: Quote) -> DeadlineDecision:
-        fee = self._fee_notice(journey)
-        current_fare = next((q.estimated_fare_inr for q in journey.quotes if q.quote_id == ride.quote_id), 0)
+    def _decision(
+        self, journey: Session, candidates: list[Quote], features: RideFeatures | None = None
+    ) -> Decision:
         return self.intelligence.decide(
-            now=journey.clock,
-            need_by=journey.need_by,
-            current_eta_sec=ride.eta_sec,
-            backup_eta_sec=candidate.pickup_eta_sec,
-            current_fare_inr=current_fare,
-            backup_fare_inr=candidate.estimated_fare_inr,
-            cancellation_fee_upper_bound_inr=fee.potential_fee_upper_bound_inr,
-            risk_band=journey.risk.band if journey.risk else RiskBand.UNKNOWN,
-            chat_signal=journey.driver_chat_signal.label if journey.driver_chat_signal else None,
+            DecisionContext(
+                journey_state=journey.state,
+                active_ride=journey.ride,
+                last_ride=journey.last_ride,
+                risk=journey.risk,
+                features=features,
+                chat_signal=journey.driver_chat_signal,
+                now=journey.clock,
+                need_by=journey.need_by,
+                ranked_backups=candidates,
+                policy=journey.policy,
+                recovery_attempts=journey.recovery_attempts,
+                last_rejection_at=journey.last_rejection_at,
+                last_proposal_band=journey.last_proposal_band,
+                current_fare_inr=self._current_fare(journey),
+                cancellation_fee_upper_bound_inr=self._fee_notice(journey).potential_fee_upper_bound_inr,
+            )
         )
+
+    def _consider_backup(self, journey: Session, features: RideFeatures) -> None:
+        candidates = self._backups(journey)
+        decision = self._decision(journey, candidates, features)
+        if decision.type not in {DecisionType.REQUEST_APPROVAL, DecisionType.SEARCH_BACKUP}:
+            return
+        if "POLICY_RETRY_LIMIT" in decision.reasons:
+            return
+        if not candidates:
+            journey.add_event(
+                EventType.RECOVERY_BLOCKED, {"reason": "No eligible backup"}, journey.ride.ride_id
+            )
+            return
+
+        journey.decision = decision.to_deadline_event()
+        journey.add_event(EventType.DEADLINE_DECISION, journey.decision, journey.ride.ride_id)
+        if decision.type == DecisionType.REQUEST_APPROVAL:
+            journey.pending_backup = decision.candidate
+            journey.last_proposal_band = journey.risk.band
+            journey.cancellation_fee_notice = self._fee_notice(journey)
+            self._transition_journey(
+                journey,
+                JourneyState.AWAITING_APPROVAL,
+                reason="A preemptive switch requires rider approval.",
+            )
+            journey.add_event(
+                EventType.BACKUP_FOUND, {"candidate": journey.pending_backup}, journey.ride.ride_id
+            )
+            journey.add_event(
+                EventType.APPROVAL_REQUIRED,
+                {
+                    "reason": "Deadline-aware switching proposal; rider approval required",
+                    "cancellation_fee_notice": journey.cancellation_fee_notice,
+                },
+                journey.ride.ride_id,
+            )
 
     def _message(self, journey: Session, text: str) -> JourneySnapshot:
         self._classify_driver_message(journey, text)
@@ -609,6 +624,8 @@ class JourneyService:
             self._checked_snapshot(journey)
             raise SimulationError("BOOKING_UNCONFIRMED", "Booking response timed out; verification required.")
         journey.ride_count += 1
+        journey.last_rejection_at = None
+        journey.last_proposal_band = None
         journey.ride_ticks = 0
         journey.stall_ticks_remaining = 0
         journey.stationary_ticks = 0
@@ -647,12 +664,20 @@ class JourneyService:
             "BACKUP_UNAVAILABLE", stage="search"
         ):
             return []
+        # Search can refresh an expired offer, but cannot hold inventory or initialize a booking.
+        offers = [
+            journey._search(quote.provider) if quote.expires_at <= journey.clock else quote
+            for quote in journey.quotes
+            if quote.provider != provider
+        ]
         return self.intelligence.rank_backups(
-            journey.quotes,
+            offers,
+            now=journey.clock,
+            policy=journey.policy,
             excluding_provider=provider,
-            max_fare_inr=journey.policy.max_total_fare_inr,
             attempted_providers=journey.attempted_providers,
-        )
+            provider_cooldowns=journey.provider_cooldowns,
+        ).quotes
 
     def _confirm_replacement(self, journey: Session, candidate: Quote) -> JourneySnapshot:
         permitted, reason = self.intelligence.may_rebook(
@@ -689,51 +714,47 @@ class JourneyService:
             )
             return self._checked_snapshot(journey)
 
-    def _recover_after_cancel(self, journey: Session):
-        if journey.state == JourneyState.USER_CANCELLED:
+    def _recover_after_cancel(self, journey: Session) -> None:
+        remaining = self._backups(journey)
+        decision = self._decision(journey, remaining)
+        if journey.state in STOPPED:
             return
-        if journey.recovery_attempts >= journey.policy.max_recovery_attempts:
-            self._transition_journey(
-                journey, JourneyState.EXHAUSTED, reason="Recovery attempt limit reached."
-            )
-            journey.add_event(EventType.RECOVERY_EXHAUSTED, {"reason": "POLICY_RETRY_LIMIT"})
-            return
-        candidates = self._backups(journey)
-        if not candidates:
-            self._transition_journey(
-                journey, JourneyState.EXHAUSTED, reason="No eligible backup after driver cancellation."
-            )
-            journey.add_event(
-                EventType.RECOVERY_EXHAUSTED,
-                {"reason": "No eligible backup under fare and availability rules"},
-            )
-            return
-        candidate = None
-        for ranked in candidates:
+
+        tried_refresh = False
+        while decision.candidate is not None:
+            ranked = decision.candidate
             candidate = self._refresh_backup(journey, ranked)
             if candidate is not None:
-                break
-        if not candidate:
-            self._transition_journey(
-                journey, JourneyState.EXHAUSTED, reason="No fresh backup after driver cancellation."
-            )
-            journey.add_event(
-                EventType.RECOVERY_EXHAUSTED, {"reason": "No fresh backup after driver cancellation"}
-            )
+                if decision.type == DecisionType.REBOOK_AFTER_CANCEL:
+                    self._confirm_replacement(journey, candidate)
+                elif decision.type == DecisionType.REQUEST_APPROVAL:
+                    journey.pending_backup = candidate
+                    self._transition_journey(
+                        journey,
+                        JourneyState.AWAITING_APPROVAL,
+                        reason="A replacement after driver cancellation requires approval.",
+                    )
+                    journey.add_event(EventType.BACKUP_FOUND, {"candidate": candidate})
+                    journey.add_event(
+                        EventType.APPROVAL_REQUIRED,
+                        {"reason": "Driver cancelled; approve a replacement booking."},
+                    )
+                return
+            tried_refresh = True
+            remaining.remove(ranked)
+            decision = self._decision(journey, remaining)
+
+        if decision.type != DecisionType.STOP:
             return
-        if not journey.policy.auto_rebook_on_confirmed_driver_cancel:
-            journey.pending_backup = candidate
-            self._transition_journey(
-                journey,
-                JourneyState.AWAITING_APPROVAL,
-                reason="A replacement after driver cancellation requires approval.",
-            )
-            journey.add_event(EventType.BACKUP_FOUND, {"candidate": candidate})
-            journey.add_event(
-                EventType.APPROVAL_REQUIRED, {"reason": "Driver cancelled; approve a replacement booking."}
-            )
-            return
-        self._confirm_replacement(journey, candidate)
+        reason = (
+            "POLICY_RETRY_LIMIT"
+            if "POLICY_RETRY_LIMIT" in decision.reasons
+            else "No fresh backup after driver cancellation"
+            if tried_refresh
+            else "No eligible backup under fare and availability rules"
+        )
+        self._transition_journey(journey, JourneyState.EXHAUSTED, reason=reason)
+        journey.add_event(EventType.RECOVERY_EXHAUSTED, {"reason": reason})
 
     def _driver_cancel(self, journey: Session) -> None:
         if not journey.ride or journey.state in STOPPED or journey.state == JourneyState.RECONCILING:
@@ -744,6 +765,7 @@ class JourneyService:
         )
         journey.adapters[journey.ride.provider].update_ride(journey.ride)
         journey.last_ride = journey.ride.model_copy()
+        journey.provider_cooldowns[cancelled.provider] = journey.clock
         journey.add_event(EventType.DRIVER_CANCELLED, {"provider": cancelled.provider}, cancelled.ride_id)
         journey.ride = None
         journey.pending_backup = None
@@ -816,6 +838,7 @@ class JourneyService:
         ):
             raise SimulationError("CANCEL_UNCONFIRMED", "Cannot confirm original cancellation.")
         if not approved:
+            journey.last_rejection_at = journey.clock
             reason = "Rider chose to keep waiting." if journey.ride else "Rider declined replacement."
             journey.add_event(EventType.SWITCH_REJECTED, {"reason": reason})
             self._clear_proposal(journey, reason)
@@ -896,6 +919,7 @@ class JourneyService:
     ) -> None:
         ride.state = ride_state
         journey.last_ride = ride.model_copy()
+        journey.provider_cooldowns[ride.provider] = journey.clock
         journey.ride = None
         journey.add_event(EventType.RIDE_CANCEL_CONFIRMED, {"old_provider": ride.provider}, ride.ride_id)
 

@@ -113,6 +113,9 @@ class Session:
         self.need_by = request.need_by or (BASE_TIME + timedelta(minutes=20))
         self.driver_chat_signal: ChatSignal | None = None
         self.decision: DeadlineDecision | None = None
+        self.last_rejection_at: datetime | None = None
+        self.last_proposal_band: RiskBand | None = None
+        self.provider_cooldowns: dict[Provider, datetime] = {}
         self.explained_bands: set[RiskBand] = set()
         self.cancellation_fee_notice: FeeNotice | None = None
         self.scenario = scenario
