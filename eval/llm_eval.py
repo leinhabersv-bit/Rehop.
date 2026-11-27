@@ -15,7 +15,8 @@ from app.intelligence.llm import classify_driver_message, client  # noqa: E402
 from app.schemas.enums import ChatLabel  # noqa: E402
 
 LABELS = [label.value for label in ChatLabel]
-SCOPE = "Small hand-made synthetic test set. These results do not measure real-world accuracy."
+CASE_FILES = {"main": "llm_cases.jsonl", "holdout": "llm_cases_holdout.jsonl"}
+SCOPE = "Small hand-made synthetic test sets. These results do not measure real-world accuracy."
 
 
 def evaluate(cases, *, offline):
@@ -62,67 +63,78 @@ def markdown(report):
     def percentage(value):
         return "—" if value is None else f"{value:.1%}"
 
-    lines = ["# Driver chat evaluation", "", SCOPE, "", f"Cases: {report['case_count']}."]
-    if "llm" not in report["runs"]:
-        lines.extend(["", "LLM run omitted because no API key was configured."])
+    lines = ["# Driver chat evaluation", "", SCOPE]
+    if "model" not in report:
+        lines.extend(["", "LLM runs omitted because no API key was configured."])
 
-    for name, run in report["runs"].items():
-        lines.extend(
-            [
-                "",
-                f"## {name}",
-                "",
-                f"Label accuracy: {percentage(run['accuracy'])}. "
-                f"ETA exact match: {percentage(run['eta_exact_match'])}. "
-                f"Both correct: {percentage(run['label_and_eta_exact_match'])}.",
-                "",
-                f"Mean latency: {run['mean_latency_ms']:.3f} ms. "
-                f"P95 latency: {run['p95_latency_ms']:.3f} ms. "
-                "Timing includes local validation, guards, and fallback.",
-                "",
-                "Response sources: "
-                + ", ".join(f"{key} = {value}" for key, value in run["sources"].items())
-                + ".",
-                "",
-                "| Label | Precision | Recall | Support |",
-                "|---|---:|---:|---:|",
-            ]
-        )
-        for label, result in run["per_label"].items():
-            lines.append(
-                f"| {label} | {percentage(result['precision'])} | {percentage(result['recall'])} "
-                f"| {result['support']} |"
+    for split, dataset in report["datasets"].items():
+        lines.extend(["", f"## {split.title()} set", "", f"Cases: {dataset['case_count']}."])
+        for name, run in dataset["runs"].items():
+            lines.extend(
+                [
+                    "",
+                    f"### {name}",
+                    "",
+                    f"Label accuracy: {percentage(run['accuracy'])}. "
+                    f"ETA exact match: {percentage(run['eta_exact_match'])}. "
+                    f"Both correct: {percentage(run['label_and_eta_exact_match'])}.",
+                    "",
+                    f"Mean latency: {run['mean_latency_ms']:.3f} ms. "
+                    f"P95 latency: {run['p95_latency_ms']:.3f} ms. "
+                    "Timing includes local validation, guards, and fallback.",
+                    "",
+                    "Response sources: "
+                    + ", ".join(f"{key} = {value}" for key, value in run["sources"].items())
+                    + ".",
+                    "",
+                    "| Label | Precision | Recall | Support |",
+                    "|---|---:|---:|---:|",
+                ]
             )
-        lines.extend(
-            [
-                "",
-                "Confusion matrix rows are expected labels and columns are predicted labels.",
-                "",
-                "| Expected → predicted | " + " | ".join(LABELS) + " |",
-                "|---|" + "---:|" * len(LABELS),
-            ]
-        )
-        for label, counts in run["confusion_matrix"].items():
-            lines.append(f"| {label} | " + " | ".join(str(counts[key]) for key in LABELS) + " |")
+            for label, result in run["per_label"].items():
+                lines.append(
+                    f"| {label} | {percentage(result['precision'])} | {percentage(result['recall'])} "
+                    f"| {result['support']} |"
+                )
+            lines.extend(
+                [
+                    "",
+                    "Confusion matrix rows are expected labels and columns are predicted labels.",
+                    "",
+                    "| Expected → predicted | " + " | ".join(LABELS) + " |",
+                    "|---|" + "---:|" * len(LABELS),
+                ]
+            )
+            for label, counts in run["confusion_matrix"].items():
+                lines.append(f"| {label} | " + " | ".join(str(counts[key]) for key in LABELS) + " |")
     return "\n".join(lines) + "\n"
 
 
 def main():
-    cases = [json.loads(line) for line in (ROOT / "eval/llm_cases.jsonl").read_text().splitlines() if line]
-    report = {
-        "scope": SCOPE,
-        "case_count": len(cases),
-        "runs": {"fallback": evaluate(cases, offline=True)},
-    }
-    if client.has_api_key():
+    report = {"scope": SCOPE, "datasets": {}}
+    live = client.has_api_key()
+    if live:
         report["model"] = client.model_name()
-        report["runs"]["llm"] = evaluate(cases, offline=False)
+
+    for split, filename in CASE_FILES.items():
+        cases = [
+            json.loads(line)
+            for line in (ROOT / "eval" / filename).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        runs = {"fallback": evaluate(cases, offline=True)}
+        if live:
+            runs["llm"] = evaluate(cases, offline=False)
+        report["datasets"][split] = {"case_count": len(cases), "runs": runs}
+        for name, run in runs.items():
+            print(
+                f"{split} / {name}: {run['accuracy']:.2%} label accuracy over {len(cases)} hand-made cases."
+            )
+
     out = ROOT / "eval/results"
     out.mkdir(exist_ok=True)
     (out / "llm_eval.json").write_text(json.dumps(report, indent=2) + "\n")
     (out / "llm_eval.md").write_text(markdown(report))
-    for name, run in report["runs"].items():
-        print(f"{name}: {run['accuracy']:.2%} label accuracy over {len(cases)} hand-made cases.")
     print("Wrote eval/results/llm_eval.json and eval/results/llm_eval.md.")
 
 
