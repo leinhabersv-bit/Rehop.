@@ -1,0 +1,12 @@
+{
+  "event_id": "journey_demo_evt_0043",
+  "journey_id": "journey_demo",
+  "seq": 43,
+  "timestamp": "2026-11-23T08:35:00+00:00",
+  "type": "RECONCILED",
+  "ride_id": "ride_demo",
+  "payload": {
+    "step": "switch_cancel",
+    "outcome": "RIDER_CANCELLED"
+  }
+}

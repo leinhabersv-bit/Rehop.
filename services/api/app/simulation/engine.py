@@ -16,6 +16,7 @@ from app.schemas.domain import (
     FeeNotice,
     JourneyEvent,
     JourneySnapshot,
+    PendingVerification,
     Quote,
     Ride,
     RiskAssessment,
@@ -132,6 +133,7 @@ class Session:
         self.provider_overrides = provider_overrides(script_for(scenario, profiled=profiled))
         self.driver_sim: DriverSim | None = None
         self.stall_ticks_remaining = 0
+        self.verification: PendingVerification | None = None
         self.unconfirmed_ride: Ride | None = None
         self.restore_providers()
         self.quotes = self._make_quotes()

@@ -121,9 +121,10 @@ def test_unknown_booking_requires_reconciliation():
         assert session.state is JourneyState.RECONCILING
         assert session.ride is None
     assert session.booking_uncertain
-    assert session.events[-1].type is EventType.ERROR
-    assert service.tick(session.id, 2, session=session).state is JourneyState.RECONCILING
-    assert service.cancel(session.id, "stop", session=session).state is JourneyState.USER_CANCELLED
+    assert session.events[-1].type is EventType.RECONCILIATION_REQUIRED
+    assert service.tick(session.id, 2, session=session).state is JourneyState.EXHAUSTED
+    assert session.events[-2].type is EventType.RECONCILED
+    assert session.events[-2].payload["outcome"] == "FAILED"
 
 
 def test_unknown_cancellation_preserves_original_ride(monkeypatch):
@@ -135,21 +136,22 @@ def test_unknown_cancellation_preserves_original_ride(monkeypatch):
         "cancel",
         lambda ride_id: OperationResult(status=OpStatus.UNKNOWN),
     )
-    with pytest.raises(SimulationError) as error:
-        service.approve_switch(session.id, True, "approve", session=session)
-    assert error.value.code == "CANCEL_UNCONFIRMED"
+    service.approve_switch(session.id, True, "approve", session=session)
     assert session.state is JourneyState.RECONCILING
-    assert service.tick(session.id, 2, session=session).active_ride.ride_id == original.ride_id
+    assert service.tick(session.id, 1, session=session).active_ride.ride_id == original.ride_id
     assert session.ride.state is RideState.DRIVER_EN_ROUTE
     assert session.recovery_attempts == 0
-    assert session.events[-1].type is EventType.RIDE_CANCEL_REQUESTED
+    assert any(
+        e.type == EventType.RECONCILED and e.payload["outcome"] == "DRIVER_EN_ROUTE" for e in session.events
+    )
     with pytest.raises(SimulationError, match="No switch approval is pending"):
         service.approve_switch(session.id, True, "retry", session=session)
 
+    monkeypatch.undo()
     for key in ("stop", "stop-again"):
         stopped = service.cancel(session.id, key, session=session)
         assert stopped.state is JourneyState.USER_CANCELLED
-        assert stopped.active_ride.state is RideState.DRIVER_EN_ROUTE
+        assert stopped.active_ride is None
         assert stopped.pending_backup is None
 
 
@@ -269,7 +271,7 @@ def test_client_key_cannot_preempt_scenario_driver_message(monkeypatch):
     [(OpStatus.FAILED, JourneyState.EXHAUSTED), (OpStatus.UNKNOWN, JourneyState.RECONCILING)],
 )
 def test_automatic_replacement_failure_does_not_stick_in_recovering(monkeypatch, status, state):
-    session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True)
+    session = make_session("S04", auto_rebook_on_confirmed_driver_cancel=True, max_recovery_attempts=1)
     service.book(session.id, session.quotes[0].quote_id, "book", session=session)
     monkeypatch.setattr(
         session.adapters[Provider.PROVIDER_B],

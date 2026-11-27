@@ -53,6 +53,9 @@
         "QUOTES_READY",
         "QUOTE_REFRESHED",
         "QUOTE_REFRESH_FAILED",
+        "RECONCILIATION_REQUIRED",
+        "RECONCILED",
+        "RECOVERY_CHECKED",
         "RECOVERY_BLOCKED",
         "RECOVERY_EXHAUSTED",
         "RECOVERY_STARTED",
@@ -74,6 +77,108 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "RECONCILIATION_REQUIRED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "reason",
+              "step"
+            ],
+            "properties": {
+              "reason": {
+                "enum": [
+                  "OUTCOME_UNKNOWN",
+                  "VERIFICATION_REQUIRED"
+                ]
+              },
+              "step": {
+                "enum": [
+                  "primary",
+                  "replacement",
+                  "switch_cancel",
+                  "user_cancel"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "RECONCILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "outcome",
+              "step"
+            ],
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "CONFIRMED",
+                  "DRIVER_EN_ROUTE",
+                  "DRIVER_ARRIVED",
+                  "IN_PROGRESS",
+                  "COMPLETED",
+                  "DRIVER_CANCELLED",
+                  "RIDER_CANCELLED",
+                  "FAILED"
+                ]
+              },
+              "step": {
+                "enum": [
+                  "primary",
+                  "replacement",
+                  "switch_cancel",
+                  "user_cancel"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "RECOVERY_CHECKED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "step"
+            ],
+            "properties": {
+              "step": {
+                "enum": [
+                  "version",
+                  "limits"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {"type": {"const": "RISK_UPDATED"}}

@@ -22,6 +22,7 @@ from app.simulation.profiles import ProviderProfile
 
 class ProviderState(BaseModel):
     draw_index: int = 0
+    confirmations: dict[str, OperationResult] = Field(default_factory=dict)
     rides: dict[str, RideState] = Field(default_factory=dict)
 
 
@@ -128,6 +129,11 @@ class SimulatedMobilityAdapter:
         return OperationResult(
             status=status, ride=ride.model_copy(deep=True) if status == OpStatus.CONFIRMED else None
         )
+
+    def confirm_once(self, key: str, quote: Quote, now: datetime, ride: Ride) -> OperationResult:
+        if key not in self.state.confirmations:
+            self.state.confirmations[key] = self.confirm(quote, now, ride)
+        return self.state.confirmations[key].model_copy(deep=True)
 
     def cancel(self, ride_id: str) -> OperationResult:
         state = self.state.rides.get(ride_id)
