@@ -64,7 +64,8 @@ export function CompareScreen() {
     key: string;
     providerUncertain?: boolean;
   } | null>(null);
-  const attempt = pendingAttempt?.journeyId === queryJourneyId ? pendingAttempt : null;
+  const blocked = journey?.booking_uncertain || journey?.state === 'RECONCILING';
+  const attempt = !blocked && pendingAttempt?.journeyId === queryJourneyId ? pendingAttempt : null;
 
   const recommended = journey && recommendRide(journey);
   const canBook = journey?.state === 'WAITING_FOR_RIDE' && !journey.booking_uncertain && !journey.active_ride_id;
@@ -73,7 +74,7 @@ export function CompareScreen() {
   const editTrip = journey ? `/book?edit=${encodeURIComponent(journey.id)}` : '/book';
 
   const handleConfirmBooking = async () => {
-    if (inFlight.current || !journey) return;
+    if (inFlight.current || !journey || blocked) return;
     const request = attempt ?? (canBook && recommended ? {
       journeyId: journey.id,
       quoteId: recommended.quote_id,

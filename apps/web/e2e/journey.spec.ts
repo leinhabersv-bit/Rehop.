@@ -178,8 +178,48 @@ test('S12 leaves an unresolved provider outcome visible with booking blocked', a
   await expect(page).toHaveURL(`${web}/journey/${id}`);
   await expect(page.getByRole('button', { name: /^(Book|Retry original request)$/i })).toHaveCount(0);
   expect(await getJourney(request, id)).toMatchObject({ state: 'RECONCILING', booking_uncertain: true, active_ride: null });
-  await expect(page.getByRole('status').filter({ hasText: /booking status is unknown/i })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Checking whether your booking went through…' })).toBeVisible();
 });
+
+for (const width of [390, 1366]) {
+  test(`reconciliation controls follow ordered events at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await request.post(`${api}/api/v1/scenarios/S04/run`, { data: {} });
+    const ride: Journey = await response.json();
+    const url = `${api}/api/v1/journeys/${ride.id}`;
+    const base: { events: Event[] } = await (await request.get(url + '/events')).json();
+    const events = [...base.events];
+    const add = (type: string, payload: Event['payload'] = {}) => {
+      const seq = events.length + 1;
+      events.push({ ...base.events[0], seq, event_id: `test-${seq}`, type, payload });
+    };
+    let snapshot = { ...ride, last_event_seq: events.length };
+    await page.route(url, route => route.fulfill({ json: snapshot }));
+    await page.route(url + '/events?*', route => route.fulfill({
+      json: { events: events.slice(Number(new URL(route.request().url()).searchParams.get('since_seq'))) },
+    }));
+    await page.goto(`${web}/journey/${ride.id}`);
+    const cancel = page.getByRole('button', { name: 'Cancel ride', exact: true });
+    await expect(cancel).toBeVisible();
+
+    add('RECOVERY_CHECKED', { step: 'limits' });
+    add('RECONCILIATION_REQUIRED', { reason: 'OUTCOME_UNKNOWN' });
+    const checking = page.getByText('Checking whether your booking went through…', { exact: true });
+    await expect(checking).toBeVisible();
+    await expect(page.getByText('Checking limits', { exact: true })).toBeVisible();
+    await expect(cancel).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Review ride', exact: true })).toHaveCount(0);
+    add('RECONCILIATION_REQUIRED', { reason: 'VERIFICATION_REQUIRED' });
+    const warning = page.getByText('We couldn’t confirm automatically. Please check before booking again.', { exact: true });
+    await expect(warning).toBeVisible();
+    add('RECONCILED');
+    await expect(warning).toHaveCount(0);
+    await expect(cancel).toHaveCount(0);
+    snapshot = { ...snapshot, last_event_seq: events.length };
+    add('RISK_UPDATED');
+    await expect(cancel).toBeVisible();
+  });
+}
 
 test('tracking shows an automatically booked replacement after confirmed driver cancellation', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });

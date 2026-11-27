@@ -6,14 +6,14 @@ export function RideUpdate({ ride, receiptId }: { ride?: Journey; receiptId?: st
   const id = ride?.id ?? receiptId;
   if (!id) return null;
 
-  const atPickup = ride?.active_ride?.state === 'DRIVER_ARRIVED';
-  const boarding = ride?.state === 'PICKUP_CONFIRMED';
-  const approval = ride?.state === 'AWAITING_APPROVAL';
-  const replacement = approval && !ride?.active_ride && ride?.last_ride?.state === 'DRIVER_CANCELLED';
   const uncertain = ride?.booking_uncertain || ride?.state === 'RECONCILING';
+  const atPickup = !uncertain && ride?.active_ride?.state === 'DRIVER_ARRIVED';
+  const boarding = ride?.state === 'PICKUP_CONFIRMED';
+  const approval = !uncertain && ride?.state === 'AWAITING_APPROVAL';
+  const replacement = approval && !ride?.active_ride && ride?.last_ride?.state === 'DRIVER_CANCELLED';
   const title = !ride ? 'Trip completed' : atPickup ? 'Your driver has arrived' :
     boarding ? 'You’re on your way' : replacement ? 'Your driver cancelled' : approval ? 'A backup ride needs your review' :
-    uncertain ? 'Checking your booking' : 'Your ride is on the way';
+    uncertain ? 'Checking whether your booking went through…' : 'Your ride is on the way';
   const detail = !ride ? 'Your trip receipt is ready.' : atPickup ? 'Confirm boarding when you’re in the car.' :
     replacement ? 'Review the replacement to continue. Auto-rebooking is off.' :
     approval ? 'Open tracking to review the backup and any cancellation fee.' : uncertain ? 'Open tracking for the latest provider status.' :

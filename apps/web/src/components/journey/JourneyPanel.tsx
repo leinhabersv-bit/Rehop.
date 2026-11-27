@@ -53,12 +53,6 @@ const minutes = (seconds: number) => Math.ceil(seconds / 60);
 function recoveryStatus(journey: Journey, event?: Event): string | null {
   if (journey.state === 'PICKUP_CONFIRMED') return 'Passenger boarded. Recovery has stopped.';
   if (journey.state === 'USER_CANCELLED') return 'Journey stopped. No further recovery actions will run.';
-  if (journey.booking_uncertain) {
-    return 'Booking status is unknown. Another booking is blocked until the provider status is verified.';
-  }
-  if (journey.state === 'RECONCILING') {
-    return 'Original cancellation status is unknown. A replacement is blocked until cancellation is verified.';
-  }
   if (journey.state === 'EXHAUSTED') {
     if (event?.type === 'REPLACEMENT_QUOTE_LOST') {
       return 'The original cancellation was confirmed, then the replacement quote became unavailable. You have no confirmed ride.';
@@ -160,7 +154,14 @@ export default function JourneyPanel({ id }: { id: string }) {
   const risk = data.risk;
   const done = finished.has(data.state);
   const boarded = data.state === 'PICKUP_CONFIRMED';
-  const reconciling = data.state === 'RECONCILING' || data.booking_uncertain;
+  const reconciliation = stream.events.findLast(event =>
+    event.type === 'RECONCILIATION_REQUIRED' || event.type === 'RECONCILED');
+  const awaitingSnapshot = reconciliation !== undefined && reconciliation.seq > data.last_event_seq;
+  const reconciling = data.state === 'RECONCILING' || data.booking_uncertain || awaitingSnapshot;
+  const reconciliationMessage = reconciliation?.type === 'RECONCILED' ? null :
+    reconciliation?.payload.reason === 'VERIFICATION_REQUIRED'
+      ? 'We couldn’t confirm automatically. Please check before booking again.'
+      : 'Checking whether your booking went through…';
   const canBook = data.state === 'WAITING_FOR_RIDE' && !reconciling;
   const canAct = !action && !query.isError && !done && !reconciling;
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
@@ -178,7 +179,7 @@ export default function JourneyPanel({ id }: { id: string }) {
     bookedQuote ? Math.min(Math.ceil(bookedQuote.estimated_fare_inr / 10), 100) : null
   );
   const latestRecovery = stream.events.findLast((event) => recoveryEvents.has(event.type));
-  const status = recoveryStatus(data, latestRecovery);
+  const status = reconciling ? reconciliationMessage : recoveryStatus(data, latestRecovery);
   const { timeline, progress, stalled, startDistance } = pickupActivity(stream.events, ride);
   const positionStalled = stalled && risk?.band !== 'UNKNOWN' && !query.isError;
   const pickupStatus = ride && (data.state === 'MONITORING' || data.state === 'AWAITING_APPROVAL')
@@ -207,7 +208,7 @@ export default function JourneyPanel({ id }: { id: string }) {
 
   return (
     <>
-      {reviewed && (
+      {reviewed && !reconciling && (
         <SwitchReview
           reviewed={reviewed}
           current={data}
