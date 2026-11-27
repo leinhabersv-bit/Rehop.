@@ -122,6 +122,10 @@ SCRIPTS = {
             Injection(0, "NEED_BY", {"minutes": 5}),
         ),
     ),
+    "S17": ScenarioScript(
+        "Cancellation result unknown",
+        injections=(STALL, Injection(0, "FORCE_CANCEL_RESULT", {"result": "UNKNOWN"})),
+    ),
     "RANDOM": ScenarioScript("Randomized pickup", sampled=True, auto_book=False),
 }
 SCENARIOS = {key: script.name for key, script in SCRIPTS.items() if key != "RANDOM"}
@@ -144,6 +148,8 @@ def provider_overrides(script: ScenarioScript) -> ScenarioOverrides:
             for provider in params["providers"]:
                 fare, eta = overrides.quote_offers[Provider(provider)]
                 overrides.quote_offers[Provider(provider)] = (fare + params["amount"], eta)
+        if injection.kind == "FORCE_CANCEL_RESULT":
+            overrides.next_cancel = dict.fromkeys(Provider, OpStatus(params["result"]))
         if injection.kind == "FORCE_CONFIRM_RESULT" and params.get("stage") != "replacement":
             overrides.next_confirm = dict.fromkeys(Provider, OpStatus(params["result"]))
     return overrides

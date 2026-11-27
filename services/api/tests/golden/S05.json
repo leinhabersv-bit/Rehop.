@@ -43,7 +43,9 @@
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "DRIVER_CANCELLED",
+    "RECOVERY_CHECKED",
     "QUOTE_REFRESHED",
+    "RECOVERY_CHECKED",
     "RECOVERY_STARTED",
     "RIDE_CONFIRMED",
     "RECOVERY_SUCCEEDED",
@@ -62,7 +64,9 @@
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
     "DRIVER_CANCELLED",
+    "RECOVERY_CHECKED",
     "QUOTE_REFRESHED",
+    "RECOVERY_CHECKED",
     "RECOVERY_STARTED",
     "RIDE_CONFIRMED",
     "RECOVERY_SUCCEEDED",
@@ -213,8 +217,16 @@
       "provider"
     ],
     [
+      "step",
+      "version"
+    ],
+    [
       "candidate",
       "not_a_reservation"
+    ],
+    [
+      "provider",
+      "step"
     ],
     [
       "attempt",
@@ -344,8 +356,16 @@
       "provider"
     ],
     [
+      "step",
+      "version"
+    ],
+    [
       "candidate",
       "not_a_reservation"
+    ],
+    [
+      "provider",
+      "step"
     ],
     [
       "attempt",

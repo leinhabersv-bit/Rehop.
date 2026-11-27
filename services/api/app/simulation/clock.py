@@ -13,6 +13,8 @@ MAX_CATCH_UP_TICKS = 180
 
 
 def tracking(session: "Session") -> bool:
+    if session.state == JourneyState.RECONCILING:
+        return session.playing and (session.verification is None or session.verification.tries < 6)
     return (
         session.playing
         and session.state in {JourneyState.MONITORING, JourneyState.AWAITING_APPROVAL}

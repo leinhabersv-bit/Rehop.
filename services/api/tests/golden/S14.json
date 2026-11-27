@@ -93,6 +93,7 @@
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
+    "RECOVERY_CHECKED",
     "QUOTE_REFRESH_FAILED"
   ],
   "event_payload_keys": [
@@ -655,6 +656,10 @@
       "score_0_100",
       "signal_details",
       "signals"
+    ],
+    [
+      "step",
+      "version"
     ],
     [
       "reason"

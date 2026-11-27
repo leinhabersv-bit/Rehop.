@@ -210,3 +210,11 @@ class JourneySnapshot(BaseModel):
             if getattr(self, field) is None:
                 data.pop(field, None)
         return data
+
+
+class PendingVerification(BaseModel):
+    step: Literal["primary", "replacement", "switch_cancel", "user_cancel"]
+    ride: Ride
+    candidate: Quote | None = None
+    tries: int = Field(default=0, ge=0, le=6)
+    stop_requested: bool = False

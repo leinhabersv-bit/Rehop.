@@ -235,3 +235,22 @@ def test_hosted_playback_advances_on_requests_and_persists_pause(hosted_database
     assert [event.model_dump(mode="json") for event in assert_event_copies(session.id)] == page.json()[
         "events"
     ]
+
+
+def test_hosted_switch_resumes_after_unknown_cancel(hosted_database):
+    journey = durable.create_ride(JourneyCreate(pickup=LOCATIONS[0], dropoff=LOCATIONS[1]), scenario="S17")
+    service.book(journey.id, journey.quotes[0].quote_id, "book")
+    proposal = service.tick(journey.id, 25)
+    pending = service.approve_switch(journey.id, True, "approve", expected_version=proposal.version)
+    assert pending.state == JourneyState.RECONCILING
+    with durable.open_ride(journey.id) as session:
+        assert session.verification.step == "switch_cancel"
+        assert session.verification.tries == 0
+    resumed = service.tick(journey.id, 1)
+    assert resumed.state == JourneyState.MONITORING
+    assert resumed.active_ride_id != pending.active_ride_id
+    assert resumed.recovery_attempts == 1
+    assert service.approve_switch(journey.id, True, "approve", expected_version=proposal.version) == pending
+    events = assert_event_copies(journey.id)
+    assert sum(e.type == EventType.RECOVERY_SUCCEEDED for e in events) == 1
+    assert replay_from_events(journey.id).active_ride_id == resumed.active_ride_id

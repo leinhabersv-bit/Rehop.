@@ -21,7 +21,8 @@ _STATE_BY_EVENT = {
     EventType.APPROVAL_REQUIRED: JourneyState.AWAITING_APPROVAL,
     EventType.RECOVERY_STARTED: JourneyState.RECOVERING,
     EventType.RECOVERY_EXHAUSTED: JourneyState.EXHAUSTED,
-    EventType.REPLACEMENT_QUOTE_LOST: JourneyState.EXHAUSTED,
+    EventType.REPLACEMENT_QUOTE_LOST: JourneyState.EXHAUSTED,  # Legacy streams ended here.
+    EventType.RECONCILIATION_REQUIRED: JourneyState.RECONCILING,
     EventType.PICKUP_CONFIRMED: JourneyState.PICKUP_CONFIRMED,
     EventType.USER_CANCELLED: JourneyState.USER_CANCELLED,
 }
@@ -47,6 +48,8 @@ def replay_from_events(journey_id: str, event_store: EventStore | None = None) -
         elif kind in {EventType.DRIVER_CANCELLED, EventType.RIDE_CANCEL_CONFIRMED}:
             if active_ride_id == event.ride_id:
                 active_ride_id = None
+        elif kind == EventType.RECONCILED or kind == EventType.RECOVERY_BLOCKED and active_ride_id:
+            state = JourneyState.MONITORING
         elif kind == EventType.ERROR and event.payload.get("code") == "BOOKING_UNCONFIRMED":
             state = JourneyState.RECONCILING
         elif state == JourneyState.AWAITING_APPROVAL and (

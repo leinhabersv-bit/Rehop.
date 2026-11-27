@@ -93,11 +93,19 @@
     "RISK_UPDATED",
     "TELEMETRY_UPDATED",
     "RISK_UPDATED",
+    "RECOVERY_CHECKED",
     "QUOTE_REFRESHED",
+    "RECOVERY_CHECKED",
     "SWITCH_APPROVED",
     "RIDE_CANCEL_REQUESTED",
     "RIDE_CANCEL_CONFIRMED",
-    "REPLACEMENT_QUOTE_LOST"
+    "RECOVERY_STARTED",
+    "REPLACEMENT_QUOTE_LOST",
+    "QUOTE_REFRESHED",
+    "RECOVERY_CHECKED",
+    "RECOVERY_STARTED",
+    "REPLACEMENT_QUOTE_LOST",
+    "RECOVERY_EXHAUSTED"
   ],
   "event_payload_keys": [
     [
@@ -661,8 +669,16 @@
       "signals"
     ],
     [
+      "step",
+      "version"
+    ],
+    [
       "candidate",
       "not_a_reservation"
+    ],
+    [
+      "provider",
+      "step"
     ],
     [
       "cancellation_fee_notice",
@@ -673,6 +689,28 @@
     ],
     [
       "old_provider"
+    ],
+    [
+      "attempt",
+      "candidate"
+    ],
+    [
+      "reason"
+    ],
+    [
+      "candidate",
+      "not_a_reservation"
+    ],
+    [
+      "provider",
+      "step"
+    ],
+    [
+      "attempt",
+      "candidate"
+    ],
+    [
+      "reason"
     ],
     [
       "reason"

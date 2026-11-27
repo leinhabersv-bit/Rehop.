@@ -14,6 +14,7 @@ from app.schemas.domain import (
     DeadlineDecision,
     FeeNotice,
     JourneyEvent,
+    PendingVerification,
     Quote,
     Ride,
     RiskAssessment,
@@ -73,6 +74,7 @@ class StoredSession(BaseModel):
     provider_overrides: ScenarioOverrides = Field(default_factory=lambda: ScenarioOverrides(scripted=True))
     stall_ticks_remaining: int = 0
     driver_sim: DriverSim | None = None
+    verification: PendingVerification | None = None
     unconfirmed_ride: Ride | None = None
     booking_uncertain: bool
     boarded_at: datetime | None = None
