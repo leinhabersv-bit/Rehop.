@@ -405,12 +405,15 @@ for (const width of [390, 1366]) {
       .toContainText('Your original ride was cancelled. You have no confirmed ride.');
     await expect(pickup.getByRole('button', { name: /board|cancel|approve/i })).toHaveCount(0);
     expect(await getJourney(request, id)).toMatchObject({
-      state: 'EXHAUSTED', active_ride: null, recovery_attempts: 1, last_ride: { state: 'RIDER_CANCELLED' },
+      state: 'EXHAUSTED', active_ride: null, recovery_attempts: 2, last_ride: { state: 'RIDER_CANCELLED' },
     });
     const { events }: { events: Event[] } = await (await request.get(`${api}/api/v1/journeys/${id}/events`)).json();
     const recovery = events.map(event => event.type).filter(type =>
       ['RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST', 'RECOVERY_EXHAUSTED'].includes(type));
-    expect(recovery).toEqual(['RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST', 'RECOVERY_EXHAUSTED']);
+    expect(recovery).toEqual([
+      'RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST',
+      'RECOVERY_STARTED', 'REPLACEMENT_QUOTE_LOST', 'RECOVERY_EXHAUSTED',
+    ]);
     await pickup.getByRole('link', { name: 'Get a new ride' }).click();
     await expect(page.getByRole('button', { name: 'Find my ride' })).toBeVisible();
   });
