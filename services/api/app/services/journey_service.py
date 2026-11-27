@@ -458,7 +458,9 @@ class JourneyService:
     def _classify_driver_message(self, journey: Session, text: str) -> None:
         if not journey.ride or journey.state in STOPPED:
             raise SimulationError("INVALID_STATE", "No active driver conversation.")
-        journey.driver_chat_signal = self.intelligence.classify_message(text, offline=journey.deterministic)
+        journey.driver_chat_signal = self.intelligence.classify_message(
+            text, offline=journey.deterministic and not getattr(journey, "demo_live_llm", False)
+        )
         journey.add_event(
             EventType.DRIVER_MESSAGE_CLASSIFIED,
             {"message": text[:300], "signal": journey.driver_chat_signal},

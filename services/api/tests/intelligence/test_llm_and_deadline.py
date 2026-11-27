@@ -1,15 +1,32 @@
 from datetime import timedelta
 
+import httpx
 import pytest
 
-from app.intelligence import llm
 from app.intelligence.decision import compare_wait_switch
-from app.intelligence.llm import classify_driver_message, explain_with_verified_numbers, parse_ride_intent
+from app.intelligence.llm import (
+    classify_driver_message,
+    client,
+    explain_with_verified_numbers,
+    parse_ride_intent,
+)
 from app.schemas.models import JourneyCreate
 from app.services.journey_service import JourneyService
 from app.simulation.engine import BASE_TIME, LOCATIONS, Session
 
 service = JourneyService()
+
+
+def mock_llm_reply(monkeypatch, content):
+    monkeypatch.setenv("LLM_API_KEY", "stub-key")
+    monkeypatch.setenv("LLM_API_BASE", "https://llm-legacy-tests.invalid/v1")
+    monkeypatch.setattr(
+        client.httpx,
+        "post",
+        lambda url, **kwargs: httpx.Response(
+            200, request=httpx.Request("POST", url), json={"choices": [{"message": {"content": content}}]}
+        ),
+    )
 
 
 def test_chat_fallback_classifies_cancel_request_without_authority(monkeypatch):
@@ -46,14 +63,16 @@ def test_fallback_resolves_direction_and_leaves_missing_endpoint_blank(monkeypat
 
 
 def test_malformed_chat_classification_uses_labeled_fallback(monkeypatch):
-    monkeypatch.setattr(llm, "_llm_json", lambda *args: {"label": ["ARRIVING"], "evidence": "Traffic"})
+    mock_llm_reply(
+        monkeypatch, '{"label":["ARRIVING"],"evidence":"Traffic","eta_claim_min":null,"confidence":1}'
+    )
     signal = classify_driver_message("Traffic on the way")
     assert signal.label == "TRAFFIC_DELAY"
     assert signal.source == "rule_fallback"
 
 
 def test_model_cannot_supply_unmentioned_location(monkeypatch):
-    monkeypatch.setattr(llm, "_llm_json", lambda *args: {"pickup": "Guindy", "dropoff": "Chennai Airport"})
+    mock_llm_reply(monkeypatch, '{"pickup":"Guindy","dropoff":"Chennai Airport","need_in_minutes":null}')
     parsed = parse_ride_intent("To Chennai Airport", LOCATIONS)
     assert parsed.pickup is None
     assert parsed.dropoff == "Chennai Airport"
@@ -61,9 +80,7 @@ def test_model_cannot_supply_unmentioned_location(monkeypatch):
 
 
 def test_explanation_rejects_llm_invented_numbers(monkeypatch):
-    monkeypatch.setattr(
-        llm, "_llm_json", lambda *args: {"explanation": "Your ETA is 200 minutes and fare is 9000"}
-    )
+    mock_llm_reply(monkeypatch, '{"explanation":"Your ETA is 200 minutes and fare is 9000"}')
     checked = explain_with_verified_numbers("Pickup risk is increasing.", [300])
     assert checked.source == "deterministic_template"
 

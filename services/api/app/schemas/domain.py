@@ -96,6 +96,18 @@ class ChatSignal(BaseModel):
     evidence: str
     source: str
     is_advisory: bool
+    eta_claim_min: int | None = Field(default=None, ge=0, le=120)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    model: str | None = None
+    latency_ms: float | None = Field(default=None, ge=0)
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        data = handler(self)
+        for key in ("eta_claim_min", "confidence", "model", "latency_ms"):
+            if key not in self.model_fields_set:
+                data.pop(key, None)
+        return data
 
 
 class FeeNotice(BaseModel):

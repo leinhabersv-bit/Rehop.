@@ -100,6 +100,58 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "DRIVER_MESSAGE_CLASSIFIED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "signal": {
+                "description": "Advisory driver chat classification. LLM metadata is optional for older events.",
+                "properties": {
+                  "eta_claim_min": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 120
+                  },
+                  "confidence": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "model": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "latency_ms": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "description": "Completion elapsed time. Zero for deterministic offline results."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }
