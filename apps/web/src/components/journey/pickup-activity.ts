@@ -38,6 +38,8 @@ export function pickupActivity(events: Event[], ride?: Ride | null) {
       lastDistance = confirmed?.distance_to_pickup_m ?? null;
       lastMove = timestamp;
       stalled = false;
+    } else if (event.type === 'RECOVERY_CHECKED' && event.payload.step === 'limits') {
+      label = 'Checking limits';
     } else if (event.type === 'BACKUP_FOUND') {
       const candidate = event.payload.candidate as { provider?: Provider; pickup_eta_sec?: number } | undefined;
       const provider = providerLabel(candidate?.provider);
