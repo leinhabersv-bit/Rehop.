@@ -160,6 +160,8 @@ Set `DEMO_LIVE_LLM=1` before launching the API to show live chat classification 
 
 With the API virtual environment activated, run `python eval/llm_eval.py` from the repository root to write JSON and Markdown reports under `eval/results/`. The fallback is always scored. A configured key also sends the synthetic cases to the model. The labelled set is small and hand-made, and its scores measure this fixture only.
 
+Use `--set holdout` or `--set main` to run one set. A live evaluation waits at least four seconds between HTTP requests, configurable with `--delay-seconds`, and retries HTTP 429 and 503 after 8, 16, and 32 seconds. Reports separate LLM-only accuracy from overall accuracy, which includes fallbacks.
+
 **Future integration:** The ONDC mobility specification is built on Beckn. Namma Yatri publicly identifies itself as built on these standards. RideRescue is **ONDC-shaped, not ONDC-connected**: actual deployment needs compliant BAP/BPP partnerships, onboarding, auth, signing, callbacks, validation, payments and commercial agreements. See [`docs/ondc-beckn-path.md`](docs/ondc-beckn-path.md).
 
 **2025 Guidelines:** Clause 18.2 mentions a passenger cancellation fee of **10% of fare capped at ₹100, conditional on no valid reason**. State/provider implementation may differ. RideRescue uses this only as an illustrative upper-bound notice in the simulation; it never asserts a charge was actually levied. See [`docs/cancellation-fees.md`](docs/cancellation-fees.md).

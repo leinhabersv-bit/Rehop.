@@ -3,6 +3,7 @@
 from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic_core import PydanticCustomError
 
 from app.intelligence.llm import client, fallback
 from app.schemas.domain import ChatSignal
@@ -30,14 +31,22 @@ class ClassificationReply(BaseModel):
     @classmethod
     def exact_evidence(cls, value: str, info: ValidationInfo) -> str:
         text = (info.context or {}).get("user_text")
-        if not value.strip() or (text is not None and value not in text):
+        if not value.strip():
             raise ValueError("Evidence must quote the driver message exactly.")
+        if text is not None and value not in text:
+            raise PydanticCustomError(
+                "evidence_not_substring", "Evidence must quote the driver message exactly."
+            )
         return value
 
 
 def classify_driver_message(text: str, *, offline: bool = False) -> ChatSignal:
     latency_ms = 0.0
-    if not offline and not fallback.looks_like_injection(text):
+    if offline:
+        client.note_completion("offline")
+    elif fallback.looks_like_injection(text):
+        client.note_completion("prompt_injection_guard")
+    else:
         started = perf_counter()
         reply = client.complete_json(_SYSTEM, text, ClassificationReply)
         if reply is not None or client.has_api_key():
@@ -50,6 +59,8 @@ def classify_driver_message(text: str, *, offline: bool = False) -> ChatSignal:
                 latency_ms=latency_ms,
                 is_advisory=True,
             )
+        if reply is not None:
+            client.note_completion("evidence_not_substring")
     label, eta, evidence, confidence = fallback.classify(text)
     return ChatSignal(
         label=label,
