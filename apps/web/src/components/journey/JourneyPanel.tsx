@@ -167,6 +167,8 @@ export default function JourneyPanel({ id }: { id: string }) {
   const canApprove = canAct && data.state === 'AWAITING_APPROVAL' && data.pending_backup !== null;
   const canBoard = canAct && ride?.state === 'DRIVER_ARRIVED';
   const backup = data.state === 'AWAITING_APPROVAL' && !reconciling ? data.pending_backup : null;
+  const replacementFailed = !ride && !reconciling && data.state === 'EXHAUSTED' &&
+    data.last_ride?.state === 'RIDER_CANCELLED';
   const cancelledPickup = !ride && !reconciling && data.last_ride?.state === 'DRIVER_CANCELLED' &&
     (data.state === 'AWAITING_APPROVAL' || data.state === 'EXHAUSTED');
   const bookedQuote = data.quotes.find((quote) => quote.quote_id === ride?.quote_id);
@@ -241,7 +243,17 @@ export default function JourneyPanel({ id }: { id: string }) {
               <h2 ref={pickupHeading} id="progress-title" tabIndex={-1}>{boarded ? 'Trip progress' : 'Pickup status'}</h2>
               <p role="status" className={styles.connection} data-live={stream.connection === 'live'}>{connectionLabels[stream.connection]}</p>
             </div>
-            {cancelledPickup ? (
+            {replacementFailed ? (
+              <>
+                <div role="status" className="grid gap-2">
+                  <p className={styles.pickupStatus}>We couldn’t book a replacement</p>
+                  <p>Your original ride was cancelled. You have no confirmed ride.</p>
+                </div>
+                <div className="button-row">
+                  <Link href={`/book?edit=${encodeURIComponent(id)}`} className="btn">Get a new ride</Link>
+                </div>
+              </>
+            ) : cancelledPickup ? (
               <>
                 <div role="status" className="grid gap-2">
                   <p className={styles.pickupStatus}>Your driver cancelled</p>
@@ -305,7 +317,7 @@ export default function JourneyPanel({ id }: { id: string }) {
           </section>
 
         <div className={styles.trackColumn}>
-          {!cancelledPickup && <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
+          {!cancelledPickup && !replacementFailed && <section className={`panel stack ${styles.card}`} aria-labelledby="recovery-title">
             <div className={styles.cardHeading}>
               <h2 ref={recoveryHeading} id="recovery-title" tabIndex={-1}><ShieldCheck size={20} aria-hidden="true" /> Pickup protection</h2>
               {risk && !done && !reconciling && <span className={`badge ${risk.band === 'HIGH' ? 'high' : risk.band === 'LOW' ? 'low' : ''}`}>{readable(risk.band)} risk</span>}
