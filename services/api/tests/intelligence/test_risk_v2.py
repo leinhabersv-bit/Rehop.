@@ -75,7 +75,14 @@ CASE_DATA = [
     ("sparse_gps", replace(STALL, samples_in_window=2), None, 0, RiskBand.UNKNOWN),
     ("fresh_accept", replace(STALL, elapsed_since_accept_s=59), None, 69, RiskBand.MEDIUM),
     ("deadline_passed", replace(HEALTHY, seconds_until_need_by=-10), None, 3, RiskBand.LOW),
-    ("healthy_chat", HEALTHY, CHAT, 3, RiskBand.LOW),
+    ("healthy_chat", HEALTHY, CHAT, 20, RiskBand.LOW),
+    (
+        "short_stall_40s_with_chat",
+        replace(STALL, stationary_duration_s=40, span_120s=40),
+        CHAT,
+        60,
+        RiskBand.MEDIUM,
+    ),
     ("tiny_progress_window", replace(HEALTHY, span_120s=10, net_progress_m_120s=0), None, 0, RiskBand.LOW),
     (
         "score_saturation",
