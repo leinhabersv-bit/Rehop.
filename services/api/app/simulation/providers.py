@@ -22,6 +22,7 @@ from app.simulation.profiles import ProviderProfile
 
 class ProviderState(BaseModel):
     draw_index: int = 0
+    ride_draw_indices: dict[str, int] = Field(default_factory=dict)
     confirmations: dict[str, OperationResult] = Field(default_factory=dict)
     rides: dict[str, RideState] = Field(default_factory=dict)
 
@@ -45,6 +46,25 @@ class ProviderRandom(Random):
     def random(self) -> float:
         index = self.state.draw_index
         self.state.draw_index += 1
+        return Random(f"{self.seed_prefix}:{index}").random()
+
+
+class RideRandom(Random):
+    """Independent persisted motion stream for each provider ride."""
+
+    def __init__(self, seed_prefix: str, ride_id: str, state: ProviderState):
+        # Fork the first ride at its legacy provider-stream position for continuity.
+        # Later ride IDs form disjoint streams even when a provider is retried.
+        first_ride = ride_id.startswith("ride_1_")
+        self.seed_prefix = seed_prefix if first_ride else f"{seed_prefix}:ride:{ride_id}"
+        state.ride_draw_indices.setdefault(ride_id, state.draw_index if first_ride else 0)
+        self.ride_id = ride_id
+        self.state = state
+        super().__init__(seed_prefix)
+
+    def random(self) -> float:
+        index = self.state.ride_draw_indices.get(self.ride_id, 0)
+        self.state.ride_draw_indices[self.ride_id] = index + 1
         return Random(f"{self.seed_prefix}:{index}").random()
 
 
@@ -73,6 +93,11 @@ class SimulatedMobilityAdapter:
         self.rng = rng
         self.state = state if state is not None else ProviderState()
         self.overrides = overrides if overrides is not None else ScenarioOverrides()
+
+    def ride_rng(self, ride_id: str) -> Random:
+        if isinstance(self.rng, ProviderRandom):
+            return RideRandom(self.rng.seed_prefix, ride_id, self.state)
+        return self.rng
 
     def search(self, journey_id: str, now: datetime, distance_km: float) -> Quote:
         fixed_offer = self.overrides.quote_offers.get(self.name)

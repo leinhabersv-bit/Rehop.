@@ -305,7 +305,7 @@ class JourneyService:
                     driver.force_mode(
                         MotionMode(injection.params["mode"]), injection.params.get("duration_ticks")
                     )
-            sample = driver.tick(journey.clock, adapter.profile, adapter.rng)
+            sample = driver.tick(journey.clock, adapter.profile, adapter.ride_rng(driver.ride_id))
             if driver.cancelled:
                 self._driver_cancel(journey)
                 continue
@@ -719,7 +719,7 @@ class JourneyService:
             journey.ride.ride_id,
             journey.pickup,
             adapter.profile,
-            adapter.rng,
+            adapter.ride_rng(journey.ride.ride_id),
             distance_m=journey.ride.distance_to_pickup_m,
             speed_mps=150 / 5 if scripted else None,
             sampled=not scripted,

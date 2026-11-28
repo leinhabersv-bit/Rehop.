@@ -160,7 +160,7 @@ def test_profiled_ticks_match_after_restoring_from_storage_every_tick(monkeypatc
 
     uninterrupted = start()
     restarted = start()
-    initial_draws = uninterrupted.provider_states[PROVIDER].draw_index
+    initial_draws = sum(uninterrupted.provider_states[PROVIDER].ride_draw_indices.values())
     service.tick(uninterrupted.id, 20, session=uninterrupted)
     for _ in range(20):
         service.tick(restarted.id, 1, session=restarted)
@@ -170,7 +170,7 @@ def test_profiled_ticks_match_after_restoring_from_storage_every_tick(monkeypatc
     ]
     assert uninterrupted.snapshot() == restarted.snapshot()
     assert uninterrupted.provider_states == restarted.provider_states
-    assert restarted.provider_states[PROVIDER].draw_index > initial_draws
+    assert sum(restarted.provider_states[PROVIDER].ride_draw_indices.values()) > initial_draws
     assert any(event.type == EventType.TELEMETRY_UPDATED for event in restarted.events)
 
 

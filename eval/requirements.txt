@@ -1,0 +1,2 @@
+# Plotting for the simulated benchmark only. API dependencies remain separate.
+matplotlib>=3.8,<4
