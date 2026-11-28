@@ -83,11 +83,17 @@ async def public_routes(request: Request, call_next):
     )
     path = request.url.path
     if method == "POST" and inject_path.fullmatch(path) and os.getenv("SIM_DEV_ENDPOINTS") != "1":
-        return JSONResponse({"error": {"message": "Route unavailable."}}, status_code=404)
+        return JSONResponse(
+            {"error": {"code": "ROUTE_UNAVAILABLE", "message": "Route unavailable.", "retryable": False}},
+            status_code=404,
+        )
     if HOSTED:
         pattern = public_api.get(method)
         if not pattern or not pattern.fullmatch(path):
-            return JSONResponse({"error": {"message": "Route unavailable."}}, status_code=404)
+            return JSONResponse(
+                {"error": {"code": "ROUTE_UNAVAILABLE", "message": "Route unavailable.", "retryable": False}},
+                status_code=404,
+            )
     response = await call_next(request)
     if HOSTED:
         response.headers.setdefault("Cache-Control", "no-store")

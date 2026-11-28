@@ -10,7 +10,7 @@ from fastapi import APIRouter, Header, Query, Response
 from app.intelligence.interface import DefaultIntelligence
 from app.schemas.domain import PlaybackState
 from app.schemas.enums import Provider
-from app.schemas.errors import ErrorEnvelope, SimulationError
+from app.schemas.errors import ErrorEnvelope, HTTPValidationError, SimulationError
 from app.schemas.requests import (
     ActionRequest,
     ApprovalRequest,
@@ -30,7 +30,23 @@ from app.simulation.engine import LOCATIONS, RANDOM_SCENARIO, SCENARIOS, store
 from app.simulation.scenarios import SCRIPTS, script_for
 from app.simulation.trip_duration import destination_playback
 
-router = APIRouter(prefix="/api/v1", tags=["RideRescue simulation"])
+ERROR_RESPONSES = {
+    409: {
+        "model": ErrorEnvelope,
+        "description": "Journey state, version, booking slot or policy conflicts with this action.",
+    },
+    422: {
+        "model": ErrorEnvelope | HTTPValidationError,
+        "description": "Invalid request or simulation parameters.",
+    },
+    404: {"model": ErrorEnvelope, "description": "Journey or development route unavailable."},
+    503: {
+        "model": ErrorEnvelope,
+        "description": "Hosted storage unavailable.",
+        "x-error-codes": ["STORAGE_UNAVAILABLE"],
+    },
+}
+router = APIRouter(responses=ERROR_RESPONSES, prefix="/api/v1", tags=["RideRescue simulation"])
 journey_service = JourneyService()
 intelligence = DefaultIntelligence()
 IDEMPOTENCY_ERRORS = {
@@ -77,7 +93,15 @@ def create_journey(
     return journey_service.create(req, scenario=scenario).snapshot().model_dump(mode="json")
 
 
-@router.get("/journeys/{journey_id}")
+@router.get(
+    "/journeys/{journey_id}",
+    description=(
+        "Returns the journey snapshot. Newly boarded rides include boarded_at, "
+        "arrives_at, and destination_speed. After a destination speed change, "
+        "destination_started_at is the effective route playback origin and boarded_at "
+        "retains the original boarding timestamp."
+    ),
+)
 def get_journey(journey_id: str):
     with open_ride(journey_id) as journey:
         return journey.snapshot().model_dump(mode="json")
@@ -85,8 +109,14 @@ def get_journey(journey_id: str):
 
 @router.post(
     "/journeys/{journey_id}/book",
+    description="A browser can book another ride after its current pickup journey ends.",
     responses={
-        409: {**IDEMPOTENCY_ERRORS[409], "x-error-codes": ["IDEMPOTENCY_KEY_REUSED", "BOOKING_FAILED"]}
+        428: {
+            "model": ErrorEnvelope,
+            "description": "Rider header required in hosted mode.",
+            "x-error-codes": ["RIDER_REQUIRED"],
+        },
+        409: {**IDEMPOTENCY_ERRORS[409], "x-error-codes": ["IDEMPOTENCY_KEY_REUSED", "BOOKING_FAILED"]},
     },
 )
 def book(
@@ -149,7 +179,20 @@ def events(
         }
 
 
-@router.post("/journeys/{journey_id}/play")
+@router.post(
+    "/journeys/{journey_id}/play",
+    description=(
+        "Sets the simulated pickup speed or, for a boarded trip with a future arrival, "
+        "changes destination speed while preserving completed route progress."
+    ),
+    responses={
+        409: {
+            "model": ErrorEnvelope,
+            "description": "Destination playback unavailable.",
+            "x-error-codes": ["DESTINATION_PLAYBACK_UNAVAILABLE"],
+        }
+    },
+)
 def play(journey_id: str, req: PlayRequest) -> PlaybackState:
     return journey_service.play(journey_id, req.speed)
 
@@ -161,7 +204,13 @@ def pause(journey_id: str) -> PlaybackState:
 
 @router.post(
     "/sim/journeys/{journey_id}/inject",
-    responses={404: {"description": "Simulation development endpoint disabled or journey missing."}},
+    responses={
+        404: {
+            "model": ErrorEnvelope,
+            "description": "Simulation development endpoint disabled or journey missing.",
+        },
+        409: IDEMPOTENCY_ERRORS[409],
+    },
 )
 def inject(journey_id: str, req: InjectRequest):
     return journey_service.inject(journey_id, req).model_dump(mode="json")
@@ -186,7 +235,14 @@ def cancel(journey_id: str, req: ActionRequest):
     ).model_dump(mode="json")
 
 
-@router.post("/journeys/{journey_id}/pickup/confirm", responses=IDEMPOTENCY_ERRORS)
+@router.post(
+    "/journeys/{journey_id}/pickup/confirm",
+    description=(
+        "Confirms boarding and returns the journey snapshot with boarded_at and "
+        "arrives_at set. Retrying preserves both timestamps."
+    ),
+    responses=IDEMPOTENCY_ERRORS,
+)
 def confirm_pickup(journey_id: str, req: ActionRequest):
     return journey_service.confirm_pickup(
         journey_id,
