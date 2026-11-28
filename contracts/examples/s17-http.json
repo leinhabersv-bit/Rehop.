@@ -1,0 +1,2596 @@
+{
+  "requests": [
+    {
+      "method": "POST",
+      "url": "/api/v1/scenarios/S17/run?seed=2026",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "journey_S17_2026_1",
+        "pickup": {
+          "label": "VIT Chennai",
+          "lat": 12.8405315,
+          "lng": 80.1530341
+        },
+        "dropoff": {
+          "label": "Chennai Airport",
+          "lat": 12.9825533,
+          "lng": 80.167339
+        },
+        "created_at": "2026-11-23T08:30:00+00:00",
+        "state": "MONITORING",
+        "need_by": "2026-11-23T08:50:00+00:00",
+        "driver_chat_signal": null,
+        "deadline_decision": null,
+        "cancellation_fee_notice": null,
+        "active_ride_id": "ride_1_journey_S17_2026_1",
+        "version": 3,
+        "last_event_seq": 3,
+        "policy": {
+          "auto_rebook_on_confirmed_driver_cancel": false,
+          "max_total_fare_inr": 650,
+          "max_recovery_attempts": 2,
+          "preemptive_switch_requires_approval": true,
+          "allow_same_provider_retry": true,
+          "max_cancellation_fee_inr": 100
+        },
+        "quotes": [
+          {
+            "quote_id": "journey_S17_2026_1_provider_a",
+            "provider": "PROVIDER_A",
+            "estimated_fare_inr": 320,
+            "pickup_eta_sec": 300,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_b",
+            "provider": "PROVIDER_B",
+            "estimated_fare_inr": 285,
+            "pickup_eta_sec": 240,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_c",
+            "provider": "PROVIDER_C",
+            "estimated_fare_inr": 360,
+            "pickup_eta_sec": 360,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_d",
+            "provider": "PROVIDER_D",
+            "estimated_fare_inr": 395,
+            "pickup_eta_sec": 540,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          }
+        ],
+        "active_ride": {
+          "ride_id": "ride_1_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_A",
+          "quote_id": "journey_S17_2026_1_provider_a",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:30:00+00:00",
+          "driver_id": "SIM_DRIVER_1",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 300,
+          "last_position_at": "2026-11-23T08:30:00+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "last_ride": null,
+        "risk": null,
+        "pending_backup": null,
+        "recovery_attempts": 0,
+        "booking_uncertain": false,
+        "scenario": "S17",
+        "simulated_time": "2026-11-23T08:30:00+00:00",
+        "is_simulated": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/journeys/journey_S17_2026_1/tick",
+      "request": {
+        "steps": 25
+      },
+      "status": 200,
+      "response": {
+        "id": "journey_S17_2026_1",
+        "pickup": {
+          "label": "VIT Chennai",
+          "lat": 12.8405315,
+          "lng": 80.1530341
+        },
+        "dropoff": {
+          "label": "Chennai Airport",
+          "lat": 12.9825533,
+          "lng": 80.167339
+        },
+        "created_at": "2026-11-23T08:30:00+00:00",
+        "state": "AWAITING_APPROVAL",
+        "need_by": "2026-11-23T08:50:00+00:00",
+        "driver_chat_signal": null,
+        "deadline_decision": {
+          "seconds_until_deadline": 1110,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost_points": 90,
+          "switch_cost_points": 32,
+          "recommendation": "PROPOSE_SWITCH",
+          "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+          "decision_type": "REQUEST_APPROVAL",
+          "reasons": [
+            "SWITCH_IMPROVES_PICKUP_COST"
+          ],
+          "numbers": {
+            "seconds_until_need_by": 1110,
+            "wait_late_sec": 0,
+            "switch_late_sec": 0,
+            "wait_cost": 90,
+            "switch_cost": 32
+          }
+        },
+        "cancellation_fee_notice": {
+          "potential_fee_upper_bound_inr": 32,
+          "actual_fee_inr": null,
+          "fee_confirmed": false,
+          "source": "MVAG 2025 clause 18.2: conditional illustration",
+          "caution": "Not a guaranteed charge. Provider and state rules govern; valid reasons may avoid the fee."
+        },
+        "active_ride_id": "ride_1_journey_S17_2026_1",
+        "version": 68,
+        "last_event_seq": 68,
+        "policy": {
+          "auto_rebook_on_confirmed_driver_cancel": false,
+          "max_total_fare_inr": 650,
+          "max_recovery_attempts": 2,
+          "preemptive_switch_requires_approval": true,
+          "allow_same_provider_retry": true,
+          "max_cancellation_fee_inr": 100
+        },
+        "quotes": [
+          {
+            "quote_id": "journey_S17_2026_1_provider_a",
+            "provider": "PROVIDER_A",
+            "estimated_fare_inr": 320,
+            "pickup_eta_sec": 300,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_b",
+            "provider": "PROVIDER_B",
+            "estimated_fare_inr": 285,
+            "pickup_eta_sec": 240,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_c",
+            "provider": "PROVIDER_C",
+            "estimated_fare_inr": 360,
+            "pickup_eta_sec": 360,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_d",
+            "provider": "PROVIDER_D",
+            "estimated_fare_inr": 395,
+            "pickup_eta_sec": 540,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          }
+        ],
+        "active_ride": {
+          "ride_id": "ride_1_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_A",
+          "quote_id": "journey_S17_2026_1_provider_a",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:30:00+00:00",
+          "driver_id": "SIM_DRIVER_1",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 675,
+          "last_position_at": "2026-11-23T08:32:05+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "last_ride": null,
+        "risk": {
+          "score_0_100": 80,
+          "band": "HIGH",
+          "confidence": 1.0,
+          "model_version": "rules-v2",
+          "signals": [
+            "low_net_progress",
+            "stationary_duration",
+            "eta_rising"
+          ],
+          "signal_details": [
+            {
+              "code": "low_net_progress",
+              "value": 0,
+              "threshold": 60,
+              "points": 20
+            },
+            {
+              "code": "stationary_duration",
+              "value": 125.0,
+              "threshold": 45,
+              "points": 40
+            },
+            {
+              "code": "eta_rising",
+              "value": 360,
+              "threshold": 0,
+              "points": 20
+            }
+          ],
+          "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 125.0 seconds. The pickup ETA rose by 360 seconds.",
+          "is_simulated": true
+        },
+        "pending_backup": {
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "provider": "PROVIDER_B",
+          "estimated_fare_inr": 285,
+          "pickup_eta_sec": 240,
+          "expires_at": "2026-11-23T08:32:00+00:00",
+          "is_simulated": true
+        },
+        "recovery_attempts": 0,
+        "booking_uncertain": false,
+        "scenario": "S17",
+        "simulated_time": "2026-11-23T08:32:05+00:00",
+        "is_simulated": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/journeys/journey_S17_2026_1/rescue/approve",
+      "request": {
+        "approved": true,
+        "idempotency_key": "approve",
+        "expected_version": 68
+      },
+      "status": 200,
+      "response": {
+        "id": "journey_S17_2026_1",
+        "pickup": {
+          "label": "VIT Chennai",
+          "lat": 12.8405315,
+          "lng": 80.1530341
+        },
+        "dropoff": {
+          "label": "Chennai Airport",
+          "lat": 12.9825533,
+          "lng": 80.167339
+        },
+        "created_at": "2026-11-23T08:30:00+00:00",
+        "state": "RECONCILING",
+        "need_by": "2026-11-23T08:50:00+00:00",
+        "driver_chat_signal": null,
+        "deadline_decision": {
+          "seconds_until_deadline": 1110,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost_points": 90,
+          "switch_cost_points": 32,
+          "recommendation": "PROPOSE_SWITCH",
+          "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+          "decision_type": "REQUEST_APPROVAL",
+          "reasons": [
+            "SWITCH_IMPROVES_PICKUP_COST"
+          ],
+          "numbers": {
+            "seconds_until_need_by": 1110,
+            "wait_late_sec": 0,
+            "switch_late_sec": 0,
+            "wait_cost": 90,
+            "switch_cost": 32
+          }
+        },
+        "cancellation_fee_notice": null,
+        "active_ride_id": "ride_1_journey_S17_2026_1",
+        "version": 74,
+        "last_event_seq": 74,
+        "policy": {
+          "auto_rebook_on_confirmed_driver_cancel": false,
+          "max_total_fare_inr": 650,
+          "max_recovery_attempts": 2,
+          "preemptive_switch_requires_approval": true,
+          "allow_same_provider_retry": true,
+          "max_cancellation_fee_inr": 100
+        },
+        "quotes": [
+          {
+            "quote_id": "journey_S17_2026_1_provider_a",
+            "provider": "PROVIDER_A",
+            "estimated_fare_inr": 320,
+            "pickup_eta_sec": 300,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_b",
+            "provider": "PROVIDER_B",
+            "estimated_fare_inr": 285,
+            "pickup_eta_sec": 240,
+            "expires_at": "2026-11-23T08:32:35+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_c",
+            "provider": "PROVIDER_C",
+            "estimated_fare_inr": 360,
+            "pickup_eta_sec": 360,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_d",
+            "provider": "PROVIDER_D",
+            "estimated_fare_inr": 395,
+            "pickup_eta_sec": 540,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          }
+        ],
+        "active_ride": {
+          "ride_id": "ride_1_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_A",
+          "quote_id": "journey_S17_2026_1_provider_a",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:30:00+00:00",
+          "driver_id": "SIM_DRIVER_1",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 675,
+          "last_position_at": "2026-11-23T08:32:05+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "last_ride": null,
+        "risk": {
+          "score_0_100": 80,
+          "band": "HIGH",
+          "confidence": 1.0,
+          "model_version": "rules-v2",
+          "signals": [
+            "low_net_progress",
+            "stationary_duration",
+            "eta_rising"
+          ],
+          "signal_details": [
+            {
+              "code": "low_net_progress",
+              "value": 0,
+              "threshold": 60,
+              "points": 20
+            },
+            {
+              "code": "stationary_duration",
+              "value": 125.0,
+              "threshold": 45,
+              "points": 40
+            },
+            {
+              "code": "eta_rising",
+              "value": 360,
+              "threshold": 0,
+              "points": 20
+            }
+          ],
+          "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 125.0 seconds. The pickup ETA rose by 360 seconds.",
+          "is_simulated": true
+        },
+        "pending_backup": null,
+        "recovery_attempts": 0,
+        "booking_uncertain": false,
+        "scenario": "S17",
+        "simulated_time": "2026-11-23T08:32:05+00:00",
+        "is_simulated": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/journeys/journey_S17_2026_1/tick",
+      "request": {
+        "steps": 1
+      },
+      "status": 200,
+      "response": {
+        "id": "journey_S17_2026_1",
+        "pickup": {
+          "label": "VIT Chennai",
+          "lat": 12.8405315,
+          "lng": 80.1530341
+        },
+        "dropoff": {
+          "label": "Chennai Airport",
+          "lat": 12.9825533,
+          "lng": 80.167339
+        },
+        "created_at": "2026-11-23T08:30:00+00:00",
+        "state": "MONITORING",
+        "need_by": "2026-11-23T08:50:00+00:00",
+        "driver_chat_signal": null,
+        "deadline_decision": null,
+        "cancellation_fee_notice": null,
+        "active_ride_id": "ride_2_journey_S17_2026_1",
+        "version": 81,
+        "last_event_seq": 81,
+        "policy": {
+          "auto_rebook_on_confirmed_driver_cancel": false,
+          "max_total_fare_inr": 650,
+          "max_recovery_attempts": 2,
+          "preemptive_switch_requires_approval": true,
+          "allow_same_provider_retry": true,
+          "max_cancellation_fee_inr": 100
+        },
+        "quotes": [
+          {
+            "quote_id": "journey_S17_2026_1_provider_a",
+            "provider": "PROVIDER_A",
+            "estimated_fare_inr": 320,
+            "pickup_eta_sec": 300,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_b",
+            "provider": "PROVIDER_B",
+            "estimated_fare_inr": 285,
+            "pickup_eta_sec": 240,
+            "expires_at": "2026-11-23T08:32:40+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_c",
+            "provider": "PROVIDER_C",
+            "estimated_fare_inr": 360,
+            "pickup_eta_sec": 360,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_d",
+            "provider": "PROVIDER_D",
+            "estimated_fare_inr": 395,
+            "pickup_eta_sec": 540,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          }
+        ],
+        "active_ride": {
+          "ride_id": "ride_2_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_B",
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:32:10+00:00",
+          "driver_id": "SIM_DRIVER_2",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 240,
+          "last_position_at": "2026-11-23T08:32:10+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "last_ride": {
+          "ride_id": "ride_1_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_A",
+          "quote_id": "journey_S17_2026_1_provider_a",
+          "state": "RIDER_CANCELLED",
+          "booked_at": "2026-11-23T08:30:00+00:00",
+          "driver_id": "SIM_DRIVER_1",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 675,
+          "last_position_at": "2026-11-23T08:32:05+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "risk": null,
+        "pending_backup": null,
+        "recovery_attempts": 1,
+        "booking_uncertain": false,
+        "scenario": "S17",
+        "simulated_time": "2026-11-23T08:32:10+00:00",
+        "is_simulated": true
+      }
+    }
+  ],
+  "final": {
+    "id": "journey_S17_2026_1",
+    "pickup": {
+      "label": "VIT Chennai",
+      "lat": 12.8405315,
+      "lng": 80.1530341
+    },
+    "dropoff": {
+      "label": "Chennai Airport",
+      "lat": 12.9825533,
+      "lng": 80.167339
+    },
+    "created_at": "2026-11-23T08:30:00+00:00",
+    "state": "MONITORING",
+    "need_by": "2026-11-23T08:50:00+00:00",
+    "driver_chat_signal": null,
+    "deadline_decision": null,
+    "cancellation_fee_notice": null,
+    "active_ride_id": "ride_2_journey_S17_2026_1",
+    "version": 81,
+    "last_event_seq": 81,
+    "policy": {
+      "auto_rebook_on_confirmed_driver_cancel": false,
+      "max_total_fare_inr": 650,
+      "max_recovery_attempts": 2,
+      "preemptive_switch_requires_approval": true,
+      "allow_same_provider_retry": true,
+      "max_cancellation_fee_inr": 100
+    },
+    "quotes": [
+      {
+        "quote_id": "journey_S17_2026_1_provider_a",
+        "provider": "PROVIDER_A",
+        "estimated_fare_inr": 320,
+        "pickup_eta_sec": 300,
+        "expires_at": "2026-11-23T08:30:30+00:00",
+        "is_simulated": true
+      },
+      {
+        "quote_id": "journey_S17_2026_1_provider_b",
+        "provider": "PROVIDER_B",
+        "estimated_fare_inr": 285,
+        "pickup_eta_sec": 240,
+        "expires_at": "2026-11-23T08:32:40+00:00",
+        "is_simulated": true
+      },
+      {
+        "quote_id": "journey_S17_2026_1_provider_c",
+        "provider": "PROVIDER_C",
+        "estimated_fare_inr": 360,
+        "pickup_eta_sec": 360,
+        "expires_at": "2026-11-23T08:30:30+00:00",
+        "is_simulated": true
+      },
+      {
+        "quote_id": "journey_S17_2026_1_provider_d",
+        "provider": "PROVIDER_D",
+        "estimated_fare_inr": 395,
+        "pickup_eta_sec": 540,
+        "expires_at": "2026-11-23T08:30:30+00:00",
+        "is_simulated": true
+      }
+    ],
+    "active_ride": {
+      "ride_id": "ride_2_journey_S17_2026_1",
+      "journey_id": "journey_S17_2026_1",
+      "provider": "PROVIDER_B",
+      "quote_id": "journey_S17_2026_1_provider_b",
+      "state": "DRIVER_EN_ROUTE",
+      "booked_at": "2026-11-23T08:32:10+00:00",
+      "driver_id": "SIM_DRIVER_2",
+      "distance_to_pickup_m": 2200,
+      "eta_sec": 240,
+      "last_position_at": "2026-11-23T08:32:10+00:00",
+      "cancellation_fee_inr": null,
+      "gps_quality": "GOOD",
+      "is_simulated": true
+    },
+    "last_ride": {
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "journey_id": "journey_S17_2026_1",
+      "provider": "PROVIDER_A",
+      "quote_id": "journey_S17_2026_1_provider_a",
+      "state": "RIDER_CANCELLED",
+      "booked_at": "2026-11-23T08:30:00+00:00",
+      "driver_id": "SIM_DRIVER_1",
+      "distance_to_pickup_m": 2200,
+      "eta_sec": 675,
+      "last_position_at": "2026-11-23T08:32:05+00:00",
+      "cancellation_fee_inr": null,
+      "gps_quality": "GOOD",
+      "is_simulated": true
+    },
+    "risk": null,
+    "pending_backup": null,
+    "recovery_attempts": 1,
+    "booking_uncertain": false,
+    "scenario": "S17",
+    "simulated_time": "2026-11-23T08:32:10+00:00",
+    "is_simulated": true
+  },
+  "events": [
+    {
+      "event_id": "journey_S17_2026_1_evt_0001",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 1,
+      "timestamp": "2026-11-23T08:30:00+00:00",
+      "type": "JOURNEY_CREATED",
+      "ride_id": null,
+      "payload": {
+        "scenario": "S17",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0002",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 2,
+      "timestamp": "2026-11-23T08:30:00+00:00",
+      "type": "QUOTES_READY",
+      "ride_id": null,
+      "payload": {
+        "quotes": [
+          {
+            "quote_id": "journey_S17_2026_1_provider_a",
+            "provider": "PROVIDER_A",
+            "estimated_fare_inr": 320,
+            "pickup_eta_sec": 300,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_b",
+            "provider": "PROVIDER_B",
+            "estimated_fare_inr": 285,
+            "pickup_eta_sec": 240,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_c",
+            "provider": "PROVIDER_C",
+            "estimated_fare_inr": 360,
+            "pickup_eta_sec": 360,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          },
+          {
+            "quote_id": "journey_S17_2026_1_provider_d",
+            "provider": "PROVIDER_D",
+            "estimated_fare_inr": 395,
+            "pickup_eta_sec": 540,
+            "expires_at": "2026-11-23T08:30:30+00:00",
+            "is_simulated": true
+          }
+        ]
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0003",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 3,
+      "timestamp": "2026-11-23T08:30:00+00:00",
+      "type": "RIDE_CONFIRMED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "ride": {
+          "ride_id": "ride_1_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_A",
+          "quote_id": "journey_S17_2026_1_provider_a",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:30:00+00:00",
+          "driver_id": "SIM_DRIVER_1",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 300,
+          "last_position_at": "2026-11-23T08:30:00+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "replacement": false
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0004",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 4,
+      "timestamp": "2026-11-23T08:30:05+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 315,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0005",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 5,
+      "timestamp": "2026-11-23T08:30:05+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 0,
+        "band": "UNKNOWN",
+        "confidence": 0.3,
+        "model_version": "rules-v2",
+        "signals": [
+          "stale_or_low_quality_gps"
+        ],
+        "signal_details": [
+          {
+            "code": "stale_or_low_quality_gps",
+            "value": 2,
+            "threshold": 3,
+            "points": 0
+          }
+        ],
+        "explanation": "There is not enough reliable location data to assess pickup progress.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0006",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 6,
+      "timestamp": "2026-11-23T08:30:10+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 330,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0007",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 7,
+      "timestamp": "2026-11-23T08:30:10+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 5,
+        "band": "LOW",
+        "confidence": 0.384,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 30,
+            "threshold": 0,
+            "points": 5
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 10.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 30 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0008",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 8,
+      "timestamp": "2026-11-23T08:30:15+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 345,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0009",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 9,
+      "timestamp": "2026-11-23T08:30:15+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 7,
+        "band": "LOW",
+        "confidence": 0.412,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 45,
+            "threshold": 0,
+            "points": 7
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 15.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 45 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0010",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 10,
+      "timestamp": "2026-11-23T08:30:20+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 360,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0011",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 11,
+      "timestamp": "2026-11-23T08:30:20+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 10,
+        "band": "LOW",
+        "confidence": 0.43999999999999995,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 60,
+            "threshold": 0,
+            "points": 10
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 20.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 60 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0012",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 12,
+      "timestamp": "2026-11-23T08:30:25+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 375,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0013",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 13,
+      "timestamp": "2026-11-23T08:30:25+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 12,
+        "band": "LOW",
+        "confidence": 0.46799999999999997,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 75,
+            "threshold": 0,
+            "points": 12
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 25.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 75 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0014",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 14,
+      "timestamp": "2026-11-23T08:30:30+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 390,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0015",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 15,
+      "timestamp": "2026-11-23T08:30:30+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 15,
+        "band": "LOW",
+        "confidence": 0.496,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 90,
+            "threshold": 0,
+            "points": 15
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 30.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 90 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0016",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 16,
+      "timestamp": "2026-11-23T08:30:35+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 405,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0017",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 17,
+      "timestamp": "2026-11-23T08:30:35+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 17,
+        "band": "LOW",
+        "confidence": 0.524,
+        "model_version": "rules-v2",
+        "signals": [
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "eta_rising",
+            "value": 105,
+            "threshold": 0,
+            "points": 17
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 35.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "The pickup ETA rose by 105 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0018",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 18,
+      "timestamp": "2026-11-23T08:30:40+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 420,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0019",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 19,
+      "timestamp": "2026-11-23T08:30:40+00:00",
+      "type": "EXPLANATION_VERIFIED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "source": "deterministic_template",
+        "numbers_checked_against_telemetry": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0020",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 20,
+      "timestamp": "2026-11-23T08:30:40+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 40,
+        "band": "MEDIUM",
+        "confidence": 0.552,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "eta_rising",
+            "value": 120,
+            "threshold": 0,
+            "points": 20
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 40.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The pickup ETA rose by 120 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true,
+        "explanation_source": "deterministic_template"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0021",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 21,
+      "timestamp": "2026-11-23T08:30:40+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1160,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1160,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0022",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 22,
+      "timestamp": "2026-11-23T08:30:45+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 435,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0023",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 23,
+      "timestamp": "2026-11-23T08:30:45+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 40,
+        "band": "MEDIUM",
+        "confidence": 0.58,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "eta_rising",
+            "value": 135,
+            "threshold": 0,
+            "points": 20
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 45.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The pickup ETA rose by 135 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0024",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 24,
+      "timestamp": "2026-11-23T08:30:45+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1155,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1155,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0025",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 25,
+      "timestamp": "2026-11-23T08:30:50+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 450,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0026",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 26,
+      "timestamp": "2026-11-23T08:30:50+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 43,
+        "band": "MEDIUM",
+        "confidence": 0.608,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 50.0,
+            "threshold": 45,
+            "points": 3
+          },
+          {
+            "code": "eta_rising",
+            "value": 150,
+            "threshold": 0,
+            "points": 20
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 50.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 50.0 seconds. The pickup ETA rose by 150 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0027",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 27,
+      "timestamp": "2026-11-23T08:30:50+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1150,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1150,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0028",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 28,
+      "timestamp": "2026-11-23T08:30:55+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 465,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0029",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 29,
+      "timestamp": "2026-11-23T08:30:55+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 46,
+        "band": "MEDIUM",
+        "confidence": 0.6359999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising",
+          "fresh_accept_cap"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 55.0,
+            "threshold": 45,
+            "points": 6
+          },
+          {
+            "code": "eta_rising",
+            "value": 165,
+            "threshold": 0,
+            "points": 20
+          },
+          {
+            "code": "fresh_accept_cap",
+            "value": 55.0,
+            "threshold": 60,
+            "points": 0
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 55.0 seconds. The pickup ETA rose by 165 seconds. The ride was accepted less than 60 seconds ago.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0030",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 30,
+      "timestamp": "2026-11-23T08:30:55+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1145,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1145,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0031",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 31,
+      "timestamp": "2026-11-23T08:31:00+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 480,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0032",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 32,
+      "timestamp": "2026-11-23T08:31:00+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 50,
+        "band": "MEDIUM",
+        "confidence": 0.6639999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 60.0,
+            "threshold": 45,
+            "points": 10
+          },
+          {
+            "code": "eta_rising",
+            "value": 180,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 60.0 seconds. The pickup ETA rose by 180 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0033",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 33,
+      "timestamp": "2026-11-23T08:31:00+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1140,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1140,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0034",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 34,
+      "timestamp": "2026-11-23T08:31:05+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 495,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0035",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 35,
+      "timestamp": "2026-11-23T08:31:05+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 53,
+        "band": "MEDIUM",
+        "confidence": 0.692,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 65.0,
+            "threshold": 45,
+            "points": 13
+          },
+          {
+            "code": "eta_rising",
+            "value": 195,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 65.0 seconds. The pickup ETA rose by 195 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0036",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 36,
+      "timestamp": "2026-11-23T08:31:05+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1135,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1135,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0037",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 37,
+      "timestamp": "2026-11-23T08:31:10+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 510,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0038",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 38,
+      "timestamp": "2026-11-23T08:31:10+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 56,
+        "band": "MEDIUM",
+        "confidence": 0.72,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 70.0,
+            "threshold": 45,
+            "points": 16
+          },
+          {
+            "code": "eta_rising",
+            "value": 210,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 70.0 seconds. The pickup ETA rose by 210 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0039",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 39,
+      "timestamp": "2026-11-23T08:31:10+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1130,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1130,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0040",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 40,
+      "timestamp": "2026-11-23T08:31:15+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 525,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0041",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 41,
+      "timestamp": "2026-11-23T08:31:15+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 60,
+        "band": "MEDIUM",
+        "confidence": 0.748,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 75.0,
+            "threshold": 45,
+            "points": 20
+          },
+          {
+            "code": "eta_rising",
+            "value": 225,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 75.0 seconds. The pickup ETA rose by 225 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0042",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 42,
+      "timestamp": "2026-11-23T08:31:15+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1125,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1125,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0043",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 43,
+      "timestamp": "2026-11-23T08:31:20+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 540,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0044",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 44,
+      "timestamp": "2026-11-23T08:31:20+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 63,
+        "band": "MEDIUM",
+        "confidence": 0.776,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 80.0,
+            "threshold": 45,
+            "points": 23
+          },
+          {
+            "code": "eta_rising",
+            "value": 240,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 80.0 seconds. The pickup ETA rose by 240 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0045",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 45,
+      "timestamp": "2026-11-23T08:31:20+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1120,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1120,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0046",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 46,
+      "timestamp": "2026-11-23T08:31:25+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 555,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0047",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 47,
+      "timestamp": "2026-11-23T08:31:25+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 66,
+        "band": "MEDIUM",
+        "confidence": 0.804,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 85.0,
+            "threshold": 45,
+            "points": 26
+          },
+          {
+            "code": "eta_rising",
+            "value": 255,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 85.0 seconds. The pickup ETA rose by 255 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0048",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 48,
+      "timestamp": "2026-11-23T08:31:25+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1115,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 40,
+        "switch_cost_points": 32,
+        "recommendation": "WAIT_AND_MONITOR",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "SEARCH_BACKUP",
+        "reasons": [
+          "INSUFFICIENT_IMPROVEMENT"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1115,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 40,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0049",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 49,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 570,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0050",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 50,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "EXPLANATION_VERIFIED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "source": "deterministic_template",
+        "numbers_checked_against_telemetry": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0051",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 51,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 70,
+        "band": "HIGH",
+        "confidence": 0.8319999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 90.0,
+            "threshold": 45,
+            "points": 30
+          },
+          {
+            "code": "eta_rising",
+            "value": 270,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 90.0 seconds. The pickup ETA rose by 270 seconds.",
+        "is_simulated": true,
+        "explanation_source": "deterministic_template"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0052",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 52,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "DEADLINE_DECISION",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "seconds_until_deadline": 1110,
+        "wait_late_sec": 0,
+        "switch_late_sec": 0,
+        "wait_cost_points": 90,
+        "switch_cost_points": 32,
+        "recommendation": "PROPOSE_SWITCH",
+        "formula": "simulated heuristic; not guaranteed pickup or real money cost",
+        "decision_type": "REQUEST_APPROVAL",
+        "reasons": [
+          "SWITCH_IMPROVES_PICKUP_COST"
+        ],
+        "numbers": {
+          "seconds_until_need_by": 1110,
+          "wait_late_sec": 0,
+          "switch_late_sec": 0,
+          "wait_cost": 90,
+          "switch_cost": 32
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0053",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 53,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "BACKUP_FOUND",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "candidate": {
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "provider": "PROVIDER_B",
+          "estimated_fare_inr": 285,
+          "pickup_eta_sec": 240,
+          "expires_at": "2026-11-23T08:32:00+00:00",
+          "is_simulated": true
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0054",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 54,
+      "timestamp": "2026-11-23T08:31:30+00:00",
+      "type": "APPROVAL_REQUIRED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "reason": "Deadline-aware switching proposal; rider approval required",
+        "cancellation_fee_notice": {
+          "potential_fee_upper_bound_inr": 32,
+          "actual_fee_inr": null,
+          "fee_confirmed": false,
+          "source": "MVAG 2025 clause 18.2: conditional illustration",
+          "caution": "Not a guaranteed charge. Provider and state rules govern; valid reasons may avoid the fee."
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0055",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 55,
+      "timestamp": "2026-11-23T08:31:35+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 585,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0056",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 56,
+      "timestamp": "2026-11-23T08:31:35+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 73,
+        "band": "HIGH",
+        "confidence": 0.8599999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 95.0,
+            "threshold": 45,
+            "points": 33
+          },
+          {
+            "code": "eta_rising",
+            "value": 285,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 95.0 seconds. The pickup ETA rose by 285 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0057",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 57,
+      "timestamp": "2026-11-23T08:31:40+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 600,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0058",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 58,
+      "timestamp": "2026-11-23T08:31:40+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 76,
+        "band": "HIGH",
+        "confidence": 0.8879999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 100.0,
+            "threshold": 45,
+            "points": 36
+          },
+          {
+            "code": "eta_rising",
+            "value": 300,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 100.0 seconds. The pickup ETA rose by 300 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0059",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 59,
+      "timestamp": "2026-11-23T08:31:45+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 615,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0060",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 60,
+      "timestamp": "2026-11-23T08:31:45+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 80,
+        "band": "HIGH",
+        "confidence": 0.9159999999999999,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 105.0,
+            "threshold": 45,
+            "points": 40
+          },
+          {
+            "code": "eta_rising",
+            "value": 315,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 105.0 seconds. The pickup ETA rose by 315 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0061",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 61,
+      "timestamp": "2026-11-23T08:31:50+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 630,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0062",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 62,
+      "timestamp": "2026-11-23T08:31:50+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 80,
+        "band": "HIGH",
+        "confidence": 0.944,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 110.0,
+            "threshold": 45,
+            "points": 40
+          },
+          {
+            "code": "eta_rising",
+            "value": 330,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 110.0 seconds. The pickup ETA rose by 330 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0063",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 63,
+      "timestamp": "2026-11-23T08:31:55+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 645,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0064",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 64,
+      "timestamp": "2026-11-23T08:31:55+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 80,
+        "band": "HIGH",
+        "confidence": 0.972,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 115.0,
+            "threshold": 45,
+            "points": 40
+          },
+          {
+            "code": "eta_rising",
+            "value": 345,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 115.0 seconds. The pickup ETA rose by 345 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0065",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 65,
+      "timestamp": "2026-11-23T08:32:00+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 660,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0066",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 66,
+      "timestamp": "2026-11-23T08:32:00+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 80,
+        "band": "HIGH",
+        "confidence": 1.0,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 120.0,
+            "threshold": 45,
+            "points": 40
+          },
+          {
+            "code": "eta_rising",
+            "value": 360,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 120.0 seconds. The pickup ETA rose by 360 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0067",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 67,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "TELEMETRY_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "distance_to_pickup_m": 2200,
+        "eta_sec": 675,
+        "gps_quality": "GOOD",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0068",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 68,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "RISK_UPDATED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "score_0_100": 80,
+        "band": "HIGH",
+        "confidence": 1.0,
+        "model_version": "rules-v2",
+        "signals": [
+          "low_net_progress",
+          "stationary_duration",
+          "eta_rising"
+        ],
+        "signal_details": [
+          {
+            "code": "low_net_progress",
+            "value": 0,
+            "threshold": 60,
+            "points": 20
+          },
+          {
+            "code": "stationary_duration",
+            "value": 125.0,
+            "threshold": 45,
+            "points": 40
+          },
+          {
+            "code": "eta_rising",
+            "value": 360,
+            "threshold": 0,
+            "points": 20
+          }
+        ],
+        "explanation": "Observed pickup progress was 0 m. The vehicle was nearly stationary for 125.0 seconds. The pickup ETA rose by 360 seconds.",
+        "is_simulated": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0069",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 69,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "RECOVERY_CHECKED",
+      "ride_id": null,
+      "payload": {
+        "step": "version",
+        "version": 68
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0070",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 70,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "QUOTE_REFRESHED",
+      "ride_id": null,
+      "payload": {
+        "candidate": {
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "provider": "PROVIDER_B",
+          "estimated_fare_inr": 285,
+          "pickup_eta_sec": 240,
+          "expires_at": "2026-11-23T08:32:35+00:00",
+          "is_simulated": true
+        },
+        "not_a_reservation": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0071",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 71,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "RECOVERY_CHECKED",
+      "ride_id": null,
+      "payload": {
+        "step": "limits",
+        "provider": "PROVIDER_B"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0072",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 72,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "SWITCH_APPROVED",
+      "ride_id": null,
+      "payload": {
+        "new_provider": "PROVIDER_B",
+        "cancellation_fee_notice": {
+          "potential_fee_upper_bound_inr": 32,
+          "actual_fee_inr": null,
+          "fee_confirmed": false,
+          "source": "MVAG 2025 clause 18.2: conditional illustration",
+          "caution": "Not a guaranteed charge. Provider and state rules govern; valid reasons may avoid the fee."
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0073",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 73,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "RIDE_CANCEL_REQUESTED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "old_provider": "PROVIDER_A"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0074",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 74,
+      "timestamp": "2026-11-23T08:32:05+00:00",
+      "type": "RECONCILIATION_REQUIRED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "step": "switch_cancel",
+        "reason": "OUTCOME_UNKNOWN"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0075",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 75,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RECONCILED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "step": "switch_cancel",
+        "outcome": "RIDER_CANCELLED"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0076",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 76,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RIDE_CANCEL_CONFIRMED",
+      "ride_id": "ride_1_journey_S17_2026_1",
+      "payload": {
+        "old_provider": "PROVIDER_A"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0077",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 77,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "QUOTE_REFRESHED",
+      "ride_id": null,
+      "payload": {
+        "candidate": {
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "provider": "PROVIDER_B",
+          "estimated_fare_inr": 285,
+          "pickup_eta_sec": 240,
+          "expires_at": "2026-11-23T08:32:40+00:00",
+          "is_simulated": true
+        },
+        "not_a_reservation": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0078",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 78,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RECOVERY_CHECKED",
+      "ride_id": null,
+      "payload": {
+        "step": "limits",
+        "provider": "PROVIDER_B"
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0079",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 79,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RECOVERY_STARTED",
+      "ride_id": null,
+      "payload": {
+        "attempt": 1,
+        "candidate": {
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "provider": "PROVIDER_B",
+          "estimated_fare_inr": 285,
+          "pickup_eta_sec": 240,
+          "expires_at": "2026-11-23T08:32:40+00:00",
+          "is_simulated": true
+        }
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0080",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 80,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RIDE_CONFIRMED",
+      "ride_id": "ride_2_journey_S17_2026_1",
+      "payload": {
+        "ride": {
+          "ride_id": "ride_2_journey_S17_2026_1",
+          "journey_id": "journey_S17_2026_1",
+          "provider": "PROVIDER_B",
+          "quote_id": "journey_S17_2026_1_provider_b",
+          "state": "DRIVER_EN_ROUTE",
+          "booked_at": "2026-11-23T08:32:10+00:00",
+          "driver_id": "SIM_DRIVER_2",
+          "distance_to_pickup_m": 2200,
+          "eta_sec": 240,
+          "last_position_at": "2026-11-23T08:32:10+00:00",
+          "cancellation_fee_inr": null,
+          "gps_quality": "GOOD",
+          "is_simulated": true
+        },
+        "replacement": true
+      }
+    },
+    {
+      "event_id": "journey_S17_2026_1_evt_0081",
+      "journey_id": "journey_S17_2026_1",
+      "seq": 81,
+      "timestamp": "2026-11-23T08:32:10+00:00",
+      "type": "RECOVERY_SUCCEEDED",
+      "ride_id": "ride_2_journey_S17_2026_1",
+      "payload": {
+        "attempt": 1,
+        "provider": "PROVIDER_B"
+      }
+    }
+  ]
+}

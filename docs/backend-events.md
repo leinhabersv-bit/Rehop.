@@ -2,7 +2,7 @@
 
 The web app polls the same endpoint locally and on Vercel. A hosted request loads the saved session and runs any owed ticks under the journey lock before reading it. Each tick advances simulated time by five seconds. At 20×, one tick is due every 250 ms of wall time. At most 180 ticks run per catch-up. Subsequent requests can drain time still owed.
 
-Ordinary auto-tracked journeys start at 1× once a driver is en route. Deterministic scenario runs start paused for manual ticking. The clock stops when no driver is en route or the journey must reconcile a provider result. A recovery proposal can remain visible while the original driver moves.
+Ordinary auto-tracked journeys start at 1× once a driver is en route. Deterministic scenario runs start paused for manual ticking. The movement clock stops when no driver is en route. Reconciling journeys perform bounded status checks while playing. A recovery proposal can remain visible while the original driver moves.
 
 ## FE2 polling flow
 
@@ -33,3 +33,53 @@ Where WebSocket upgrades are available, reconnect after a close with the last co
 | `BACKUP_UNAVAILABLE` | `stage` is `search` (default) or `refresh`. Set it to null to clear the development override. |
 | `FARE_SURGE` | `providers` is a nonempty list of provider IDs. `amount` is an integer increase in INR. A booked fare stays fixed. |
 | `NEED_BY` | `minutes` is an integer from 1 to 1440, relative to the current simulation time. |
+
+## Event reference
+
+Every event has `event_id`, `journey_id`, gap-free per-journey `seq`, `timestamp`, nullable `ride_id`, `type`, and object `payload`. All quantities and provider outcomes are simulated. Fields below refer to the payload. The rider app uses neutral wording and treats classification as advisory. The demo console can display every event.
+
+| Event | Emitted when | Payload fields | Screen |
+|---|---|---|---|
+| JOURNEY_CREATED | Journey created | scenario, is_simulated | Demo console |
+| QUOTES_READY | Initial quotes or injected fare change | quotes | Rider quotes, demo |
+| RIDE_CONFIRMED | Primary or replacement verified accepted | ride, replacement | Rider tracking |
+| TELEMETRY_UPDATED | World emits a position sample | distance_to_pickup_m, eta_sec, gps_quality, is_simulated | Rider tracking, demo |
+| RISK_UPDATED | Risk reassessed | band, score_0_100, confidence, signals, signal_details, model_version, is_simulated | Rider tracking, demo |
+| EXPLANATION_VERIFIED | First explanation for a risk band or advisory chat | source, numbers_checked_against_telemetry (and signal for chat explanations) | Rider explanation |
+| DEADLINE_DECISION | Policy evaluates waiting versus switching | seconds_until_deadline, wait_late_sec, switch_late_sec, wait_cost_points, switch_cost_points, recommendation, formula, decision_type, reasons, numbers | Rider rescue, demo |
+| BACKUP_FOUND | Eligible candidate proposed | candidate | Rider rescue |
+| APPROVAL_REQUIRED | Preemptive switch or opted-out recovery needs consent | reason, cancellation_fee_notice when applicable | Rider approval |
+| SWITCH_APPROVED | Approved candidate refreshed and checked | new_provider, cancellation_fee_notice | Rider rescue |
+| SWITCH_REJECTED | Rider declines proposal | reason | Rider rescue |
+| QUOTE_REFRESHED | Provider refresh succeeds | candidate, not_a_reservation | Rider rescue, demo |
+| QUOTE_REFRESH_FAILED | Refresh fails or exceeds cap | reason | Rider rescue |
+| RECOVERY_CHECKED | Transaction verifies version or limits | step; version for version check; provider for limits check | Demo console |
+| RIDE_CANCEL_REQUESTED | Cancellation sent to original provider | old_provider | Rider rescue progress |
+| RIDE_CANCEL_CONFIRMED | Provider cancellation verified | old_provider | Rider rescue progress |
+| DRIVER_CANCELLED | Simulated driver cancels | provider | Rider rescue |
+| RECOVERY_STARTED | Bounded replacement confirmation starts | attempt, candidate | Rider rescue |
+| RECOVERY_SUCCEEDED | Replacement confirmed | attempt, provider | Rider tracking |
+| RECOVERY_BLOCKED | Policy or cancellation prevents continuation | reason | Rider rescue |
+| REPLACEMENT_QUOTE_LOST | Replacement confirmation fails after cancellation | reason | Rider recovery gap |
+| RECOVERY_EXHAUSTED | No eligible backup, attempt cap, or rider declines an unbooked replacement | reason; original_cancellation_confirmed in legacy events | Rider terminal outcome |
+| RECONCILIATION_REQUIRED | Provider result uncertain, or six inconclusive status checks | step, reason (OUTCOME_UNKNOWN or VERIFICATION_REQUIRED) | Rider verification pending, demo |
+| RECONCILED | Status resolves uncertain operation | step, outcome | Rider rescue progress, demo |
+| DRIVER_ARRIVED | Driver reaches pickup | message | Rider pickup confirmation |
+| PICKUP_CONFIRMED | Rider confirms boarding | message | Rider success |
+| USER_CANCELLED | Rider stops journey | message | Rider terminal outcome |
+| DRIVER_MESSAGE_CLASSIFIED | Advisory driver text classified | message, signal (label, evidence, is_advisory and optional LLM metadata) | Rider chat, demo |
+| RISK_SIGNAL_ADDED | Chat contributes advisory evidence | signal, advisory_only | Demo console |
+| ERROR | Unknown booking acknowledgement | code, message | Rider verification, demo |
+| BOOKING_REQUESTED | Reserved by the event contract, currently never emitted | No emitted payload | Demo console |
+
+S15 cancels the original, attempts two replacement providers, emits REPLACEMENT_QUOTE_LOST for each failure and ends with RECOVERY_EXHAUSTED. It has no replacement RIDE_CONFIRMED or RECOVERY_SUCCEEDED. REPLACEMENT_QUOTE_LOST can be followed by another bounded attempt.
+
+During RECONCILING, playback performs status checks. An unresolved booking blocks further booking. After six inconclusive checks, VERIFICATION_REQUIRED leaves the journey reconciling with automatic action stopped.
+
+## Generated contracts and fixtures
+
+Generate OpenAPI from Python definitions with `python -m services.api.scripts.export_openapi` from the repository root after activating the API virtual environment. Edit route metadata and Pydantic models, then regenerate. The full schema drift test rejects differences.
+
+Run `python -m services.api.scripts.export_examples` to produce the seven `contracts/examples/s*-http.json` fixtures. Each includes request bodies, HTTP responses, final snapshot and ordered events obtained over TestClient HTTP. Scenario IDs and clocks are deterministic. These fixtures cover S01, S03, S05, S13, S14, S15 and S17.
+
+Run `services/api/scripts/check.sh` for fast checks or `services/api/scripts/check.sh --all` for statistical calibration and the 200-seed RANDOM smoke too. CI uses --all.

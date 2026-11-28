@@ -71,6 +71,7 @@ def test_seed_repeats_quotes_and_operation_results():
 
 
 @pytest.mark.parametrize("provider", PROFILES)
+@pytest.mark.slow
 def test_confirm_rates_match_profile_over_10000_draws(provider):
     profile = PROFILES[provider]
     adapter = SimulatedMobilityAdapter(profile, Random(f"confirm-rates:{provider.value}"), name=provider)
@@ -264,6 +265,7 @@ def test_random_scenario_uses_provider_profiles(monkeypatch):
         (Provider.PROVIDER_D, 0.03, 0.10),
     ],
 )
+@pytest.mark.slow
 def test_realised_pickup_incidence_matches_targets(provider, cancel_target, stall_target, record_property):
     request = JourneyCreate(
         pickup=LOCATIONS[0],
